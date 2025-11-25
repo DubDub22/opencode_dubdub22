@@ -345,7 +345,7 @@ export default function Home() {
                 <ul className="space-y-3 list-disc pl-4 marker:text-primary">
                   <li><strong>Missing Baffles:</strong> Include a signed & dated handwritten note explaining why (e.g., ejected down range). Send sleeves without them.</li>
                   <li><strong>Exclusions:</strong> We do not replace the 1/2x28 locknut or stainless steel blast baffles (source elsewhere).</li>
-                  <li><strong>Outer Tube:</strong> Keep unless damaged. If damaged, a <strong>$75 fee</strong> applies (check mailed with tube).</li>
+                  <li><strong>Outer Tube:</strong> Keep unless damaged. If damaged, a <strong>$75 fee</strong> applies (check mailed with tube). (psst this means don't try putting this on your AR15! she's rated for 22LR, and no, before you ask, not .22Mag either)</li>
                 </ul>
               </div>
             </div>
