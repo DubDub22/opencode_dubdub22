@@ -31,34 +31,41 @@
 }
 
 :root {
-  /* Dark Mode Default (Tactical) */
-  --background: 220 15% 8%;   /* Very dark grey, almost black */
-  --foreground: 220 10% 90%;  /* Off-white */
+  /* Monochromatic "CAD Render" Theme */
+  
+  /* This grey aims to match the standard 3D render background grey */
+  --background: 0 0% 63%;  
+  
+  /* Very dark grey/black for text to contrast with the medium grey background */
+  --foreground: 0 0% 10%; 
 
-  --card: 220 15% 10%;
-  --card-foreground: 220 10% 90%;
+  /* Slightly lighter/darker variants for cards to create subtle depth without breaking the "seamless" look */
+  --card: 0 0% 65%;
+  --card-foreground: 0 0% 10%;
 
-  --popover: 220 15% 10%;
-  --popover-foreground: 220 10% 90%;
+  --popover: 0 0% 65%;
+  --popover-foreground: 0 0% 10%;
 
-  --primary: 190 100% 50%;    /* Electric Cyan - High Tech/Energy */
-  --primary-foreground: 220 15% 8%;
+  /* Primary is now a deep, technical dark grey instead of cyan */
+  --primary: 0 0% 15%;    
+  --primary-foreground: 0 0% 90%;
 
-  --secondary: 220 10% 20%;   /* Dark Grey for secondary elements */
-  --secondary-foreground: 220 10% 90%;
+  /* Secondary elements */
+  --secondary: 0 0% 58%;   
+  --secondary-foreground: 0 0% 10%;
 
-  --muted: 220 10% 15%;
-  --muted-foreground: 220 10% 60%;
+  --muted: 0 0% 55%;
+  --muted-foreground: 0 0% 25%;
 
-  --accent: 190 100% 50%;
-  --accent-foreground: 220 15% 8%;
+  --accent: 0 0% 15%;
+  --accent-foreground: 0 0% 90%;
 
   --destructive: 0 84.2% 60.2%;
   --destructive-foreground: 210 40% 98%;
 
-  --border: 220 10% 20%;
-  --input: 220 10% 20%;
-  --ring: 190 100% 50%;
+  --border: 0 0% 50%;
+  --input: 0 0% 50%;
+  --ring: 0 0% 15%;
 
   --radius: 0.25rem;
 }
@@ -76,17 +83,19 @@
   }
 }
 
-/* Custom Utilities for "Tactical" look */
+/* Custom Utilities */
 @layer utilities {
   .text-glow {
-    text-shadow: 0 0 10px hsla(190, 100%, 50%, 0.5);
+    /* Removed cyan glow, replaced with subtle dark shadow if needed, or removed */
+    text-shadow: none;
   }
   .border-glow {
-    box-shadow: 0 0 10px hsla(190, 100%, 50%, 0.2);
+    box-shadow: none;
   }
+  /* Updated grid pattern to be subtle dark lines on the grey background */
   .bg-grid-pattern {
-    background-image: linear-gradient(to right, rgba(255,255,255,0.05) 1px, transparent 1px),
-                      linear-gradient(to bottom, rgba(255,255,255,0.05) 1px, transparent 1px);
+    background-image: linear-gradient(to right, rgba(0,0,0,0.03) 1px, transparent 1px),
+                      linear-gradient(to bottom, rgba(0,0,0,0.03) 1px, transparent 1px);
     background-size: 40px 40px;
   }
   .text-outline-white {
