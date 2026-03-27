@@ -245,7 +245,7 @@ export default function AdminPage() {
 
         if (search) {
             const query = search.toLowerCase();
-            const dateStr = format(parseISO(sub.createdAt), 'MMM d, yyyy h:mm a').toLowerCase();
+            const dateStr = format(parseISO(sub.createdAt), 'yyyy-MM-dd HH:mm').toLowerCase();
             const searchable = `${dateStr} ${sub.contactName} ${sub.businessName} ${sub.email} ${sub.phone} ${sub.serialNumber} ${sub.description}`.toLowerCase();
             if (!searchable.includes(query)) return false;
         }
@@ -256,50 +256,112 @@ export default function AdminPage() {
         return sortDir === "desc" ? dB - dA : dA - dB;
     });
 
+    // Format date as yyyy-MM-dd HH:mm (24hr)
+    const fmtDate = (d: string) => format(parseISO(d), 'yyyy-MM-dd HH:mm');
+
     return (
-        <div className="min-h-screen bg-background p-6 md:p-12">
-            <div className="max-w-7xl mx-auto space-y-8">
-                <div className="flex flex-col md:flex-row justify-between items-center gap-4">
-                    <h1 className="text-3xl font-bold font-display text-primary">Admin Dashboard</h1>
-                    <Button variant="outline" onClick={onLogout}>Logout</Button>
+        <div className="min-h-screen bg-background p-4 md:p-8 lg:p-12">
+            <div className="max-w-7xl mx-auto space-y-6">
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+                    <h1 className="text-2xl md:text-3xl font-bold font-display text-primary">Admin Dashboard</h1>
+                    <Button variant="outline" size="sm" onClick={onLogout}>Logout</Button>
                 </div>
 
                 <Card className="bg-card/50 border-border">
-                    <CardContent className="p-6">
-                        <div className="flex flex-col md:flex-row gap-4 mb-6">
+                    <CardContent className="p-4 md:p-6">
+                        <div className="flex flex-col sm:flex-row gap-3 mb-4">
                             <Input
-                                placeholder="Search by name, dealer, email, serial..."
+                                placeholder="Search..."
                                 value={search}
                                 onChange={(e) => setSearch(e.target.value)}
-                                className="max-w-md bg-background focus:ring-primary"
+                                className="sm:max-w-xs bg-background focus:ring-primary h-9"
                             />
                             <select
                                 value={typeFilter}
                                 onChange={(e) => setTypeFilter(e.target.value)}
-                                className="h-10 rounded-md bg-background border border-border px-3 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+                                className="h-9 rounded-md bg-background border border-border px-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
                             >
-                                <option value="all">All Forms</option>
-                                <option value="dealer">Dealer Requests</option>
-                                <option value="warranty">Warranty Claims</option>
+                                <option value="all">All</option>
+                                <option value="dealer">Dealer</option>
+                                <option value="warranty">Warranty</option>
                             </select>
                             <Button
                                 variant="outline"
+                                size="sm"
                                 onClick={() => setSortDir(d => d === "desc" ? "asc" : "desc")}
-                                className="h-10 px-4 whitespace-nowrap bg-background text-foreground"
+                                className="h-9 whitespace-nowrap bg-background text-foreground text-xs"
                             >
-                                Sort Date: {sortDir === "desc" ? "Newest First" : "Oldest First"}
+                                {sortDir === "desc" ? "↓ Newest" : "↑ Oldest"}
                             </Button>
                         </div>
 
-                        <div className="overflow-x-auto">
+                        {/* ── Mobile: stacked cards ── */}
+                        <div className="block md:hidden space-y-3">
+                            {isLoading ? (
+                                <p className="text-center py-8 text-muted-foreground">Loading...</p>
+                            ) : filteredSubmissions.length === 0 ? (
+                                <p className="text-center py-8 text-muted-foreground">No submissions found.</p>
+                            ) : (
+                                filteredSubmissions.map((sub) => (
+                                    <div key={sub.id} className="relative border border-border rounded-lg p-3 bg-card hover:bg-secondary/5">
+                                        {/* Header row */}
+                                        <div className="flex items-start justify-between gap-2 mb-2">
+                                            <div className="flex items-center gap-2 flex-wrap">
+                                                <span className={`px-2 py-0.5 rounded text-xs font-bold ${sub.type === 'dealer' ? 'bg-orange-500 text-white' : 'bg-red-500 text-white'}`}>
+                                                    {sub.type.toUpperCase()}
+                                                </span>
+                                                <span className="text-xs text-muted-foreground font-mono">{fmtDate(sub.createdAt)}</span>
+                                            </div>
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                className="h-7 w-7 shrink-0 text-muted-foreground hover:text-red-500"
+                                                onClick={() => setDeleteTarget(sub)}
+                                            >
+                                                <Trash2 className="h-3.5 w-3.5" />
+                                            </Button>
+                                        </div>
+
+                                        {/* Contact */}
+                                        <div className="space-y-1 mb-2">
+                                            <p className="text-sm font-semibold text-foreground">{sub.contactName}</p>
+                                            <p className="text-xs text-muted-foreground">{sub.email}</p>
+                                            {sub.phone && <p className="text-xs text-muted-foreground">{sub.phone}</p>}
+                                            {sub.businessName && (
+                                                <p className="text-xs px-1.5 py-0.5 bg-secondary rounded inline-block mt-0.5">{sub.businessName}</p>
+                                            )}
+                                        </div>
+
+                                        {/* Payload */}
+                                        <div className="border-t border-border pt-2 space-y-1">
+                                            {sub.type === 'dealer' ? (
+                                                <>
+                                                    {sub.quantity && <p className="text-xs text-muted-foreground">Qty: <span className="text-foreground font-medium">{sub.quantity}</span></p>}
+                                                    {sub.description && <p className="text-xs text-foreground italic">"{sub.description}"</p>}
+                                                    {sub.fflFileName && <p className="text-xs text-muted-foreground">File: {sub.fflFileName}</p>}
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <p className="text-xs text-muted-foreground">Serial: <span className="font-mono text-foreground">{sub.serialNumber}</span></p>
+                                                    <p className="text-xs text-foreground">{sub.description}</p>
+                                                </>
+                                            )}
+                                        </div>
+                                    </div>
+                                ))
+                            )}
+                        </div>
+
+                        {/* ── Desktop: table ── */}
+                        <div className="hidden md:block overflow-x-auto">
                             <table className="w-full text-sm text-left">
                                 <thead className="text-xs text-muted-foreground uppercase bg-secondary/30">
                                     <tr>
-                                        <th className="px-6 py-3">Date</th>
-                                        <th className="px-6 py-3">Type</th>
-                                        <th className="px-6 py-3 min-w-[200px]">Details</th>
-                                        <th className="px-6 py-3">Message / Payload</th>
-                                        <th className="px-6 py-3 w-12"></th>
+                                        <th className="px-3 py-2">Date</th>
+                                        <th className="px-3 py-2">Type</th>
+                                        <th className="px-3 py-2 min-w-[180px]">Details</th>
+                                        <th className="px-3 py-2">Message / Payload</th>
+                                        <th className="px-3 py-2 w-10"></th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -314,151 +376,50 @@ export default function AdminPage() {
                                     ) : (
                                         filteredSubmissions.map((sub) => (
                                             <tr key={sub.id} className="border-b border-border hover:bg-secondary/10">
-                                                <td className="px-6 py-4 whitespace-nowrap text-muted-foreground">
-                                                    {format(parseISO(sub.createdAt), 'MMM d, yyyy h:mm a')}
+                                                <td className="px-3 py-3 whitespace-nowrap text-muted-foreground text-xs font-mono">
+                                                    {fmtDate(sub.createdAt)}
                                                 </td>
-                                                <td className="px-6 py-4">
-                                                    <span className={`px-2 py-1 rounded text-xs font-bold ${sub.type === 'dealer' ? 'bg-orange-500 text-white' : 'bg-red-500 text-white'}`}>
+                                                <td className="px-3 py-3">
+                                                    <span className={`px-2 py-0.5 rounded text-xs font-bold ${sub.type === 'dealer' ? 'bg-orange-500 text-white' : 'bg-red-500 text-white'}`}>
                                                         {sub.type.toUpperCase()}
                                                     </span>
                                                 </td>
-                                                <td className="px-6 py-4">
-                                                    <div className="font-semibold text-foreground">
+                                                <td className="px-3 py-3">
+                                                    <div className="font-semibold text-foreground text-sm">
                                                         <CopyableText text={sub.contactName} />
                                                     </div>
-                                                    <div className="text-muted-foreground mt-1 text-xs">
+                                                    <div className="text-muted-foreground text-xs">
                                                         <CopyableText text={sub.email} />
                                                     </div>
                                                     {sub.phone && (
-                                                        <div className="text-muted-foreground mt-1 text-xs">
-                                                            <CopyableText text={sub.phone} />
-                                                        </div>
+                                                        <div className="text-muted-foreground text-xs"><CopyableText text={sub.phone} /></div>
                                                     )}
                                                     {sub.businessName && (
-                                                        <div className="mt-2 text-xs px-2 py-1 bg-secondary rounded inline-block">
-                                                            {sub.businessName}
-                                                        </div>
+                                                        <div className="mt-1 text-xs px-1.5 py-0.5 bg-secondary rounded inline-block">{sub.businessName}</div>
                                                     )}
                                                 </td>
-                                                <td className="px-6 py-4">
+                                                <td className="px-3 py-3">
                                                     {sub.type === 'dealer' ? (
-                                                        <div className="space-y-2">
-                                                            {sub.quantity && <div><span className="text-muted-foreground">Quantity:</span> <span className="font-medium text-foreground">{sub.quantity} units</span></div>}
-                                                            {sub.description && <div className="max-w-xs"><span className="text-muted-foreground block mb-1">Message:</span> <span className="text-foreground text-sm">{sub.description}</span></div>}
-                                                            {sub.fflFileName && (
-                                                                <div className="flex items-center gap-2">
-                                                                    <span className="text-muted-foreground">File:</span>
-                                                                    <span className="truncate max-w-[150px] inline-block align-bottom">{sub.fflFileName}</span>
-
-                                                                    {sub.fflFileData && (
-                                                                        <>
-                                                                            <Popover>
-                                                                                <PopoverTrigger asChild>
-                                                                                    <Button variant="ghost" size="icon" className="h-6 w-6 ml-1">
-                                                                                        <ImageIcon className="h-4 w-4" />
-                                                                                    </Button>
-                                                                                </PopoverTrigger>
-                                                                                <PopoverContent className="w-96 p-1 border-border">
-                                                                                    {sub.fflFileName?.toLowerCase().endsWith('.pdf') ? (
-                                                                                        <iframe
-                                                                                            src={`data:application/pdf;base64,${sub.fflFileData}`}
-                                                                                            className="w-full rounded-sm"
-                                                                                            style={{ height: '500px' }}
-                                                                                            title="PDF Preview"
-                                                                                        />
-                                                                                    ) : (
-                                                                                        <img src={`data:image;base64,${sub.fflFileData}`} alt="Document Preview" className="w-full h-auto rounded-sm" />
-                                                                                    )}
-                                                                                </PopoverContent>
-                                                                            </Popover>
-                                                                            <Button variant="ghost" size="icon" className="h-6 w-6" asChild>
-                                                                                <a href={`data:application/octet-stream;base64,${sub.fflFileData}`} download={sub.fflFileName}>
-                                                                                    <Download className="h-4 w-4" />
-                                                                                </a>
-                                                                            </Button>
-                                                                        </>
-                                                                    )}
-                                                                </div>
-                                                            )}
+                                                        <div className="space-y-1">
+                                                            {sub.quantity && <div className="text-xs"><span className="text-muted-foreground">Qty:</span> <span className="font-medium text-foreground">{sub.quantity}</span></div>}
+                                                            {sub.description && <div className="text-xs max-w-[200px] text-foreground italic">"{sub.description}"</div>}
+                                                            {sub.fflFileName && <div className="text-xs text-muted-foreground truncate max-w-[200px]">{sub.fflFileName}</div>}
                                                         </div>
                                                     ) : (
                                                         <div className="space-y-1">
-                                                            <div><span className="text-muted-foreground">Serial:</span> <span className="font-mono text-foreground">{sub.serialNumber}</span></div>
-                                                            <div className="max-w-md text-foreground"><span className="text-muted-foreground block mb-1">Issue:</span> {sub.description}</div>
-
-                                                            <div className="flex gap-4 mt-2">
-                                                                {sub.serialPhotoData && (
-                                                                    <div className="flex items-center gap-1 bg-secondary/30 p-1 px-2 rounded-md">
-                                                                        <span className="text-xs text-muted-foreground mr-1">Serial</span>
-                                                                        <Popover>
-                                                                            <PopoverTrigger asChild>
-                                                                                <Button variant="ghost" size="icon" className="h-5 w-5 hover:bg-black/20 text-orange-400">
-                                                                                    <ImageIcon className="h-3 w-3" />
-                                                                                </Button>
-                                                                            </PopoverTrigger>
-                                                                            <PopoverContent className="w-80 p-1 border-border bg-black">
-                                                                                <img src={`data:image;base64,${sub.serialPhotoData}`} alt="Serial Preview" className="w-full h-auto rounded-sm" />
-                                                                            </PopoverContent>
-                                                                        </Popover>
-                                                                        <Button variant="ghost" size="icon" className="h-5 w-5 hover:bg-black/20 text-blue-400" asChild>
-                                                                            <a href={`data:application/octet-stream;base64,${sub.serialPhotoData}`} download={sub.serialPhotoName || "serial.jpg"}>
-                                                                                <Download className="h-3 w-3" />
-                                                                            </a>
-                                                                        </Button>
-                                                                    </div>
-                                                                )}
-                                                                {sub.damagePhoto1Data && (
-                                                                    <div className="flex items-center gap-1 bg-secondary/30 p-1 px-2 rounded-md">
-                                                                        <span className="text-xs text-muted-foreground mr-1">Dmg 1</span>
-                                                                        <Popover>
-                                                                            <PopoverTrigger asChild>
-                                                                                <Button variant="ghost" size="icon" className="h-5 w-5 hover:bg-black/20 text-orange-400">
-                                                                                    <ImageIcon className="h-3 w-3" />
-                                                                                </Button>
-                                                                            </PopoverTrigger>
-                                                                            <PopoverContent className="w-80 p-1 border-border bg-black">
-                                                                                <img src={`data:image;base64,${sub.damagePhoto1Data}`} alt="Damage 1 Preview" className="w-full h-auto rounded-sm" />
-                                                                            </PopoverContent>
-                                                                        </Popover>
-                                                                        <Button variant="ghost" size="icon" className="h-5 w-5 hover:bg-black/20 text-blue-400" asChild>
-                                                                            <a href={`data:application/octet-stream;base64,${sub.damagePhoto1Data}`} download={sub.damagePhoto1Name || "damage1.jpg"}>
-                                                                                <Download className="h-3 w-3" />
-                                                                            </a>
-                                                                        </Button>
-                                                                    </div>
-                                                                )}
-                                                                {sub.damagePhoto2Data && (
-                                                                    <div className="flex items-center gap-1 bg-secondary/30 p-1 px-2 rounded-md">
-                                                                        <span className="text-xs text-muted-foreground mr-1">Dmg 2</span>
-                                                                        <Popover>
-                                                                            <PopoverTrigger asChild>
-                                                                                <Button variant="ghost" size="icon" className="h-5 w-5 hover:bg-black/20 text-orange-400">
-                                                                                    <ImageIcon className="h-3 w-3" />
-                                                                                </Button>
-                                                                            </PopoverTrigger>
-                                                                            <PopoverContent className="w-80 p-1 border-border bg-black">
-                                                                                <img src={`data:image;base64,${sub.damagePhoto2Data}`} alt="Damage 2 Preview" className="w-full h-auto rounded-sm" />
-                                                                            </PopoverContent>
-                                                                        </Popover>
-                                                                        <Button variant="ghost" size="icon" className="h-5 w-5 hover:bg-black/20 text-blue-400" asChild>
-                                                                            <a href={`data:application/octet-stream;base64,${sub.damagePhoto2Data}`} download={sub.damagePhoto2Name || "damage2.jpg"}>
-                                                                                <Download className="h-3 w-3" />
-                                                                            </a>
-                                                                        </Button>
-                                                                    </div>
-                                                                )}
-                                                            </div>
+                                                            <div className="text-xs"><span className="text-muted-foreground">Serial:</span> <span className="font-mono text-foreground">{sub.serialNumber}</span></div>
+                                                            <div className="text-xs text-foreground max-w-[250px]">{sub.description}</div>
                                                         </div>
                                                     )}
                                                 </td>
-                                                <td className="px-6 py-4">
+                                                <td className="px-3 py-3">
                                                     <Button
                                                         variant="ghost"
                                                         size="icon"
-                                                        className="h-7 w-7 text-muted-foreground hover:text-red-500 transition-colors"
+                                                        className="h-7 w-7 text-muted-foreground hover:text-red-500"
                                                         onClick={() => setDeleteTarget(sub)}
                                                     >
-                                                        <Trash2 className="h-4 w-4" />
+                                                        <Trash2 className="h-3.5 w-3.5" />
                                                     </Button>
                                                 </td>
                                             </tr>
