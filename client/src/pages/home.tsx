@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import { motion, useScroll, useTransform } from "framer-motion";
 import { ArrowDown, Wind, Wrench, Feather, Crosshair, UploadCloud } from "lucide-react";
 import { useForm } from "react-hook-form";
@@ -90,7 +90,7 @@ const dealerFormSchema = z.object({
   email: z.string().email({ message: "Please enter a valid email address." }),
   confirmEmail: z.string().email({ message: "Please confirm your email address." }),
   phone: z.string().min(13, { message: "Phone number is required." }),
-  quantityCans: z.string().min(1, { message: "Please select quantity." }),
+  quantityCans: z.string().optional(),
 }).refine((data) => data.email === data.confirmEmail, {
   message: "Email addresses must match.",
   path: ["confirmEmail"],
@@ -237,6 +237,7 @@ function FileInputZone({ id, label, accept, capture, required, description }: an
 
 function DealerForm() {
   const { toast } = useToast();
+  const [requestType, setRequestType] = useState<'none' | 'inquiry' | 'order'>('none');
   const form = useForm<z.infer<typeof dealerFormSchema>>({
     resolver: zodResolver(dealerFormSchema),
     defaultValues: {
@@ -250,11 +251,21 @@ function DealerForm() {
   });
 
   async function onSubmit(values: z.infer<typeof dealerFormSchema>) {
+    // Validate based on request type
+    if (requestType === 'order' && !values.quantityCans) {
+      toast({
+        title: "Quantity Required",
+        description: "Please select the number of DubDubs for your order.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     const fflInput = document.getElementById("fflUpload") as HTMLInputElement | null;
     const selectedFile = fflInput?.files?.[0] || null;
     const fflName = selectedFile?.name || "No file attached";
 
-    if (!selectedFile) {
+    if (requestType === 'order' && !selectedFile) {
       toast({
         title: "FFL / SOT Required",
         description: "Please attach your SOT file before submitting.",
@@ -264,19 +275,30 @@ function DealerForm() {
     }
 
     try {
-      const fileBase64 = await processImage(selectedFile);
+      let fileBase64: string | undefined;
+      if (selectedFile) {
+        fileBase64 = await processImage(selectedFile);
+      }
 
       const resp = await fetch('/api/dealer-request', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...values, confirmEmail: undefined, requestType: 'Dealer Order', fflFileName: fflName, fflFileData: fileBase64 }),
+        body: JSON.stringify({
+          ...values,
+          confirmEmail: undefined,
+          requestType: requestType === 'inquiry' ? 'Dealer Inquiry' : 'Dealer Order',
+          fflFileName: fflName,
+          fflFileData: fileBase64,
+        }),
       });
       const data = await resp.json().catch(() => ({}));
       if (!resp.ok || !data?.ok) throw new Error(data?.error || 'submit_failed');
 
       toast({
-        title: "Request Sent",
-        description: "Invoice request received. We'll follow up by email shortly.",
+        title: requestType === 'inquiry' ? "Inquiry Sent" : "Request Sent",
+        description: requestType === 'inquiry'
+          ? "We've received your inquiry and will respond by email shortly."
+          : "Invoice request received. We'll follow up by email shortly.",
         className: "bg-orange-500 text-black border-orange-600",
       });
 
@@ -288,6 +310,7 @@ function DealerForm() {
         phone: "",
         quantityCans: "5",
       });
+      setRequestType('none');
       if (fflInput) fflInput.value = "";
     } catch (err) {
       toast({
@@ -301,105 +324,154 @@ function DealerForm() {
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6 text-left">
-        <FormField
-          control={form.control}
-          name="contactName"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Contact Name</FormLabel>
-              <FormControl>
-                <Input placeholder="John Doe" {...field} className="bg-card border-border focus:border-primary" />
-              </FormControl>
-              <FormMessage className="mt-2 inline-block bg-black/80 text-red-300 px-2 py-1 rounded-md font-semibold border border-red-500/40" />
-            </FormItem>
-          )}
-        />
-        <FormField
-          control={form.control}
-          name="businessName"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Business Name</FormLabel>
-              <FormControl>
-                <Input placeholder="Tactical Solutions LLC" {...field} className="bg-card border-border focus:border-primary" />
-              </FormControl>
-              <FormMessage className="mt-2 inline-block bg-black/80 text-red-300 px-2 py-1 rounded-md font-semibold border border-red-500/40" />
-            </FormItem>
-          )}
-        />
-        <FormField
-          control={form.control}
-          name="email"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Email</FormLabel>
-              <FormControl>
-                <Input placeholder="john@example.com" {...field} className="bg-card border-border focus:border-primary" />
-              </FormControl>
-              <FormMessage className="mt-2 inline-block bg-black/80 text-red-300 px-2 py-1 rounded-md font-semibold border border-red-500/40" />
-            </FormItem>
-          )}
-        />
-        {form.watch("email").includes("@") && (
-          <FormField
-            control={form.control}
-            name="confirmEmail"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Confirm Email</FormLabel>
-                <FormControl>
-                  <Input placeholder="john@example.com" {...field} className="bg-card border-border focus:border-primary" />
-                </FormControl>
-                <FormMessage className="mt-2 inline-block bg-black/80 text-red-300 px-2 py-1 rounded-md font-semibold border border-red-500/40" />
-              </FormItem>
-            )}
-          />
-        )}
-        <FormField
-          control={form.control}
-          name="phone"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Phone Number</FormLabel>
-              <FormControl>
-                <Input
-                  placeholder="(555)123-4567"
-                  value={field.value}
-                  onChange={(e) => field.onChange(formatPhone(e.target.value))}
-                  className="bg-card border-border focus:border-primary"
+        {/* Step 1: Intent Selection */}
+        {requestType === 'none' && (
+          <div className="space-y-4">
+            <p className="text-sm font-medium text-muted-foreground mb-3">How can we help you today?</p>
+            <div className="space-y-2">
+              <label className="flex items-center gap-3 p-3 rounded-lg border border-border hover:border-primary/50 cursor-pointer transition-colors has-[:checked]:border-primary has-[:checked]:bg-primary/5">
+                <input
+                  type="radio"
+                  name="requestType"
+                  value="inquiry"
+                  onChange={() => setRequestType('inquiry')}
+                  className="accent-primary"
                 />
-              </FormControl>
-              <FormMessage className="mt-2 inline-block bg-black/80 text-red-300 px-2 py-1 rounded-md font-semibold border border-red-500/40" />
-            </FormItem>
-          )}
-        />
-        <FormField
-          control={form.control}
-          name="quantityCans"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Number of DubDubs</FormLabel>
-              <FormControl>
-                <select
-                  value={field.value}
-                  onChange={field.onChange}
-                  className="w-full h-10 rounded-md bg-card border border-border px-3 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
-                >
-                  {[5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 100].map((n) => (
-                    <option key={n} value={String(n)}>{n}</option>
-                  ))}
-                </select>
-              </FormControl>
-              <FormMessage className="mt-2 inline-block bg-black/80 text-red-300 px-2 py-1 rounded-md font-semibold border border-red-500/40" />
-            </FormItem>
-          )}
-        />
-        <FileInputZone id="fflUpload" label="SOT Upload" accept=".pdf,.png,.jpg,.jpeg" required={true} description="Accepted: PDF, PNG, JPG/JPEG" />
-        <MotionWrapButton className="w-full">
-          <Button type="submit" className="w-full font-display text-lg bg-primary text-primary-foreground hover:bg-primary/90 cursor-pointer shadow-lg hover:shadow-xl transition-shadow">
-            REQUEST INVOICE
-          </Button>
-        </MotionWrapButton>
+                <span className="text-sm font-medium">I&apos;d like to make an inquiry</span>
+              </label>
+              <label className="flex items-center gap-3 p-3 rounded-lg border border-border hover:border-primary/50 cursor-pointer transition-colors has-[:checked]:border-primary has-[:checked]:bg-primary/5">
+                <input
+                  type="radio"
+                  name="requestType"
+                  value="order"
+                  onChange={() => setRequestType('order')}
+                  className="accent-primary"
+                />
+                <span className="text-sm font-medium">I&apos;d like to place an order</span>
+              </label>
+            </div>
+          </div>
+        )}
+
+        {/* Step 2: Form Fields (shown after selection) */}
+        {requestType !== 'none' && (
+          <>
+            <button
+              type="button"
+              onClick={() => setRequestType('none')}
+              className="text-xs text-muted-foreground hover:text-primary transition-colors"
+            >
+              ← Change selection
+            </button>
+
+            <FormField
+              control={form.control}
+              name="contactName"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Contact Name</FormLabel>
+                  <FormControl>
+                    <Input placeholder="John Doe" {...field} className="bg-card border-border focus:border-primary" />
+                  </FormControl>
+                  <FormMessage className="mt-2 inline-block bg-black/80 text-red-300 px-2 py-1 rounded-md font-semibold border border-red-500/40" />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="businessName"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Business Name</FormLabel>
+                  <FormControl>
+                    <Input placeholder="Tactical Solutions LLC" {...field} className="bg-card border-border focus:border-primary" />
+                  </FormControl>
+                  <FormMessage className="mt-2 inline-block bg-black/80 text-red-300 px-2 py-1 rounded-md font-semibold border border-red-500/40" />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="email"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Email</FormLabel>
+                  <FormControl>
+                    <Input placeholder="john@example.com" {...field} className="bg-card border-border focus:border-primary" />
+                  </FormControl>
+                  <FormMessage className="mt-2 inline-block bg-black/80 text-red-300 px-2 py-1 rounded-md font-semibold border border-red-500/40" />
+                </FormItem>
+              )}
+            />
+            {form.watch("email").includes("@") && (
+              <FormField
+                control={form.control}
+                name="confirmEmail"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Confirm Email</FormLabel>
+                    <FormControl>
+                      <Input placeholder="john@example.com" {...field} className="bg-card border-border focus:border-primary" />
+                    </FormControl>
+                    <FormMessage className="mt-2 inline-block bg-black/80 text-red-300 px-2 py-1 rounded-md font-semibold border border-red-500/40" />
+                  </FormItem>
+                )}
+              />
+            )}
+            <FormField
+              control={form.control}
+              name="phone"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Phone Number {requestType === 'inquiry' && <span className="text-xs text-muted-foreground">(optional)</span>}</FormLabel>
+                  <FormControl>
+                    <Input
+                      placeholder="(555)123-4567"
+                      value={field.value}
+                      onChange={(e) => field.onChange(formatPhone(e.target.value))}
+                      className="bg-card border-border focus:border-primary"
+                    />
+                  </FormControl>
+                  <FormMessage className="mt-2 inline-block bg-black/80 text-red-300 px-2 py-1 rounded-md font-semibold border border-red-500/40" />
+                </FormItem>
+              )}
+            />
+
+            {/* Order-only fields */}
+            {requestType === 'order' && (
+              <>
+                <FormField
+                  control={form.control}
+                  name="quantityCans"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Number of DubDubs</FormLabel>
+                      <FormControl>
+                        <select
+                          value={field.value}
+                          onChange={field.onChange}
+                          className="w-full h-10 rounded-md bg-card border border-border px-3 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+                        >
+                          {[5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 100].map((n) => (
+                            <option key={n} value={String(n)}>{n}</option>
+                          ))}
+                        </select>
+                      </FormControl>
+                      <FormMessage className="mt-2 inline-block bg-black/80 text-red-300 px-2 py-1 rounded-md font-semibold border border-red-500/40" />
+                    </FormItem>
+                  )}
+                />
+                <FileInputZone id="fflUpload" label="SOT Upload" accept=".pdf,.png,.jpg,.jpeg" required={true} description="Accepted: PDF, PNG, JPG/JPEG" />
+              </>
+            )}
+
+            <MotionWrapButton className="w-full">
+              <Button type="submit" className="w-full font-display text-lg bg-primary text-primary-foreground hover:bg-primary/90 cursor-pointer shadow-lg hover:shadow-xl transition-shadow">
+                {requestType === 'inquiry' ? 'SUBMIT INQUIRY' : 'REQUEST INVOICE'}
+              </Button>
+            </MotionWrapButton>
+          </>
+        )}
       </form>
     </Form>
   );
@@ -884,9 +956,9 @@ export default function Home() {
         <div className="container mx-auto px-6 max-w-4xl">
           <div className="grid md:grid-cols-2 gap-12">
             <motion.div variants={fadeUpItem} className="space-y-6 text-center md:text-left flex flex-col justify-center">
-              <h2 className="text-4xl font-bold drop-shadow-sm">DEALER ORDER FORM</h2>
+              <h2 className="text-4xl font-bold drop-shadow-sm">DEALER FORM</h2>
               <p className="text-muted-foreground text-lg leading-relaxed">
-                Submit your dealer order details below and we'll send your invoice by email.
+                Interested in carrying DubDub22 suppressors? Fill out the form and we&apos;ll be in touch.
               </p>
             </motion.div>
 

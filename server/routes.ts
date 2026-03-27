@@ -200,20 +200,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/dealer-request", async (req, res) => {
     try {
       const { requestType, contactName, businessName, email, phone, quantityCans, fflFileName, fflFileData } = req.body || {};
-      if (!contactName || !businessName || !email || !quantityCans) {
+      const isInquiry = requestType === 'Dealer Inquiry';
+
+      // For orders, require contact/business/email/quantity; for inquiries just contact/business/email
+      if (!contactName || !businessName || !email) {
+        return res.status(400).json({ ok: false, error: "missing_required_fields" });
+      }
+      if (!isInquiry && !quantityCans) {
         return res.status(400).json({ ok: false, error: "missing_required_fields" });
       }
 
       const body = [
-        "DubDub22 Dealer Request",
+        `DubDub22 ${isInquiry ? 'Dealer Inquiry' : 'Dealer Order'}`,
         "",
-        `Type: ${requestType || "N/A"}`,
         `Contact: ${contactName}`,
         `Business: ${businessName}`,
         `Email: ${email}`,
         `Phone: ${phone || "N/A"}`,
-        `Quantity: ${quantityCans}`,
-        `SOT File: ${fflFileName || "Not provided"}`,
+        isInquiry ? "" : `Quantity: ${quantityCans}`,
+        isInquiry ? "" : `SOT File: ${fflFileName || "Not provided"}`,
       ].join("\n");
 
       const ext = (fflFileName || "").split(".").pop()?.toLowerCase() || "";
@@ -228,10 +233,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         sendViaGmail({
           to: SALES_EMAIL,
           bcc: BCC_EMAIL,
-          subject: `DubDub22 Dealer Request - ${businessName}`,
+          subject: `DubDub22 ${isInquiry ? 'Dealer Inquiry' : 'Dealer Order'} - ${businessName}`,
           text: body,
           replyTo: email,
-          attachment: fflFileData ? {
+          attachment: fflFileData && !isInquiry ? {
             filename: fflFileName || "sot-file",
             base64Data: fflFileData,
             contentType: contentTypeMap[ext] || "application/octet-stream",
@@ -246,9 +251,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           businessName,
           email,
           phone,
-          quantity: String(quantityCans),
-          fflFileName,
-          fflFileData,
+          quantity: quantityCans ? String(quantityCans) : null,
+          fflFileName: isInquiry ? null : fflFileName,
+          fflFileData: isInquiry ? null : fflFileData,
         }).catch(err => {
           console.error("db_save_failed", err);
           return null;
