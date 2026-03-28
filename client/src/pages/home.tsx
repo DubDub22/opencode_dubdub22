@@ -303,10 +303,10 @@ function DealerForm() {
           });
           return;
         }
-        if (data?.error === 'must_be_multiple_of_5') {
+        if (data?.error === 'invalid_quantity') {
           toast({
-            title: "Order Must Be Multiple of 5",
-            description: data.message || "After your demo can, subsequent orders must be in multiples of 5 units.",
+            title: "Invalid Quantity",
+            description: data.message || "Dealer orders must be 1 (demo can) or a multiple of 5.",
             variant: "destructive",
           });
           return;

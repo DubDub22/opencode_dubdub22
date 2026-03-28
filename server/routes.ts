@@ -371,21 +371,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
-      // After a demo can, subsequent orders must be in multiples of 5
-      if (!isInquiry && !isDemoOrder && Number(quantityCans) > 1) {
-        const hasOrderedDemo = await pool.query(
-          `SELECT id FROM submissions
-           WHERE email = $1 AND business_name ILIKE $2 AND has_ordered_demo = 'true' AND type = 'dealer'
-           LIMIT 1`,
-          [email.toLowerCase(), businessName]
-        );
-        if (hasOrderedDemo.rows.length > 0 && Number(quantityCans) % 5 !== 0) {
-          return res.status(400).json({
-            ok: false,
-            error: "must_be_multiple_of_5",
-            message: "After your demo can order, subsequent orders must be in multiples of 5 units.",
-          });
-        }
+      // All dealer orders must be qty 1 (demo) or multiple of 5
+      if (!isInquiry && quantityCans && quantityCans !== '1' && Number(quantityCans) % 5 !== 0) {
+        return res.status(400).json({
+          ok: false,
+          error: "invalid_quantity",
+          message: "Dealer orders must be 1 (demo can) or a multiple of 5 (5, 10, 15, etc.).",
+        });
       }
       // ───────────────────────────────────────────────────────────────
       // ───────────────────────────────────────────────────────────────
