@@ -344,7 +344,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { requestType, contactName, businessName, email, phone, quantityCans, fflFileName, fflFileData, message } = req.body || {};
       const isInquiry = requestType === 'Dealer Inquiry';
 
-      // For orders, require contact/business/email/quantity; for inquiries just contact/business/email
       if (!contactName || !businessName || !email) {
         return res.status(400).json({ ok: false, error: "missing_required_fields" });
       }
@@ -352,14 +351,53 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ ok: false, error: "missing_required_fields" });
       }
 
+      const isDemoOrder = !isInquiry && quantityCans === '1';
+
+      // ── Demo can rules ──────────────────────────────────────────────
+      // Demo cans: limit 1 per dealer (email + business name)
+      if (isDemoOrder) {
+        const existingDemo = await pool.query(
+          `SELECT id FROM submissions
+           WHERE email = $1 AND business_name ILIKE $2 AND has_ordered_demo = 'true' AND type = 'dealer'
+           LIMIT 1`,
+          [email.toLowerCase(), businessName]
+        );
+        if (existingDemo.rows.length > 0) {
+          return res.status(400).json({
+            ok: false,
+            error: "demo_already_ordered",
+            message: "Demo can limit of 1 per dealer has already been fulfilled for this business. Please order in multiples of 5 if placing a new order.",
+          });
+        }
+      }
+
+      // After a demo can, subsequent orders must be in multiples of 5
+      if (!isInquiry && !isDemoOrder && Number(quantityCans) > 1) {
+        const hasOrderedDemo = await pool.query(
+          `SELECT id FROM submissions
+           WHERE email = $1 AND business_name ILIKE $2 AND has_ordered_demo = 'true' AND type = 'dealer'
+           LIMIT 1`,
+          [email.toLowerCase(), businessName]
+        );
+        if (hasOrderedDemo.rows.length > 0 && Number(quantityCans) % 5 !== 0) {
+          return res.status(400).json({
+            ok: false,
+            error: "must_be_multiple_of_5",
+            message: "After your demo can order, subsequent orders must be in multiples of 5 units.",
+          });
+        }
+      }
+      // ───────────────────────────────────────────────────────────────
+      // ───────────────────────────────────────────────────────────────
+
       const body = [
-        `DubDub22 ${isInquiry ? 'Dealer Inquiry' : 'Dealer Order'}`,
+        `DubDub22 ${isInquiry ? 'Dealer Inquiry' : isDemoOrder ? 'Dealer Order (DEMO CAN)' : 'Dealer Order'}`,
         "",
         `Contact: ${contactName}`,
         `Business: ${businessName}`,
         `Email: ${email}`,
         `Phone: ${phone || "N/A"}`,
-        isInquiry ? "" : `Quantity: ${quantityCans}`,
+        isInquiry ? "" : `Quantity: ${quantityCans}${isDemoOrder ? ' (DEMO CAN)' : ''}`,
         isInquiry ? "" : `SOT File: ${fflFileName || "Not provided"}`,
         message ? `\nMessage:\n${message}` : "",
       ].join("\n");
@@ -398,6 +436,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           description: message || null,
           fflFileName: isInquiry ? null : fflFileName,
           fflFileData: isInquiry ? null : fflFileData,
+          hasOrderedDemo: isDemoOrder ? 'true' : 'false',
         }).catch(err => {
           console.error("db_save_failed", err);
           return null;

@@ -35,6 +35,7 @@ export const submissions = pgTable("submissions", {
   damagePhoto1Data: text("damage_photo1_data"),
   damagePhoto2Name: text("damage_photo2_name"),
   damagePhoto2Data: text("damage_photo2_data"),
+  hasOrderedDemo: text("has_ordered_demo").default("false"), // 'true' if this order was a demo can
   createdAt: text("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
 });
 

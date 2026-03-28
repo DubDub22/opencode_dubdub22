@@ -293,7 +293,31 @@ function DealerForm() {
         }),
       });
       const data = await resp.json().catch(() => ({}));
-      if (!resp.ok || !data?.ok) throw new Error(data?.error || 'submit_failed');
+
+      if (!resp.ok) {
+        if (data?.error === 'demo_already_ordered') {
+          toast({
+            title: "Demo Can Already Ordered",
+            description: data.message || "Demo can limit of 1 per dealer has been fulfilled. Please place future orders in multiples of 5.",
+            variant: "destructive",
+          });
+          return;
+        }
+        if (data?.error === 'must_be_multiple_of_5') {
+          toast({
+            title: "Order Must Be Multiple of 5",
+            description: data.message || "After your demo can, subsequent orders must be in multiples of 5 units.",
+            variant: "destructive",
+          });
+          return;
+        }
+        toast({
+          title: "Request Failed",
+          description: data?.error || "Could not send request. Please try again.",
+          variant: "destructive",
+        });
+        return;
+      }
 
       toast({
         title: requestType === 'inquiry' ? "Inquiry Sent" : "Request Sent",
@@ -453,6 +477,7 @@ function DealerForm() {
                           onChange={field.onChange}
                           className="w-full h-10 rounded-md bg-card border border-border px-3 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
                         >
+                          <option value="1">1 – Demo Can</option>
                           {[5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 100].map((n) => (
                             <option key={n} value={String(n)}>{n}</option>
                           ))}
