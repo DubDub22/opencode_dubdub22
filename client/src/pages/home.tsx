@@ -422,6 +422,15 @@ export default function Home() {
                 Become a Dealer
               </Button>
             </MotionWrapButton>
+            <MotionWrapButton>
+              <Button
+                variant="outline"
+                className="border-primary/50 text-primary hover:bg-primary hover:text-primary-foreground font-display uppercase tracking-wide cursor-pointer"
+                onClick={() => window.location.href = '/warranty'}
+              >
+                Warranty Service
+              </Button>
+            </MotionWrapButton>
           </div>
         </div>
       </motion.nav>
@@ -730,68 +739,6 @@ export default function Home() {
                   APPLY NOW
                 </Button>
               </Card>
-            </motion.div>
-          </div>
-        </div>
-      </motion.section>
-
-      {/* Warranty Section */}
-      <motion.section
-        id="warranty"
-        className="py-24 bg-secondary/10 relative border-t border-border/30"
-        variants={sectionVariants}
-        initial="hidden"
-        whileInView="visible"
-        viewport={{ once: true, amount: 0.2 }}
-      >
-        <div className="container mx-auto px-6 max-w-4xl">
-          <motion.div variants={fadeUpItem} className="text-center mb-12">
-            <h2 className="text-4xl font-bold mb-4">WARRANTY SERVICE</h2>
-            <p className="text-muted-foreground max-w-2xl mx-auto mb-6">
-              We stand behind our product. Fill out the form below and we'll get you back up and running.
-            </p>
-            <div className="bg-primary/5 border border-primary/20 p-4 rounded-lg max-w-2xl mx-auto shadow-sm">
-              <p className="text-sm font-medium text-primary">
-                NOTE: Many dealers who are rated as manufacturers will carry replacement sleeves and extra baffles in stock.
-              </p>
-            </div>
-          </motion.div>
-
-          <div className="grid md:grid-cols-2 gap-12 items-start">
-            <motion.div variants={fadeUpItem} className="order-2 md:order-1">
-              <Card className="border-border bg-background/50 backdrop-blur-md p-6 shadow-2xl hover:shadow-[0_25px_50px_-12px_rgba(0,0,0,0.5)] transition-shadow duration-500 focus-within:ring-1 focus-within:ring-black/10 focus-within:-translate-y-1">
-                <WarrantyForm />
-              </Card>
-            </motion.div>
-
-            <motion.div
-              className="space-y-6 text-sm text-muted-foreground order-1 md:order-2"
-              variants={staggerContainer}
-              initial="hidden"
-              whileInView="visible"
-              viewport={{ once: true, amount: 0.2 }}
-            >
-              <motion.div variants={fadeUpItem} className="bg-card border border-border p-6 rounded-lg space-y-4 shadow-lg hover:shadow-xl transition-shadow duration-300">
-                <h3 className="text-foreground font-bold text-lg flex items-center gap-2">
-                  <Wrench className="w-5 h-5 text-primary" /> Service Process
-                </h3>
-                <ul className="space-y-3 list-disc pl-4 marker:text-primary">
-                  <li>We typically respond within <strong>24-48 hours</strong> with mailing instructions.</li>
-                  <li>You will need to send the parts needing replacement + a return envelope/box with your address and <strong>adult signature required</strong>.</li>
-                  <li>Warranty service is <strong>free</strong>, but you supply the return label.</li>
-                </ul>
-              </motion.div>
-
-              <motion.div variants={fadeUpItem} className="bg-card border border-border p-6 rounded-lg space-y-4 shadow-lg hover:shadow-xl transition-shadow duration-300">
-                <h3 className="text-foreground font-bold text-lg flex items-center gap-2">
-                  <ArrowDown className="w-5 h-5 text-primary" /> Important Notes
-                </h3>
-                <ul className="space-y-3 list-disc pl-4 marker:text-primary">
-                  <li><strong>Missing Baffles:</strong> Include a signed & dated handwritten note explaining why (e.g., ejected down range). Send sleeves without them.</li>
-                  <li><strong>Exclusions:</strong> We do not replace the 1/2x28 locknut or stainless steel blast baffles (source elsewhere).</li>
-                  <li><strong>Outer Tube (Serialized Part):</strong> Please keep this part; do not mail it. Because the outer tube is the legally serialized component, if it is irreparably damaged or destroyed, it cannot be legally replaced under warranty. You will need to purchase an entirely new suppressor. (Remember: rated for 22LR only!)</li>
-                </ul>
-              </motion.div>
             </motion.div>
           </div>
         </div>
