@@ -1028,6 +1028,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
         RETURNING id
       `, [dealerId, contactName, email, phone || null, message || null]);
 
+      // Fetch dealer's email address
+      const dealerFull = await pool.query(`SELECT email FROM dealers WHERE id = $1`, [dealerId]);
+      const dealerEmail = dealerFull.rows[0]?.email;
+
+      // Send email to dealer (from dubdub22.com) if dealer has an email on file
+      if (dealerEmail) {
+        try {
+          await sendViaGmail({
+            to: dealerEmail,
+            subject: `DubDub22 Customer Interest — ${dealer.business_name}`,
+            text: [
+              `A customer has expressed interest in the DubDub22 suppressor through your dealer page.`,
+              ``,
+              `Customer: ${contactName}`,
+              `Email: ${email}`,
+              phone ? `Phone: ${phone}` : null,
+              ``,
+              message ? `Message:\n${message}` : null,
+              ``,
+              `Login to the admin portal to follow up: https://portal.dubdub22.com/admin`,
+            ].filter(Boolean).join("\n"),
+            replyTo: email,
+          });
+        } catch (gmailErr) {
+          console.error("retail_inquiry_gmail_error", gmailErr);
+          // Don't fail the request if email fails — inquiry is already saved
+        }
+      }
+
       const webhookUrl = process.env.DISCORD_WEBHOOK_URL;
       if (webhookUrl) {
         fetch(webhookUrl, {
