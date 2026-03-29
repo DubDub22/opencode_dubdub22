@@ -338,7 +338,32 @@ export default function AdminPage() {
                                                 <>
                                                     {sub.quantity && <p className="text-xs text-muted-foreground">Qty: <span className="text-foreground font-medium">{sub.quantity}</span></p>}
                                                     {sub.description && <p className="text-xs text-foreground italic">"{sub.description}"</p>}
-                                                    {sub.fflFileName && <p className="text-xs text-muted-foreground">File: {sub.fflFileName}</p>}
+                                                    {sub.fflFileName && (
+                                                        <div className="mt-2 space-y-1">
+                                                            <p className="text-xs text-muted-foreground">SOT: {sub.fflFileName}</p>
+                                                            {sub.fflFileData && (
+                                                                <div className="flex gap-2 flex-wrap">
+                                                                    <Popover>
+                                                                        <PopoverTrigger asChild>
+                                                                            <Button variant="outline" size="sm" className="h-7 text-xs">View</Button>
+                                                                        </PopoverTrigger>
+                                                                        <PopoverContent className="w-80 p-1 border-border bg-card">
+                                                                            {sub.fflFileName?.toLowerCase().endsWith('.pdf') ? (
+                                                                                <iframe src={`data:application/pdf;base64,${sub.fflFileData}`} className="w-full rounded-sm" style={{ height: '400px' }} title="SOT Preview" />
+                                                                            ) : (
+                                                                                <img src={`data:image;base64,${sub.fflFileData}`} alt="SOT Preview" className="w-full h-auto rounded-sm" />
+                                                                            )}
+                                                                        </PopoverContent>
+                                                                    </Popover>
+                                                                    <Button variant="outline" size="sm" asChild className="h-7 text-xs">
+                                                                        <a href={`data:application/octet-stream;base64,${sub.fflFileData}`} download={sub.fflFileName}>
+                                                                            Download
+                                                                        </a>
+                                                                    </Button>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    )}
                                                 </>
                                             ) : (
                                                 <>
@@ -403,7 +428,32 @@ export default function AdminPage() {
                                                         <div className="space-y-1">
                                                             {sub.quantity && <div className="text-xs"><span className="text-muted-foreground">Qty:</span> <span className="font-medium text-foreground">{sub.quantity}</span></div>}
                                                             {sub.description && <div className="text-xs max-w-[200px] text-foreground italic">"{sub.description}"</div>}
-                                                            {sub.fflFileName && <div className="text-xs text-muted-foreground truncate max-w-[200px]">{sub.fflFileName}</div>}
+                                                            {sub.fflFileName && (
+                                                                <div className="text-xs text-muted-foreground">{sub.fflFileName}</div>
+                                                            )}
+                                                            {sub.fflFileData && sub.fflFileName && (
+                                                                <div className="flex gap-1 mt-1">
+                                                                    <Popover>
+                                                                        <PopoverTrigger asChild>
+                                                                            <Button variant="ghost" size="icon" className="h-6 w-6">
+                                                                                <ImageIcon className="h-3.5 w-3.5" />
+                                                                            </Button>
+                                                                        </PopoverTrigger>
+                                                                        <PopoverContent className="w-96 p-1 border-border bg-card">
+                                                                            {sub.fflFileName?.toLowerCase().endsWith('.pdf') ? (
+                                                                                <iframe src={`data:application/pdf;base64,${sub.fflFileData}`} className="w-full rounded-sm" style={{ height: '500px' }} title="SOT Preview" />
+                                                                            ) : (
+                                                                                <img src={`data:image;base64,${sub.fflFileData}`} alt="SOT Preview" className="w-full h-auto rounded-sm" />
+                                                                            )}
+                                                                        </PopoverContent>
+                                                                    </Popover>
+                                                                    <Button variant="ghost" size="icon" className="h-6 w-6" asChild>
+                                                                        <a href={`data:application/octet-stream;base64,${sub.fflFileData}`} download={sub.fflFileName}>
+                                                                            <Download className="h-3.5 w-3.5" />
+                                                                        </a>
+                                                                    </Button>
+                                                                </div>
+                                                            )}
                                                         </div>
                                                     ) : (
                                                         <div className="space-y-1">
