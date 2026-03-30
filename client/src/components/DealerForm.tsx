@@ -16,7 +16,6 @@ const dealerFormSchema = z.object({
   email: z.string().email({ message: "Please enter a valid email address." }),
   confirmEmail: z.string().email({ message: "Please confirm your email address." }),
   phone: z.string().min(13, { message: "Phone number is required." }),
-  fflNumber: z.string().optional(),
   quantityCans: z.string().optional(),
   message: z.string().optional(),
 }).refine((data) => data.email === data.confirmEmail, {
@@ -228,31 +227,6 @@ export default function DealerForm() {
               <FormItem>
                 <FormLabel>Phone Number {requestType === 'inquiry' && <span className="text-xs text-muted-foreground">(optional)</span>}</FormLabel>
                 <FormControl><Input placeholder="(555)123-4567" value={field.value} onChange={(e) => field.onChange(formatPhone(e.target.value))} className="bg-card border-border focus:border-primary" /></FormControl>
-                <FormMessage className="mt-2 inline-block bg-black/80 text-red-300 px-2 py-1 rounded-md font-semibold border border-red-500/40" />
-              </FormItem>
-            )} />
-            <FormField control={form.control} name="fflNumber" render={({ field }) => (
-              <FormItem>
-                <FormLabel>FFL License Number {requestType === 'inquiry' && <span className="text-xs text-muted-foreground">(optional)</span>}</FormLabel>
-                <FormControl>
-                  <Input
-                    placeholder="e.g. X-XX-XXX-XX-X-XXXXX"
-                    value={field.value ?? ""}
-                    onChange={field.onChange}
-                    className="bg-card border-border focus:border-primary font-mono"
-                  />
-                </FormControl>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Find your FFL at{" "}
-                  <a
-                    href="https://fflezcheck.atf.gov/FFLEzCheck/fflSearch.action?warning_banner_accept=true"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-primary hover:underline"
-                  >
-                    ATF eFFL EZ Check
-                  </a>
-                </p>
                 <FormMessage className="mt-2 inline-block bg-black/80 text-red-300 px-2 py-1 rounded-md font-semibold border border-red-500/40" />
               </FormItem>
             )} />

@@ -895,7 +895,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/dealer-request", async (req, res) => {
     try {
-      const { requestType, contactName, businessName, email, phone, fflNumber, quantityCans, fflFileName, fflFileData, message } = req.body || {};
+      const { requestType, contactName, businessName, email, phone, quantityCans, fflFileName, fflFileData, message } = req.body || {};
       const isInquiry = requestType === 'Dealer Inquiry';
 
       if (!contactName || !businessName || !email) {
@@ -961,7 +961,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         `Business: ${businessName}`,
         `Email: ${email}`,
         `Phone: ${phone || "N/A"}`,
-        fflNumber ? `FFL: ${fflNumber}` : "",
         isInquiry ? "" : `Quantity: ${quantityCans}${isDemoOrder ? ' (DEMO CAN)' : ''}`,
         isInquiry ? "" : `SOT File: ${fflFileName || "Not provided"}`,
         message ? `\nMessage:\n${message}` : "",
@@ -997,7 +996,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
           businessName,
           email,
           phone,
-          fflLicenseNumber: fflNumber || null,
           quantity: quantityCans ? String(quantityCans) : null,
           description: message || null,
           fflFileName: isInquiry ? null : fflFileName,
@@ -1239,15 +1237,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let idx = 1;
 
       // Submissions: dealer leads (type=dealer, has_ordered_demo=false)
-      let subQuery = `SELECT 'submission' as source, id::text as id, contact_name, business_name, email, phone, NULL::text as message, ffl_license_number, created_at::timestamp as created_at FROM submissions WHERE type = 'dealer' AND has_ordered_demo = 'false'`;
+      let subQuery = `SELECT 'submission' as source, id::text as id, contact_name, business_name, email, phone, NULL::text as message, created_at::timestamp as created_at FROM submissions WHERE type = 'dealer' AND has_ordered_demo = 'false'`;
       if (search) {
-        subQuery += ` AND (contact_name ILIKE $${idx} OR business_name ILIKE $${idx} OR email ILIKE $${idx} OR ffl_license_number ILIKE $${idx})`;
+        subQuery += ` AND (contact_name ILIKE $${idx} OR business_name ILIKE $${idx} OR email ILIKE $${idx})`;
         params.push(`%${search}%`);
         idx++;
       }
 
       // Retail inquiries: duplicate leads from the public form
-      let retailQuery = `SELECT 'retail_inquiry' as source, ri.id::text as id, ri.contact_name, d.business_name, ri.email, ri.phone, ri.message, NULL::text as ffl_license_number, ri.created_at FROM retail_inquiries ri LEFT JOIN dealers d ON ri.dealer_id = d.id`;
+      let retailQuery = `SELECT 'retail_inquiry' as source, ri.id::text as id, ri.contact_name, d.business_name, ri.email, ri.phone, ri.message, ri.created_at FROM retail_inquiries ri LEFT JOIN dealers d ON ri.dealer_id = d.id`;
       if (search) {
         retailQuery += ` WHERE (ri.contact_name ILIKE $${idx} OR d.business_name ILIKE $${idx} OR ri.email ILIKE $${idx})`;
         params.push(`%${search}%`);
