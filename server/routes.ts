@@ -18,15 +18,16 @@ const ENV_PATH = "/home/dubdub/DubDub-Hub/.env";
 // Geocoding helper
 // ─────────────────────────────────────────────────────────────────────────────
 
-async function geocodeZip(zip: string): Promise<{ lat: number; lng: number } | null> {
+async function geocodeZip(zip: string): Promise<{ lat: number; lng: number; state?: string } | null> {
   try {
     const res = await fetch(`https://api.zippopotam.us/us/${zip}`);
     if (!res.ok) return null;
     const data = await res.json() as any;
     const lat = parseFloat(data.places[0].latitude);
     const lng = parseFloat(data.places[0].longitude);
+    const state = data.places[0]["state abbreviation"];
     if (isNaN(lat) || isNaN(lng)) return null;
-    return { lat, lng };
+    return { lat, lng, state };
   } catch {
     return null;
   }
@@ -561,8 +562,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Nearest 20 FFLs (all tiers)
       const nearest20 = withDist.slice(0, 20);
 
-      // Nearest Preferred dealer (may or may not be in the top 20)
-      const nearestPreferred = withDist.find(d => d.tier === "Preferred") || null;
+      // Nearest Preferred dealer — must be in the same state (NFA transfers must stay in-state)
+      const searchState = searchCoords.state;
+      const sameStatePreferred = withDist.filter(d => d.tier === "Preferred" && d.state === searchState);
+      const nearestPreferred = sameStatePreferred[0] || null;
 
       return res.json({
         ok: true,
