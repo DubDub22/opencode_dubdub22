@@ -120,6 +120,20 @@ export default function DealerMap() {
   const [submitting, setSubmitting] = useState(false);
   const [nearestPreferred, setNearestPreferred] = useState<(Dealer & { _dist: number }) | null>(null);
 
+  // Separate preferred from standard dealers for display
+  const { preferredDealers, standardDealers } = useMemo(() => {
+    const pref: (Dealer & { _dist: number })[] = [];
+    const std: (Dealer & { _dist: number })[] = [];
+    for (const d of dealers) {
+      if (d.tier === "Preferred") {
+        pref.push(d as Dealer & { _dist: number });
+      } else {
+        std.push(d as Dealer & { _dist: number });
+      }
+    }
+    return { preferredDealers: pref, standardDealers: std };
+  }, [dealers]);
+
   // Build lat/lng from DB coords, jitter duplicate pins so they spread on the map
   const mappableDealers = useMemo(() => {
     const seen: Record<string, number> = {};
@@ -300,81 +314,112 @@ export default function DealerMap() {
       {/* Dealer list below map */}
       {!loading && dealers.length > 0 && (
         <div className="mt-6 space-y-3">
-          {/* Featured: nearest Preferred dealer */}
-          {nearestPreferred && nearestPreferred.id === dealers[0]?.id && (
-            <Card className="bg-primary/5 border-primary/30 p-5 flex flex-col sm:flex-row sm:items-center gap-4">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center shrink-0">
-                  <span className="text-primary font-bold text-lg">★</span>
-                </div>
-                <div>
-                  <p className="text-xs text-primary font-semibold uppercase tracking-wide">Nearest Preferred Dealer</p>
-                  <p className="font-bold text-foreground text-lg leading-tight">{nearestPreferred.business_name}</p>
-                  <p className="text-sm text-muted-foreground">{nearestPreferred.city}, {nearestPreferred.state} {nearestPreferred.zip} · {nearestPreferred._dist} mi</p>
-                </div>
-              </div>
-              <div className="flex gap-2 sm:ml-auto shrink-0">
-                {nearestPreferred.phone && (
-                  <a
-                    href={`tel:${nearestPreferred.phone}`}
-                    className="inline-flex items-center gap-1.5 bg-primary text-primary-foreground hover:bg-primary/90 text-sm font-bold px-4 py-2 rounded transition-colors"
-                  >
-                    <Phone className="w-3.5 h-3.5" /> Call
-                  </a>
-                )}
-                {nearestPreferred.email && nearestPreferred.email.includes("@") && (
-                  <Dialog.Root open={contactDealer?.id === nearestPreferred.id} onOpenChange={(open) => setContactDealer(open ? nearestPreferred : null)}>
-                    <Dialog.Trigger asChild>
-                      <button
-                        className="inline-flex items-center gap-1.5 bg-primary text-primary-foreground hover:bg-primary/90 text-sm font-bold px-4 py-2 rounded transition-colors cursor-pointer border-0"
-                        onClick={(e) => { e.stopPropagation(); setContactDealer(nearestPreferred); }}
-                      >
-                        <Mail className="w-3.5 h-3.5" /> Contact
-                      </button>
-                    </Dialog.Trigger>
-                    <Dialog.Portal>
-                      <Dialog.Overlay className="fixed inset-0 bg-black/50 z-40" />
-                      <Dialog.Content className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-card border-border rounded-xl p-6 w-full max-w-md z-50 shadow-xl">
-                        <Dialog.Title className="text-lg font-bold mb-4">Contact Dealer</Dialog.Title>
-                        <p className="text-sm text-muted-foreground mb-4">Send a message to {nearestPreferred.business_name}</p>
-                        <form onSubmit={(e) => { e.preventDefault(); handleContactSubmit(nearestPreferred.id); }}>
-                          <div className="space-y-3">
-                            <div>
-                              <label className="text-sm font-medium mb-1 block">Your Name</label>
-                              <input type="text" required value={contactName} onChange={(e) => setContactName(e.target.value)} className="w-full border border-border rounded px-3 py-2 text-sm bg-background" placeholder="Full name" />
-                            </div>
-                            <div>
-                              <label className="text-sm font-medium mb-1 block">Email</label>
-                              <input type="email" required value={contactEmail} onChange={(e) => setContactEmail(e.target.value)} className="w-full border border-border rounded px-3 py-2 text-sm bg-background" placeholder="you@example.com" />
-                            </div>
-                            <div>
-                              <label className="text-sm font-medium mb-1 block">Phone</label>
-                              <input type="tel" value={contactPhone} onChange={(e) => setContactPhone(e.target.value)} className="w-full border border-border rounded px-3 py-2 text-sm bg-background" placeholder="Optional" />
-                            </div>
-                            <div>
-                              <label className="text-sm font-medium mb-1 block">Message</label>
-                              <textarea required rows={3} value={contactMessage} onChange={(e) => setContactMessage(e.target.value)} className="w-full border border-border rounded px-3 py-2 text-sm bg-background resize-none" placeholder="I'm interested in the DubDub22 suppressor..." />
-                            </div>
-                          </div>
-                          <div className="flex gap-2 mt-4">
-                            <button type="submit" disabled={submitting} className="flex-1 bg-primary text-primary-foreground font-bold px-4 py-2 rounded hover:bg-primary/90 transition-colors disabled:opacity-50 cursor-pointer">
-                              {submitting ? "Sending…" : "Send Message"}
+          {/* Featured Preferred Dealers — always in a framed box at top */}
+          {preferredDealers.length > 0 && (
+            <div className="rounded-xl border-2 border-primary/40 bg-primary/5 p-5 space-y-3">
+              <p className="text-xs text-primary font-semibold uppercase tracking-wide mb-3">★ Preferred Dealers</p>
+              {preferredDealers.map(preferred => {
+                const phone = formatPhone(preferred.phone);
+                const hasEmail = preferred.email && preferred.email.includes("@");
+                return (
+                  <Card key={preferred.id} className="bg-card border-border p-4 flex flex-col sm:flex-row sm:items-center gap-3">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <p className="font-bold text-foreground text-lg">{preferred.business_name}</p>
+                        {preferred._dist !== undefined && (
+                          <span className="text-xs text-muted-foreground">{preferred._dist.toFixed(1)} mi</span>
+                        )}
+                      </div>
+                      <p className="text-sm text-muted-foreground mt-0.5">
+                        {preferred.city}, {preferred.state} {preferred.zip}
+                      </p>
+                      <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2">
+                        {phone && (
+                          <a href={`tel:${preferred.phone}`} className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors">
+                            <Phone className="w-3.5 h-3.5" /> {phone}
+                          </a>
+                        )}
+                        {hasEmail && (
+                          <a href={`mailto:${preferred.email}`} className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors">
+                            <Mail className="w-3.5 h-3.5" /> {preferred.email}
+                          </a>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex gap-2 shrink-0">
+                      {hasEmail && (
+                        <Dialog.Root open={contactDealer?.id === preferred.id} onOpenChange={(open) => setContactDealer(open ? preferred : null)}>
+                          <Dialog.Trigger asChild>
+                            <button
+                              className="inline-flex items-center gap-1.5 bg-primary text-primary-foreground hover:bg-primary/90 text-sm font-bold px-4 py-2 rounded transition-colors cursor-pointer border-0"
+                              onClick={(e) => { e.stopPropagation(); setContactDealer(preferred); }}
+                            >
+                              <Mail className="w-3.5 h-3.5" /> Contact Dealer
                             </button>
-                            <Dialog.Close asChild>
-                              <button type="button" onClick={() => { setContactDealer(null); setContactName(""); setContactEmail(""); setContactPhone(""); setContactMessage(""); }} className="px-4 py-2 border border-border rounded hover:bg-muted transition-colors cursor-pointer">Cancel</button>
-                            </Dialog.Close>
-                          </div>
-                        </form>
-                      </Dialog.Content>
-                    </Dialog.Portal>
-                  </Dialog.Root>
-                )}
-              </div>
-            </Card>
+                          </Dialog.Trigger>
+                          <Dialog.Portal>
+                            <Dialog.Overlay className="fixed inset-0 bg-black/60 z-50" />
+                            <Dialog.Content className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 bg-card border border-border w-full max-w-md p-6 rounded-xl shadow-2xl">
+                              <Dialog.Title className="text-xl font-bold font-display mb-1">Contact {preferred.business_name}</Dialog.Title>
+                              <Dialog.Description className="text-sm text-muted-foreground mb-4">
+                                Send a message to this dealer and we'll share your interest in the DubDub22.
+                              </Dialog.Description>
+                              <form onSubmit={async (e) => {
+                                e.preventDefault();
+                                if (!contactDealer) return;
+                                setSubmitting(true);
+                                try {
+                                  const res = await fetch("/api/retail-inquiry", {
+                                    method: "POST",
+                                    headers: { "Content-Type": "application/json" },
+                                    body: JSON.stringify({ dealerId: contactDealer.id, contactName, email: contactEmail, phone: contactPhone, message: contactMessage }),
+                                  });
+                                  const data = await res.json();
+                                  if (!res.ok || !data.ok) throw new Error(data.error || "Submission failed");
+                                  toast({ title: "Message sent!", description: `${contactDealer.business_name} will be in touch soon.` });
+                                  setContactDealer(null); setContactName(""); setContactEmail(""); setContactPhone(""); setContactMessage("");
+                                } catch (err: any) { toast({ title: "Error", description: err.message, variant: "destructive" }); }
+                                finally { setSubmitting(false); }
+                              }}>
+                                <div className="space-y-3">
+                                  <div>
+                                    <label className="text-sm font-medium mb-1 block">Your Name *</label>
+                                    <Input required value={contactName} onChange={(e) => setContactName(e.target.value)} placeholder="John Smith" />
+                                  </div>
+                                  <div>
+                                    <label className="text-sm font-medium mb-1 block">Your Email *</label>
+                                    <Input type="email" required value={contactEmail} onChange={(e) => setContactEmail(e.target.value)} placeholder="john@example.com" />
+                                  </div>
+                                  <div>
+                                    <label className="text-sm font-medium mb-1 block">Your Phone</label>
+                                    <Input type="tel" value={contactPhone} onChange={(e) => setContactPhone(e.target.value)} placeholder="(555) 555-5555" />
+                                  </div>
+                                  <div>
+                                    <label className="text-sm font-medium mb-1 block">Message</label>
+                                    <textarea className="w-full px-3 py-2 bg-background border border-border text-sm rounded-md resize-none" rows={3} value={contactMessage} onChange={(e) => setContactMessage(e.target.value)} placeholder="I'm interested in the DubDub22 suppressor..." />
+                                  </div>
+                                </div>
+                                <div className="flex gap-2 mt-4 justify-end">
+                                  <Dialog.Close asChild><Button type="button" variant="outline" onClick={() => { setContactDealer(null); setContactName(""); setContactEmail(""); setContactPhone(""); setContactMessage(""); }}>Cancel</Button></Dialog.Close>
+                                  <Button type="submit" disabled={submitting}>{submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : "Send Message"}</Button>
+                                </div>
+                              </form>
+                              <Dialog.Close asChild>
+                                <button className="absolute top-4 right-4 text-muted-foreground hover:text-foreground" onClick={() => { setContactDealer(null); setContactName(""); setContactEmail(""); setContactPhone(""); setContactMessage(""); }}><X className="w-4 h-4" /></button>
+                              </Dialog.Close>
+                            </Dialog.Content>
+                          </Dialog.Portal>
+                        </Dialog.Root>
+                      )}
+                    </div>
+                  </Card>
+                );
+              })}
+            </div>
           )}
-          {dealers
-            .filter(d => d.id !== nearestPreferred?.id)
-            .map(dealer => {
+
+          {/* Standard dealers */}
+          {standardDealers.map(dealer => {
             const phone = formatPhone(dealer.phone);
             const hasEmail = dealer.email && dealer.email.includes("@");
             return (
