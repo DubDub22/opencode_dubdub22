@@ -95,7 +95,7 @@ type Dealer = {
   submissions?: Submission[];
 };
 
-type Tab = "submissions" | "dealers" | "retail_inquiries" | "warranty" | "dealer_inquiries";
+type Tab = "submissions" | "warranty" | "dealer_inquiries";
 
 // ── Schemas ────────────────────────────────────────────────────────────────────
 
@@ -226,7 +226,10 @@ function SubmissionsTab({
   onFetchSubmissions: () => void;
 }) {
   const filtered = submissions.filter((sub) => {
-    if (typeFilter !== "all" && sub.type !== typeFilter) return false;
+    if (typeFilter !== "all") {
+      if (typeFilter === "dealer") { if (!(sub.type === "dealer" && sub.hasOrderedDemo === "true")) return false; }
+      else if (sub.type !== typeFilter) return false;
+    }
     if (search) {
       const q = search.toLowerCase();
       const s = `${fmtDate(sub.createdAt)} ${sub.contactName} ${sub.businessName} ${sub.email} ${sub.phone} ${sub.serialNumber} ${sub.description || ""}`.toLowerCase();
@@ -252,9 +255,8 @@ function SubmissionsTab({
           onChange={(e) => setTypeFilter(e.target.value)}
           className="h-9 rounded-md bg-background border border-border px-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
         >
-          <option value="all">All Types</option>
-          <option value="dealer">Dealer</option>
-          <option value="warranty">Warranty</option>
+          <option value="all">All Orders</option>
+          <option value="dealer">Dealer Orders</option>
         </select>
         <Button variant="outline" size="sm" onClick={() => setSortDir(d => d === "desc" ? "asc" : "desc")}
           className="h-9 bg-background text-xs whitespace-nowrap">
@@ -1926,13 +1928,10 @@ export default function AdminPage() {
   const [sortDir, setSortDir] = useState<"desc" | "asc">("desc");
   const [deleteTarget, setDeleteTarget] = useState<Submission | null>(null);
   const [shipTarget, setShipTarget] = useState<Submission | null>(null);
-  const [retailInquiries, setRetailInquiries] = useState<any[]>([]);
   const [warrantyRequests, setWarrantyRequests] = useState<any[]>([]);
-  const [retailSearch, setRetailSearch] = useState("");
-  const [retailStatus, setRetailStatus] = useState("all");
   const [warrantySearch, setWarrantySearch] = useState("");
   const [warrantyStatus, setWarrantyStatus] = useState("all");
-  const [dealerInquiries, setDealerInquiries] = useState<Submission[]>([]);
+  const [dealerInquiries, setDealerInquiries] = useState<any[]>([]);
   const [dealerInquiriesSearch, setDealerInquiriesSearch] = useState("");
 
   const pinForm = useForm<z.infer<typeof pinSchema>>({ resolver: zodResolver(pinSchema), defaultValues: { pin: "" } });
@@ -1959,15 +1958,6 @@ export default function AdminPage() {
     } catch (err: any) { toast({ title: "Error", description: err.message, variant: "destructive" }); }
   }, []);
 
-  const fetchRetailInquiries = useCallback(async () => {
-    try {
-      const res = await fetch("/api/admin/retail-inquiries");
-      if (!res.ok) throw new Error("Failed to fetch retail inquiries");
-      const data = await res.json();
-      setRetailInquiries(data.data || []);
-    } catch (err: any) { toast({ title: "Error", description: err.message, variant: "destructive" }); }
-  }, []);
-
   const fetchWarrantyRequests = useCallback(async () => {
     try {
       const res = await fetch("/api/admin/warranty-requests");
@@ -1985,20 +1975,40 @@ export default function AdminPage() {
         if (cancelled) return;
         if (data.authorized) {
           fetchSubmissions();
-          fetchRetailInquiries();
           fetchWarrantyRequests();
+          fetchDealerInquiries();
           setAuthStatus("authorized");
         }
         else setAuthStatus("needs_pin");
       })
       .catch(() => { if (!cancelled) setAuthStatus("needs_pin"); });
     return () => { cancelled = true; };
-  }, [fetchSubmissions, fetchRetailInquiries, fetchWarrantyRequests]);
+  }, [fetchSubmissions, fetchWarrantyRequests, fetchDealerInquiries]);
 
-  // Derive dealer inquiries (leads) from submissions — type=dealer but hasn't ordered a demo
+  const fetchDealerInquiries = useCallback(async () => {
+    try {
+      const res = await fetch("/api/admin/dealer-inquiries");
+      if (!res.ok) throw new Error("Failed to fetch dealer inquiries");
+      const data = await res.json();
+      // Normalize snake_case from DB to camelCase for the tab component
+      const normalized = (data.data || []).map((r: any) => ({
+        id: r.id,
+        source: r.source,
+        contactName: r.contact_name,
+        businessName: r.business_name,
+        email: r.email,
+        phone: r.phone,
+        message: r.message,
+        createdAt: r.created_at,
+      }));
+      setDealerInquiries(normalized);
+    } catch (err: any) { toast({ title: "Error", description: err.message, variant: "destructive" }); }
+  }, []);
+
+  // Fetch dealer inquiries from combined API (submissions leads + retail_inquiries)
   useEffect(() => {
-    setDealerInquiries(submissions.filter(s => s.type === "dealer" && s.hasOrderedDemo === "false"));
-  }, [submissions]);
+    fetchDealerInquiries();
+  }, [fetchDealerInquiries]);
 
   const onRequestPin = async () => {
     try {
@@ -2116,15 +2126,6 @@ export default function AdminPage() {
             <Badge variant="secondary" className="ml-2 text-xs">{submissions.length}</Badge>
           </button>
           <button
-            onClick={() => { setTab("retail_inquiries"); }}
-            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
-              tab === "retail_inquiries" ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            <MessageSquare className="w-4 h-4 inline mr-1.5" />Retail Inquiries
-            <Badge variant="secondary" className="ml-2 text-xs">{retailInquiries.length}</Badge>
-          </button>
-          <button
             onClick={() => { setTab("warranty"); }}
             className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
               tab === "warranty" ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"
@@ -2155,21 +2156,6 @@ export default function AdminPage() {
                 sortDir={sortDir} setSortDir={setSortDir}
                 setDeleteTarget={setDeleteTarget} setShipTarget={setShipTarget}
                 onFetchSubmissions={fetchSubmissions}
-              />
-            </CardContent>
-          </Card>
-        )}
-
-        {tab === "retail_inquiries" && (
-          <Card className="bg-card/50 border-border">
-            <CardContent className="p-4 md:p-6">
-              <RetailInquiriesTab
-                inquiries={retailInquiries}
-                search={retailSearch}
-                setSearch={setRetailSearch}
-                statusFilter={retailStatus}
-                setStatusFilter={setRetailStatus}
-                onRefresh={fetchRetailInquiries}
               />
             </CardContent>
           </Card>
