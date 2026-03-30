@@ -1238,7 +1238,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let idx = 1;
 
       // Submissions: dealer leads (type=dealer, has_ordered_demo=false)
-      let subQuery = `SELECT 'submission' as source, id::text as source_id, contact_name, business_name, email, phone, NULL::text as message, created_at::timestamp as created_at FROM submissions WHERE type = 'dealer' AND has_ordered_demo = 'false'`;
+      let subQuery = `SELECT 'submission' as source, id::text as id, contact_name, business_name, email, phone, NULL::text as message, created_at::timestamp as created_at FROM submissions WHERE type = 'dealer' AND has_ordered_demo = 'false'`;
       if (search) {
         subQuery += ` AND (contact_name ILIKE $${idx} OR business_name ILIKE $${idx} OR email ILIKE $${idx})`;
         params.push(`%${search}%`);
@@ -1246,7 +1246,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Retail inquiries: duplicate leads from the public form
-      let retailQuery = `SELECT 'retail_inquiry' as source, ri.id::text as source_id, ri.contact_name, d.business_name, ri.email, ri.phone, ri.message, ri.created_at FROM retail_inquiries ri LEFT JOIN dealers d ON ri.dealer_id = d.id`;
+      let retailQuery = `SELECT 'retail_inquiry' as source, ri.id::text as id, ri.contact_name, d.business_name, ri.email, ri.phone, ri.message, ri.created_at FROM retail_inquiries ri LEFT JOIN dealers d ON ri.dealer_id = d.id`;
       if (search) {
         retailQuery += ` WHERE (ri.contact_name ILIKE $${idx} OR d.business_name ILIKE $${idx} OR ri.email ILIKE $${idx})`;
         params.push(`%${search}%`);
