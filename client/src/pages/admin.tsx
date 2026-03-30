@@ -6,7 +6,7 @@ import { format, parseISO } from "date-fns";
 import {
   Copy, Image as ImageIcon, Download, Trash2, Package,
   ChevronRight, ArrowLeft, Building2, FileText,
-  Upload, Eye, X, Search, Users, Inbox,
+  Upload, Eye, X, Search, Inbox,
   MessageSquare, ShieldCheck, Phone
 } from "lucide-react";
 
@@ -1920,15 +1920,12 @@ export default function AdminPage() {
   const [authStatus, setAuthStatus] = useState<"checking" | "needs_pin" | "pin_sent" | "authorized">("checking");
   const [tab, setTab] = useState<Tab>("submissions");
   const [submissions, setSubmissions] = useState<Submission[]>([]);
-  const [dealers, setDealers] = useState<Dealer[]>([]);
-  const [selectedDealer, setSelectedDealer] = useState<Dealer | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState("all");
   const [sortDir, setSortDir] = useState<"desc" | "asc">("desc");
   const [deleteTarget, setDeleteTarget] = useState<Submission | null>(null);
   const [shipTarget, setShipTarget] = useState<Submission | null>(null);
-  const [addDealerOpen, setAddDealerOpen] = useState(false);
   const [retailInquiries, setRetailInquiries] = useState<any[]>([]);
   const [warrantyRequests, setWarrantyRequests] = useState<any[]>([]);
   const [retailSearch, setRetailSearch] = useState("");
@@ -1988,7 +1985,6 @@ export default function AdminPage() {
         if (cancelled) return;
         if (data.authorized) {
           fetchSubmissions();
-          fetchDealers();
           fetchRetailInquiries();
           fetchWarrantyRequests();
           setAuthStatus("authorized");
@@ -1997,7 +1993,7 @@ export default function AdminPage() {
       })
       .catch(() => { if (!cancelled) setAuthStatus("needs_pin"); });
     return () => { cancelled = true; };
-  }, [fetchSubmissions, fetchDealers]);
+  }, [fetchSubmissions, fetchRetailInquiries, fetchWarrantyRequests]);
 
   // Derive dealer inquiries (leads) from submissions — type=dealer but hasn't ordered a demo
   useEffect(() => {
@@ -2045,21 +2041,6 @@ export default function AdminPage() {
     finally { setDeleteTarget(null); }
   };
 
-  const handleDeleteDealer = async () => {
-    if (!selectedDealer) return;
-    try {
-      const res = await fetch(`/api/admin/dealers/${selectedDealer.id}`, { method: "DELETE" });
-      if (!res.ok) throw new Error("Delete failed");
-      setDealers(prev => prev.filter(d => d.id !== selectedDealer.id));
-      setSelectedDealer(null);
-      toast({ title: "Dealer Deleted" });
-    } catch { toast({ title: "Error", description: "Could not delete dealer.", variant: "destructive" }); }
-  };
-
-  const handleUpdateDealer = (updated: Dealer) => {
-    setDealers(prev => prev.map(d => d.id === updated.id ? updated : d));
-    setSelectedDealer(updated);
-  };
 
   if (authStatus === "checking") {
     return <div className="min-h-screen bg-background flex items-center justify-center">
@@ -2135,15 +2116,6 @@ export default function AdminPage() {
             <Badge variant="secondary" className="ml-2 text-xs">{submissions.length}</Badge>
           </button>
           <button
-            onClick={() => { setTab("dealers"); }}
-            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
-              tab === "dealers" ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            <Users className="w-4 h-4 inline mr-1.5" />Dealers
-            <Badge variant="secondary" className="ml-2 text-xs">{dealers.length}</Badge>
-          </button>
-          <button
             onClick={() => { setTab("retail_inquiries"); }}
             className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
               tab === "retail_inquiries" ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"
@@ -2186,33 +2158,6 @@ export default function AdminPage() {
               />
             </CardContent>
           </Card>
-        )}
-
-        {tab === "dealers" && (
-          selectedDealer ? (
-            <DealerDetail
-              dealer={selectedDealer}
-              onBack={() => { setSelectedDealer(null); fetchDealers(); }}
-              onUpdate={handleUpdateDealer}
-              onDeleteDealer={handleDeleteDealer}
-              isSaving={isLoading}
-            />
-          ) : (
-            <Card className="bg-card/50 border-border">
-              <CardContent className="p-4 md:p-6">
-                <DealersTab
-                  dealers={dealers} isLoading={isLoading}
-                  onSelect={async (d) => {
-                    const res = await fetch(`/api/admin/dealers/${d.id}`);
-                    const data = await res.json();
-                    if (res.ok) setSelectedDealer(data.data);
-                    else toast({ title: "Error loading dealer", variant: "destructive" });
-                  }}
-                  onAddNew={() => setAddDealerOpen(true)}
-                />
-              </CardContent>
-            </Card>
-          )
         )}
 
         {tab === "retail_inquiries" && (
@@ -2276,11 +2221,6 @@ export default function AdminPage() {
 
       <ShipDialog sub={shipTarget} open={!!shipTarget} onClose={() => setShipTarget(null)} />
 
-      <AddDealerDialog
-        open={addDealerOpen}
-        onClose={() => setAddDealerOpen(false)}
-        onAdd={(d) => { setDealers(prev => [d, ...prev]); setAddDealerOpen(false); }}
-      />
     </div>
   );
 }
