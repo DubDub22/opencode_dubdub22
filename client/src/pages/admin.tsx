@@ -1933,7 +1933,7 @@ function FilesTab() {
 
   const sources = [
     {
-      key: "rebel",
+      key: "rebel_dealer_list",
       label: "Rebel Dealer List",
       description: "826 dealers from Tom's uploaded list (35 Preferred, 791 Standard).",
       countLabel: "826 dealers",
