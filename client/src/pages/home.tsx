@@ -677,7 +677,7 @@ export default function Home() {
 
             <motion.div variants={fadeUpItem}>
               <Card className="border-border bg-background/50 backdrop-blur-md p-8 shadow-2xl hover:shadow-[0_25px_50px_-12px_rgba(0,0,0,0.5)] transition-shadow duration-500 cursor-pointer h-full"
-                onClick={() => window.location.href = '/apply'}>
+                onClick={() => window.location.href = '/dealers'}>
                 <h2 className="text-3xl font-bold mb-4">BECOME A DEALER</h2>
                 <p className="text-muted-foreground text-lg leading-relaxed mb-6">
                   Interested in carrying DubDub22 suppressors? Fill out the form and we&apos;ll be in touch.
