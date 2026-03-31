@@ -7,7 +7,7 @@ import {
   Copy, Image as ImageIcon, Download, Trash2, Package,
   ChevronRight, ArrowLeft, Building2, FileText,
   Upload, Eye, X, Search, Inbox,
-  MessageSquare, ShieldCheck, Phone
+  MessageSquare, ShieldCheck, Phone, Files
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -95,7 +95,7 @@ type Dealer = {
   submissions?: Submission[];
 };
 
-type Tab = "submissions" | "warranty" | "dealer_inquiries";
+type Tab = "submissions" | "warranty" | "dealer_inquiries" | "files";
 
 // ── Schemas ────────────────────────────────────────────────────────────────────
 
@@ -1925,6 +1925,93 @@ function DealerInquiriesTab({
   );
 }
 
+// ── Files Tab ─────────────────────────────────────────────────────────────────
+
+function FilesTab() {
+  const { toast } = useToast();
+  const [downloading, setDownloading] = useState<string | null>(null);
+
+  const sources = [
+    {
+      key: "rebel",
+      label: "Rebel Dealer List",
+      description: "826 dealers from Tom's uploaded list (35 Preferred, 791 Standard).",
+      countLabel: "826 dealers",
+    },
+    {
+      key: "web_form",
+      label: "Web Form Submissions",
+      description: "9 dealers who submitted through the website form.",
+      countLabel: "9 dealers",
+    },
+    {
+      key: "manual",
+      label: "Manual Entries",
+      description: "3 manually entered Preferred dealers.",
+      countLabel: "3 dealers",
+    },
+  ];
+
+  const handleDownload = async (key: string) => {
+    setDownloading(key);
+    try {
+      const res = await fetch(`/api/admin/dealers/export/${key}`);
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || "Download failed");
+      }
+      const blob = await res.blob();
+      const contentDisposition = res.headers.get("Content-Disposition");
+      const filenameMatch = contentDisposition?.match(/filename="(.+)"/);
+      const filename = filenameMatch?.[1] || `dealers_${key}.csv`;
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast({ title: "Download started", description: filename });
+    } catch (err: any) {
+      toast({ title: "Download failed", description: err.message, variant: "destructive" });
+    } finally {
+      setDownloading(null);
+    }
+  };
+
+  return (
+    <div className="space-y-4">
+      <div>
+        <h2 className="text-lg font-semibold mb-1">Data Export</h2>
+        <p className="text-sm text-muted-foreground">
+          Download dealer records by source. These are all sources <em>outside</em> the ATF master FFL list.
+        </p>
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {sources.map(src => (
+          <Card key={src.key} className="border-border bg-card">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-semibold">{src.label}</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <p className="text-xs text-muted-foreground">{src.description}</p>
+              <p className="text-xs font-medium text-primary">{src.countLabel}</p>
+              <Button
+                size="sm"
+                className="w-full gap-1.5"
+                onClick={() => handleDownload(src.key)}
+                disabled={downloading === src.key}
+              >
+                <Download className="w-3.5 h-3.5" />
+                {downloading === src.key ? "Preparing..." : "Download CSV"}
+              </Button>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // ── Main AdminPage ─────────────────────────────────────────────────────────────
 
 export default function AdminPage() {
@@ -2165,6 +2252,14 @@ export default function AdminPage() {
             <Phone className="w-4 h-4 inline mr-1.5" />Dealer Inquiries
             <Badge variant="secondary" className="ml-2 text-xs">{dealerInquiries.length}</Badge>
           </button>
+          <button
+            onClick={() => { setTab("files"); }}
+            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
+              tab === "files" ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            <Files className="w-4 h-4 inline mr-1.5" />Files
+          </button>
         </div>
 
         {/* Tab content */}
@@ -2207,6 +2302,14 @@ export default function AdminPage() {
                 setSearch={setDealerInquiriesSearch}
                 onDelete={(sub) => setDealerInquiryDeleteTarget(sub)}
               />
+            </CardContent>
+          </Card>
+        )}
+
+        {tab === "files" && (
+          <Card className="bg-card/50 border-border">
+            <CardContent className="p-4 md:p-6">
+              <FilesTab />
             </CardContent>
           </Card>
         )}

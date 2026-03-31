@@ -728,6 +728,53 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Export non-ATF dealers by source as CSV
+  app.get("/api/admin/dealers/export/:source", requireAdmin, async (req, res) => {
+    try {
+      const { source } = req.params; // rebel, web_form, manual
+      const allowed = ["rebel", "web_form", "manual"];
+      if (!allowed.includes(source)) {
+        return res.status(400).json({ ok: false, error: "Invalid source. Use: rebel, web_form, manual" });
+      }
+      const result = await pool.query(
+        `SELECT business_name, contact_name, email, phone, ein, business_address,
+                city, state, zip, ffl_license_number, ffl_license_type, ffl_expiry,
+                sot_license_type, sot_tax_year, sot_period_start, sot_period_end,
+                sot_control_number, sot_receipt_date, tax_exempt, sales_tax_id,
+                notes, tier, verified, created_at
+         FROM dealers WHERE source = $1 ORDER BY business_name`,
+        [source]
+      );
+      if (result.rows.length === 0) {
+        return res.status(404).json({ ok: false, error: `No dealers found for source: ${source}` });
+      }
+      const cols = [
+        "business_name","contact_name","email","phone","ein","business_address",
+        "city","state","zip","ffl_license_number","ffl_license_type","ffl_expiry",
+        "sot_license_type","sot_tax_year","sot_period_start","sot_period_end",
+        "sot_control_number","sot_receipt_date","tax_exempt","sales_tax_id",
+        "notes","tier","verified","created_at"
+      ];
+      const header = cols.join(",");
+      const rows = result.rows.map((r: any) =>
+        cols.map(c => {
+          const val = r[c] ?? "";
+          const str = String(val);
+          return str.includes(",") || str.includes('"') || str.includes("\n")
+            ? `"${str.replace(/"/g, '""')}"` : str;
+        }).join(",")
+      );
+      const csv = [header, ...rows].join("\n");
+      const label = source === "web_form" ? "web-form" : source;
+      res.setHeader("Content-Type", "text/csv");
+      res.setHeader("Content-Disposition", `attachment; filename="dealers_${label}_${new Date().toISOString().slice(0, 10)}.csv"`);
+      return res.send(csv);
+    } catch (err: any) {
+      console.error("export_dealers_error", err);
+      return res.status(500).json({ ok: false, error: "export_failed" });
+    }
+  });
+
   // Parse SOT file — extract text from PDF/image and return structured data
   app.post("/api/admin/dealers/parse-sot", requireAdmin, async (req, res) => {
     try {
