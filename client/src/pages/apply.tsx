@@ -398,7 +398,7 @@ function DealerForm(props: { fflNumber: string; dealerName?: string; email?: str
               <FormItem>
                 <FormLabel>FFL Number</FormLabel>
                 <FormControl>
-                  <Input {...field} readOnly className="bg-card border-border font-mono" />
+                  <Input {...field} className="bg-card border-border font-mono" />
                 </FormControl>
                 <FormMessage />
               </FormItem>
