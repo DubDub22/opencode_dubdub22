@@ -8,9 +8,9 @@ import session from "express-session";
 import { storage } from "./storage";
 import { pool } from "./db";
 
-const SALES_EMAIL = "sales@doublettactical.com";
-const WARRANTY_EMAIL = "warranty@doublettactical.com";
-const BCC_EMAIL = "ericwoodard84@gmail.com";
+const SALES_EMAIL = "info@dubdub22.com";
+const WARRANTY_EMAIL = "info@dubdub22.com";
+const BCC_EMAIL = "";
 const GMAIL_TOKEN_PATH = "/home/dubdub/DubDub-Hub/gmail_token.json";
 const ENV_PATH = "/home/dubdub/DubDub-Hub/.env";
 
@@ -893,19 +893,88 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ── FFL Validate ─────────────────────────────────────────────────────────────
+  app.post("/api/ffl/validate", async (req, res) => {
+    try {
+      const { fflNumber } = req.body;
+      if (!fflNumber) return res.status(400).json({ ok: false, error: "missing_ffl" });
+
+      // Normalize FFL (remove dashes)
+      const normalized = fflNumber.replace(/[^0-9A-Za-z]/gi, "").toUpperCase();
+
+      // Check against dealers table first
+      const dealer = await pool.query(
+        `SELECT id, business_name, verified FROM dealers WHERE UPPER(REPLACE(REPLACE(ffl_license_number, '-', ''), ' ', '')) = $1`,
+        [normalized]
+      );
+
+      if (dealer.rows.length > 0 && dealer.rows[0].verified) {
+        return res.json({ ok: true, valid: true, dealerName: dealer.rows[0].business_name });
+      }
+
+      // TODO: Check against MASTER FFL CSV once uploaded
+      // For now, return not found — will route to pending upload
+      return res.json({ ok: true, valid: false });
+    } catch (err: any) {
+      console.error("ffl_validate_error", err);
+      return res.status(500).json({ ok: false, error: "validation_failed" });
+    }
+  });
+
+  // ── FFL Upload (pending dealer) ─────────────────────────────────────────────
+  app.post("/api/ffl/upload", async (req, res) => {
+    try {
+      const { fflNumber, fflData, sotData, sotFileName } = req.body;
+      if (!fflNumber) return res.status(400).json({ ok: false, error: "missing_ffl" });
+      if (!fflData) return res.status(400).json({ ok: false, error: "missing_ffl_document" });
+
+      const normalized = fflNumber.replace(/[^0-9A-Za-z]/gi, "").toUpperCase();
+
+      // Check if already in dealers table
+      const existing = await pool.query(
+        `SELECT id FROM dealers WHERE UPPER(REPLACE(REPLACE(ffl_license_number, '-', ''), ' ', '')) = $1`,
+        [normalized]
+      );
+
+      if (existing.rows.length > 0) {
+        // Update existing record with uploaded documents
+        await pool.query(
+          `UPDATE dealers SET ffl_file_name = $1, ffl_file_data = $2, sot_file_name = $3, sot_file_data = $4 WHERE id = $5`,
+          [`${normalized}_ffl`, fflData, sotFileName || null, sotData || null, existing.rows[0].id]
+        );
+      } else {
+        // Create a pending dealer entry
+        await pool.query(
+          `INSERT INTO dealers (business_name, ffl_license_number, ffl_file_name, ffl_file_data, sot_file_name, sot_file_data, verified, source)
+           VALUES ($1, $2, $3, $4, $5, $6, false, 'pending_upload')`,
+          [`Pending FFL ${normalized}`, normalized, `${normalized}_ffl`, fflData, sotFileName || null, sotData || null]
+        );
+      }
+
+      return res.json({ ok: true, message: "FFL submitted for review" });
+    } catch (err: any) {
+      console.error("ffl_upload_error", err);
+      return res.status(500).json({ ok: false, error: "upload_failed" });
+    }
+  });
+
   app.post("/api/dealer-request", async (req, res) => {
     try {
-      const { requestType, contactName, businessName, email, phone, quantityCans, fflFileName, fflFileData, message } = req.body || {};
-      const isInquiry = requestType === 'Dealer Inquiry';
+      const { requestType, dealerName, contactName, businessName, email, phone, quantityCans, fflFileName, fflFileData, sotFileName, sotFileData, message, orderKind, fflNumber, ein } = req.body || {};
 
-      if (!contactName || !businessName || !email) {
+      // Support new field names from dealer portal (dealerName/fflNumber) and legacy (businessName/fflType)
+      const bizName = dealerName || businessName || "";
+      const isInquiry = orderKind === "inquiry" || requestType === 'Dealer Inquiry';
+
+      if (!contactName || !bizName || !email) {
         return res.status(400).json({ ok: false, error: "missing_required_fields" });
       }
       if (!isInquiry && !quantityCans) {
         return res.status(400).json({ ok: false, error: "missing_required_fields" });
       }
 
-      const isDemoOrder = !isInquiry && quantityCans === '1';
+      const isDemoOrder = orderKind === "demo" || (!isInquiry && quantityCans === '1');
+      const isStockingOrder = orderKind === "stocking" || (!isInquiry && quantityCans !== '1');
 
       // ── Demo can rules ──────────────────────────────────────────────
       // Demo cans: limit 1 per dealer (email + business name)
@@ -958,13 +1027,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         `DubDub22 ${isInquiry ? 'Dealer Inquiry' : isDemoOrder ? 'Dealer Order (DEMO CAN)' : 'Dealer Order'}`,
         "",
         `Contact: ${contactName}`,
-        `Business: ${businessName}`,
+        `Business: ${bizName}`,
         `Email: ${email}`,
         `Phone: ${phone || "N/A"}`,
-        isInquiry ? "" : `Quantity: ${quantityCans}${isDemoOrder ? ' (DEMO CAN)' : ''}`,
-        isInquiry ? "" : `SOT File: ${fflFileName || "Not provided"}`,
+        fflNumber ? `FFL: ${fflNumber}` : null,
+        ein ? `EIN: ${ein}` : null,
+        isInquiry ? "" : `Quantity: ${quantityCans}${isDemoOrder ? ' (DEMO CAN)' : isStockingOrder ? ' (STOCKING ORDER)' : ''}`,
+        isInquiry ? "" : `FFL on File: ${fflFileName || "Not provided"}`,
+        isInquiry ? "" : `SOT: ${sotFileName || "Not provided"}`,
         message ? `\nMessage:\n${message}` : "",
-      ].join("\n");
+      ].filter(Boolean).join("\n");
 
       const ext = (fflFileName || "").split(".").pop()?.toLowerCase() || "";
       const contentTypeMap: Record<string, string> = {
@@ -978,12 +1050,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         sendViaGmail({
           to: SALES_EMAIL,
           bcc: BCC_EMAIL,
-          subject: `DubDub22 ${isInquiry ? 'Dealer Inquiry' : 'Dealer Order'} - ${businessName}`,
+          subject: `DubDub22 ${isInquiry ? 'Dealer Inquiry' : 'Dealer Order'} - ${bizName}`,
           text: body,
           replyTo: email,
-          attachment: fflFileData && !isInquiry ? {
-            filename: fflFileName || "sot-file",
-            base64Data: fflFileData,
+          attachment: (fflFileData || sotFileData) && !isInquiry ? {
+            filename: fflFileName || sotFileName || "document",
+            base64Data: fflFileData || sotFileData || "",
             contentType: contentTypeMap[ext] || "application/octet-stream",
           } : undefined,
         }).catch(err => {
@@ -993,14 +1065,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         storage.createSubmission({
           type: "dealer",
           contactName,
-          businessName,
+          businessName: bizName,
           email,
           phone,
           fflType: (req.body as any).fflType || null,
           quantity: quantityCans ? String(quantityCans) : null,
           description: message || null,
-          fflFileName: isInquiry ? null : fflFileName,
-          fflFileData: isInquiry ? null : fflFileData,
+          fflFileName: isInquiry ? null : (fflFileName || null),
+          fflFileData: isInquiry ? null : (fflFileData || null),
           hasOrderedDemo: isDemoOrder ? 'true' : 'false',
         }).catch(err => {
           console.error("db_save_failed", err);
