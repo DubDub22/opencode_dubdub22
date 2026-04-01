@@ -776,6 +776,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Serve master FFL CSV from disk (pre-cleaned, no banned states)
+  app.get("/api/admin/dealers/export/master_ffl", requireAdmin, async (_req, res) => {
+    const path = "/home/dubdub/DubDubSuppressor/ffl_master.csv";
+    res.setHeader("Content-Type", "text/csv");
+    res.setHeader("Content-Disposition", `attachment; filename="ffl_master_2026-04-01.csv"`);
+    return res.sendFile(path, (err) => {
+      if (err) {
+        console.error("master_ffl_export_error", err);
+        res.status(500).json({ ok: false, error: "export_failed" });
+      }
+    });
+  });
+
   // Parse SOT file — extract text from PDF/image and return structured data
   app.post("/api/admin/dealers/parse-sot", requireAdmin, async (req, res) => {
     try {
@@ -1767,8 +1780,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const ext = (record.file_name || "pdf").split(".").pop()?.toLowerCase() || "pdf";
       const fflDigits = (record.ffl_license_number || record.ffl_number || "").replace(/-/g, "");
-      const dateStr = new Date().toISOString().slice(0, 10);
-      const remoteName = `Tax_${dateStr}_${fflDigits}.${ext}`;
+      const remoteName = `Tax_${fflDigits}.${ext}`;
       const folderName = fflDigits; // matches fflToFolderName logic
 
       // Upload to 3dprintmanager via direct SFTP with correct naming

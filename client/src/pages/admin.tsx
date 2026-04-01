@@ -2172,6 +2172,12 @@ function FilesTab() {
       description: "3 manually entered Preferred dealers.",
       countLabel: "3 dealers",
     },
+    {
+      key: "master_ffl",
+      label: "Master FFL CSV",
+      description: "Cleaned ATF FFL dealer list — 69,905 active FFL holders (types 1, 2, 7).",
+      countLabel: "69,905 dealers",
+    },
   ];
 
   const handleDownload = async (key: string) => {
