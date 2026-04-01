@@ -1,16 +1,17 @@
 import { useState } from "react";
-import { motion, useScroll, useTransform } from "framer-motion";
-import { ArrowDown, Wrench } from "lucide-react";
+import { motion } from "framer-motion";
+import { ArrowDown, Wrench, Loader2, CheckCircle } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
+import SiteHeader from "@/components/SiteHeader";
 
 const warrantyFormSchema = z.object({
   name: z.string().min(1, "Name is required"),
@@ -65,6 +66,8 @@ function FileInputZone({ id, label, accept, capture, required, description }: an
 
 function WarrantyForm() {
   const { toast } = useToast();
+  const [submitting, setSubmitting] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
   const form = useForm<z.infer<typeof warrantyFormSchema>>({
     resolver: zodResolver(warrantyFormSchema),
     defaultValues: {
@@ -77,6 +80,7 @@ function WarrantyForm() {
   });
 
   async function onSubmit(values: z.infer<typeof warrantyFormSchema>) {
+    setSubmitting(true);
     try {
       const serialPhotoInput = document.getElementById("serialPhotoUpload") as HTMLInputElement | null;
       const damagePhoto1Input = document.getElementById("damagePhoto1Upload") as HTMLInputElement | null;
@@ -110,6 +114,7 @@ function WarrantyForm() {
         description: "We'll verify your details and send instructions within 24-48 hours.",
         className: "bg-orange-500 text-black border-orange-600",
       });
+      setSubmitted(true);
       form.reset();
     } catch (err) {
       toast({
@@ -117,6 +122,8 @@ function WarrantyForm() {
         description: "Could not send warranty request. Please try again.",
         variant: "destructive",
       });
+    } finally {
+      setSubmitting(false);
     }
   }
 
@@ -199,36 +206,35 @@ function WarrantyForm() {
           <FileInputZone id="damagePhoto1Upload" label="Damage Photo 1" accept="image/*" capture="environment" description="optional" />
           <FileInputZone id="damagePhoto2Upload" label="Damage Photo 2" accept="image/*" capture="environment" description="optional" />
         </div>
-        <Button type="submit" variant="outline" className="w-full font-display text-lg border-primary text-primary hover:bg-primary hover:text-primary-foreground cursor-pointer shadow-lg hover:shadow-xl transition-shadow">
-          SUBMIT WARRANTY CLAIM
-        </Button>
+        {submitted ? (
+          <div className="flex items-center gap-3 p-4 bg-green-500/10 border border-green-500/30 rounded-lg text-green-400">
+            <CheckCircle className="w-5 h-5 shrink-0" />
+            <span className="font-medium">Submitted — we'll be in touch within 24-48 hours.</span>
+          </div>
+        ) : (
+          <Button type="submit" disabled={submitting} variant="outline" className="w-full font-display text-lg border-primary text-primary hover:bg-primary hover:text-primary-foreground cursor-pointer shadow-lg hover:shadow-xl transition-shadow">
+            {submitting ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                In Process.....
+              </>
+            ) : (
+              "SUBMIT WARRANTY CLAIM"
+            )}
+          </Button>
+        )}
       </form>
     </Form>
   );
 }
 
 export default function WarrantyPage() {
-  const { scrollY } = useScroll();
-  const navShadow = useTransform(scrollY, [0, 50], ["none", "0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)"]);
-
   return (
     <div className="min-h-screen bg-background">
-      {/* Nav */}
-      <motion.nav
-        className="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-md border-b border-border"
-        style={{ boxShadow: navShadow }}
-      >
-        <div className="container mx-auto px-6 py-4 flex items-center justify-between">
-          <a href="/" className="text-2xl font-display font-bold tracking-wider">DUBDUB22</a>
-          <div className="flex gap-3">
-            <a href="/dealers" className="px-4 py-2 text-sm font-medium hover:text-primary transition-colors border border-primary/50 px-3 py-1.5 rounded hover:bg-primary hover:text-primary-foreground">Find a Dealer</a>
-            <a href="/apply" className="px-4 py-2 text-sm font-medium hover:text-primary transition-colors border border-primary/50 px-3 py-1.5 rounded hover:bg-primary hover:text-primary-foreground">Become a Dealer</a>
-          </div>
-        </div>
-      </motion.nav>
+      <SiteHeader />
 
       {/* Hero */}
-      <section className="pt-32 pb-16 bg-grid-pattern">
+      <section className="pt-24 pb-12 bg-grid-pattern">
         <div className="container mx-auto px-6 text-center">
           <motion.h1
             initial={{ opacity: 0, y: 20 }}

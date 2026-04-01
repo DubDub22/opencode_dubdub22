@@ -3,7 +3,7 @@ import { motion } from "framer-motion";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { UploadCloud } from "lucide-react";
+import { UploadCloud, Loader2, CheckCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
@@ -50,6 +50,8 @@ export default function OrderPage() {
   const { toast } = useToast();
   const [intent, setIntent] = useState<IntentType>("info");
   const [quantity, setQuantity] = useState<string>("5");
+  const [submitting, setSubmitting] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
 
   const form = useForm<z.infer<typeof orderFormSchema>>({
     resolver: zodResolver(orderFormSchema),
@@ -63,6 +65,7 @@ export default function OrderPage() {
   });
 
   async function onSubmit(values: z.infer<typeof orderFormSchema>) {
+    setSubmitting(true);
     try {
       const fflInput = document.getElementById("fflUpload") as HTMLInputElement | null;
       const selectedFile = fflInput?.files?.[0] || null;
@@ -116,7 +119,7 @@ export default function OrderPage() {
           : "We've received your order and will send an invoice by email shortly.",
         className: "bg-orange-500 text-black border-orange-600",
       });
-
+      setSubmitted(true);
       form.reset();
       setIntent("info");
       setQuantity("5");
@@ -127,6 +130,8 @@ export default function OrderPage() {
         description: "Could not submit. Please try again.",
         variant: "destructive",
       });
+    } finally {
+      setSubmitting(false);
     }
   }
 
@@ -347,18 +352,37 @@ export default function OrderPage() {
             <Separator className="bg-border" />
 
             {/* Submit */}
-            <MotionWrapButton className="w-full">
-              <Button
-                type="submit"
-                className="w-full font-display text-lg bg-primary text-primary-foreground hover:bg-primary/90 cursor-pointer shadow-lg hover:shadow-xl transition-shadow h-12"
-              >
-                {intent === "info"
+            {submitted ? (
+              <div className="flex items-center gap-3 p-4 bg-green-500/10 border border-green-500/30 rounded-lg text-green-400">
+                <CheckCircle className="w-5 h-5 shrink-0" />
+                <span className="font-medium">
+                  {intent === "info"
+                    ? "Submitted — we'll be in touch shortly."
+                    : intent === "demo"
+                    ? "Demo request submitted — we'll be in touch."
+                    : "Order submitted — invoice incoming shortly."}
+                </span>
+              </div>
+            ) : (
+              <MotionWrapButton className="w-full">
+                <Button
+                  type="submit"
+                  disabled={submitting}
+                  className="w-full font-display text-lg bg-primary text-primary-foreground hover:bg-primary/90 cursor-pointer shadow-lg hover:shadow-xl transition-shadow h-12"
+                >
+                  {submitting ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      In Process.....
+                    </>
+                  ) : intent === "info"
                   ? "SUBMIT"
                   : intent === "demo"
                   ? "REQUEST DEMO CAN"
                   : `REQUEST INVOICE (${quantity} CANS)`}
-              </Button>
-            </MotionWrapButton>
+                </Button>
+              </MotionWrapButton>
+            )}
           </form>
         </Form>
       </main>

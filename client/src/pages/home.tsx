@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { motion, useScroll, useTransform } from "framer-motion";
-import { ArrowDown, Wind, Wrench, Feather, Crosshair, UploadCloud } from "lucide-react";
+import { ArrowDown, Wind, Wrench, Feather, Crosshair, UploadCloud, Loader2, CheckCircle } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -221,6 +221,8 @@ function FileInputZone({ id, label, accept, capture, required, description }: an
 
 function WarrantyForm() {
   const { toast } = useToast();
+  const [submitting, setSubmitting] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
   const form = useForm<z.infer<typeof warrantyFormSchema>>({
     resolver: zodResolver(warrantyFormSchema),
     defaultValues: {
@@ -233,6 +235,7 @@ function WarrantyForm() {
   });
 
   async function onSubmit(values: z.infer<typeof warrantyFormSchema>) {
+    setSubmitting(true);
     try {
       const serialPhotoInput = document.getElementById("serialPhotoUpload") as HTMLInputElement | null;
       const damagePhoto1Input = document.getElementById("damagePhoto1Upload") as HTMLInputElement | null;
@@ -266,6 +269,7 @@ function WarrantyForm() {
         description: "We'll verify your details and send instructions within 24-48 hours.",
         className: "bg-orange-500 text-black border-orange-600",
       });
+      setSubmitted(true);
       form.reset();
     } catch (err) {
       toast({
@@ -273,6 +277,8 @@ function WarrantyForm() {
         description: "Could not send warranty request. Please try again.",
         variant: "destructive",
       });
+    } finally {
+      setSubmitting(false);
     }
   }
 
@@ -355,11 +361,25 @@ function WarrantyForm() {
           <FileInputZone id="damagePhoto1Upload" label="Damage Photo 1" accept="image/*" capture="environment" description="optional" />
           <FileInputZone id="damagePhoto2Upload" label="Damage Photo 2" accept="image/*" capture="environment" description="optional" />
         </div>
-        <MotionWrapButton className="w-full">
-          <Button type="submit" variant="outline" className="w-full font-display text-lg border-primary text-primary hover:bg-primary hover:text-primary-foreground cursor-pointer shadow-lg hover:shadow-xl transition-shadow">
-            SUBMIT WARRANTY CLAIM
-          </Button>
-        </MotionWrapButton>
+        {submitted ? (
+          <div className="flex items-center gap-3 p-4 bg-green-500/10 border border-green-500/30 rounded-lg text-green-400">
+            <CheckCircle className="w-5 h-5 shrink-0" />
+            <span className="font-medium">Submitted — we'll be in touch within 24-48 hours.</span>
+          </div>
+        ) : (
+          <MotionWrapButton className="w-full">
+            <Button type="submit" disabled={submitting} variant="outline" className="w-full font-display text-lg border-primary text-primary hover:bg-primary hover:text-primary-foreground cursor-pointer shadow-lg hover:shadow-xl transition-shadow">
+              {submitting ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  In Process.....
+                </>
+              ) : (
+                "SUBMIT WARRANTY CLAIM"
+              )}
+            </Button>
+          </MotionWrapButton>
+        )}
       </form>
     </Form>
   );
