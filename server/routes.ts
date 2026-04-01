@@ -742,6 +742,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
   });
 
+  app.get("/api/admin/dealers/export/ffl_zip_match", requireAdmin, async (_req, res) => {
+    const path = "/home/dubdub/DubDubSuppressor/FFL_zip_match.csv";
+    res.setHeader("Content-Type", "text/csv");
+    res.setHeader("Content-Disposition", `attachment; filename="FFL_zip_match.csv"`);
+    return res.sendFile(path, (err) => {
+      if (err) {
+        console.error("ffl_zip_match_export_error", err);
+        res.status(500).json({ ok: false, error: "export_failed" });
+      }
+    });
+  });
+
   // Export non-ATF dealers by source as CSV
   app.get("/api/admin/dealers/export/:source", requireAdmin, async (req, res) => {
     try {

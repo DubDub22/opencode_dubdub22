@@ -2178,6 +2178,12 @@ function FilesTab() {
       description: "Cleaned ATF FFL dealer list — 69,905 active FFL holders (types 1, 2, 7).",
       countLabel: "69,905 dealers",
     },
+    {
+      key: "ffl_zip_match",
+      label: "FFL ZIP Match",
+      description: "Master FFL rows where ZIP matches Tom's Rebel dealer list — 5,307 records.",
+      countLabel: "5,307 dealers",
+    },
   ];
 
   const handleDownload = async (key: string) => {
