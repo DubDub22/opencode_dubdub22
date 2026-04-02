@@ -758,7 +758,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Export non-ATF dealers by source as CSV
   app.get("/api/admin/dealers/export/:source", requireAdmin, async (req, res) => {
     try {
-      const { source } = req.params; // rebel, web_form, manual
+      const { source } = req.params;
+
+      // Special case: compliance template file
+      if (source === "compliance_template") {
+        const fs = await import("fs");
+        const path = await import("path");
+        const filePath = path.join("/home/dubdub/DubDub-Hub", "compliance_pages_template.txt");
+        if (!fs.existsSync(filePath)) {
+          return res.status(404).json({ ok: false, error: "File not found" });
+        }
+        const content = fs.readFileSync(filePath, "utf-8");
+        res.setHeader("Content-Type", "text/plain");
+        res.setHeader("Content-Disposition", "attachment; filename=\"compliance_pages_template.txt\"");
+        return res.send(content);
+      }
+
       const allowed = ["rebel_dealer_list", "web_form", "manual"];
       if (!allowed.includes(source)) {
         return res.status(400).json({ ok: false, error: "Invalid source. Use: rebel, web_form, manual" });

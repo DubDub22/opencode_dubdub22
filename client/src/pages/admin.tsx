@@ -2188,6 +2188,12 @@ function FilesTab() {
       description: "Master FFL rows where ZIP matches Tom's Rebel dealer list — 5,307 records.",
       countLabel: "5,307 dealers",
     },
+    {
+      key: "compliance_template",
+      label: "Compliance Pages Template",
+      description: "Text file with draft Privacy Policy, Refund Policy, Shipping Policy, Terms of Service, and Cookie Policy — ready for Tom to edit and upload.",
+      countLabel: "5 pages",
+    },
   ];
 
   const handleDownload = async (key: string) => {
