@@ -204,6 +204,7 @@ async function refreshAccessToken(refreshToken: string, clientId: string, client
 function buildMime({
   from,
   to,
+  cc,
   bcc,
   subject,
   text,
@@ -212,6 +213,7 @@ function buildMime({
 }: {
   from: string;
   to: string;
+  cc?: string;
   bcc?: string;
   subject: string;
   text: string;
@@ -225,6 +227,7 @@ function buildMime({
     "MIME-Version: 1.0",
   ];
   if (replyTo) headers.push(`Reply-To: ${replyTo}`);
+  if (cc) headers.push(`Cc: ${cc}`);
   if (bcc) headers.push(`Bcc: ${bcc}`);
 
   if (!attachment) {
@@ -248,6 +251,7 @@ function buildMime({
 
 async function sendViaGmail({
   to,
+  cc,
   bcc,
   subject,
   text,
@@ -255,6 +259,7 @@ async function sendViaGmail({
   attachment,
 }: {
   to: string;
+  cc?: string;
   bcc?: string;
   subject: string;
   text: string;
@@ -273,6 +278,7 @@ async function sendViaGmail({
   const raw = buildMime({
     from: `DubDub22 Forms <${sender}>`,
     to,
+    cc,
     bcc,
     subject,
     text,
@@ -1425,10 +1431,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/retail-inquiry", async (req, res) => {
     try {
       const { dealerId, contactName, email, phone, message } = req.body || {};
-      if (!dealerId || !contactName || !email) {
+      if (!dealerId || !contactName) {
         return res.status(400).json({ ok: false, error: "missing_required_fields" });
       }
-      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
         return res.status(400).json({ ok: false, error: "invalid_email" });
       }
 
@@ -1444,32 +1450,64 @@ export async function registerRoutes(app: Express): Promise<Server> {
         RETURNING id
       `, [dealerId, contactName, email, phone || null, message || null]);
 
-      // Fetch dealer's email address
-      const dealerFull = await pool.query(`SELECT email FROM dealers WHERE id = $1`, [dealerId]);
-      const dealerEmail = dealerFull.rows[0]?.email;
+      // Fetch dealer's full info for email and auto-reply
+      const dealerFull = await pool.query(`SELECT business_name, business_address, city, state, zip, phone, email FROM dealers WHERE id = $1`, [dealerId]);
+      const dealerInfo = dealerFull.rows[0];
+      const dealerEmail = dealerInfo?.email;
 
       // Send email to dealer (from dubdub22.com) if dealer has an email on file
       if (dealerEmail) {
         try {
           await sendViaGmail({
             to: dealerEmail,
+            cc: "inquiries@dubdub22.com",
             subject: `DubDub22 Customer Interest — ${dealer.business_name}`,
             text: [
-              `A customer has expressed interest in the DubDub22 suppressor through your dealer page.`,
+              `A customer has inquired about the DubDub22 suppressor through our web site and selected you as their preferred dealer. In order to help our dealers maximize profits, we don't cut you out of the sale. Our products are only available through dealers. Please visit us at dubdub22.com to order a demo unit or a stocking order for your store.`,
+              ``,
+              `--- Customer Information ---`,
               ``,
               `Customer: ${contactName}`,
               `Email: ${email}`,
               phone ? `Phone: ${phone}` : null,
+              message ? `Message: ${message}` : null,
               ``,
-              message ? `Message:\n${message}` : null,
-              ``,
-              `Login to the admin portal to follow up: https://portal.dubdub22.com/admin`,
+              `Dealers Page: https://dubdub22.com/dealers`,
             ].filter(Boolean).join("\n"),
             replyTo: email,
           });
         } catch (gmailErr) {
           console.error("retail_inquiry_gmail_error", gmailErr);
           // Don't fail the request if email fails — inquiry is already saved
+        }
+      }
+
+      // Send auto-reply to customer if they provided an email
+      if (email) {
+        try {
+          const dealerAddress = [dealerInfo.business_address, dealerInfo.city, dealerInfo.state, dealerInfo.zip].filter(Boolean).join(", ");
+          await sendViaGmail({
+            to: email,
+            subject: `We Received Your DubDub22 Inquiry`,
+            text: [
+              `Thank you for inquiring about the DubDub22 Suppressor. We appreciate you looking at our innovative product.`,
+              ``,
+              `We have forwarded your information to the Preferred Dealer you selected. If you don't hear from them, reach out in a few days. We can't control what SPAM filters do.`,
+              ``,
+              `--- Your Selected Dealer ---`,
+              ``,
+              `Name: ${dealerInfo.business_name}`,
+              dealerAddress ? `Address: ${dealerAddress}` : null,
+              dealerInfo.phone ? `Phone: ${dealerInfo.phone}` : null,
+              dealerInfo.email ? `Email: ${dealerInfo.email}` : null,
+              ``,
+              `Best regards,`,
+              `DubDub22 Minions`,
+            ].filter(Boolean).join("\n"),
+          });
+        } catch (gmailErr) {
+          console.error("retail_inquiry_auto_reply_error", gmailErr);
+          // Don't fail the request if auto-reply fails
         }
       }
 
