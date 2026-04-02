@@ -15,9 +15,10 @@ export default function SiteFooter() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-8">
           {/* Left: Brand + Email */}
           <div>
-            <div className="font-display font-bold text-2xl tracking-wider text-primary mb-3">
+            <div className="font-display font-bold text-2xl tracking-wider text-primary mb-1">
               DUBDUB22
             </div>
+            <p className="text-xs text-muted-foreground mb-3">A product of Double T Tactical</p>
             <a
               href="mailto:info@dubdub22.com"
               className="flex items-center gap-2 text-muted-foreground hover:text-primary transition-colors text-sm"

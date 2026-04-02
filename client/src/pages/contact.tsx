@@ -108,7 +108,16 @@ export default function ContactPage() {
                   <div className="flex items-start gap-3">
                     <Mail className="w-5 h-5 text-primary mt-0.5" />
                     <div>
-                      <p className="text-sm font-medium mb-1">Email</p>
+                      <p className="text-sm font-medium mb-1">Sales</p>
+                      <a href="mailto:sales@doublettactical.com" className="text-sm text-muted-foreground hover:text-primary transition-colors">
+                        sales@doublettactical.com
+                      </a>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-3">
+                    <Mail className="w-5 h-5 text-primary mt-0.5" />
+                    <div>
+                      <p className="text-sm font-medium mb-1">General</p>
                       <a href="mailto:info@dubdub22.com" className="text-sm text-muted-foreground hover:text-primary transition-colors">
                         info@dubdub22.com
                       </a>
