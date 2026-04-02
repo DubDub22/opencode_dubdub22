@@ -13,19 +13,12 @@ export default function SiteFooter() {
     <footer className="bg-card border-t border-white/10 pt-12 pb-8">
       <div className="container mx-auto px-6">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-8">
-          {/* Left: Brand + Email */}
+          {/* Left: Brand */}
           <div>
             <div className="font-display font-bold text-2xl tracking-wider text-primary mb-1">
               DUBDUB22
             </div>
-            <p className="text-xs text-muted-foreground mb-3">A product of Double T Tactical</p>
-            <a
-              href="mailto:info@dubdub22.com"
-              className="flex items-center gap-2 text-muted-foreground hover:text-primary transition-colors text-sm"
-            >
-              <Mail size={14} />
-              info@dubdub22.com
-            </a>
+            <p className="text-xs text-muted-foreground">A product of Double T Tactical</p>
           </div>
 
           {/* Center: Compliance Pages */}
@@ -58,6 +51,12 @@ export default function SiteFooter() {
                 <Phone size={14} className="text-primary" />
                 <a href="tel:+14693078001" className="hover:text-primary transition-colors">
                   469-307-8001
+                </a>
+              </li>
+              <li className="flex items-center gap-2">
+                <Mail size={14} className="text-primary" />
+                <a href="mailto:sales@doublettactical.com" className="hover:text-primary transition-colors">
+                  sales@doublettactical.com
                 </a>
               </li>
               <li className="flex items-center gap-2">
