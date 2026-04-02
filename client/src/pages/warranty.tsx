@@ -117,9 +117,15 @@ function WarrantyForm() {
       setSubmitted(true);
       form.reset();
     } catch (err) {
+      const msg = err instanceof Error ? err.message : "submit_failed";
+      const descriptions: Record<string, string> = {
+        serial_must_be_alphanumeric_min_6: "Serial number must be at least 6 characters and only contain letters and numbers.",
+        description_must_have_word_3_letters: "Description must be at least 3 words.",
+        missing_required_fields: "Please fill in all required fields.",
+      };
       toast({
         title: "Send Failed",
-        description: "Could not send warranty request. Please try again.",
+        description: descriptions[msg] ?? "Could not send warranty request. Please try again.",
         variant: "destructive",
       });
     } finally {

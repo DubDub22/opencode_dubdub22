@@ -1,4 +1,5 @@
 User-agent: *
 Allow: /
-
+Disallow: /admin
+Disallow: /api/
 Sitemap: https://dubdub22.com/sitemap.xml

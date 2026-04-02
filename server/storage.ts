@@ -1,6 +1,7 @@
 import {
   type User, type InsertUser,
   type Submission, type InsertSubmission,
+  submissions,
 } from "@shared/schema";
 
 import {

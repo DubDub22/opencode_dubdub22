@@ -38,10 +38,25 @@ export interface FFLRecord {
 
 // In-memory lookup: normalized FFL -> record
 let fflMap: Map<string, FFLRecord> = new Map();
+// Secondary index: "REGN-DIST-SEQN" -> record (for short-format lookup X-XX-XXXXX)
+let fflByTuple: Map<string, FFLRecord> = new Map();
 let loaded = false;
 
 function normalizeKey(ffl: string): string {
   return ffl.replace(/[^0-9A-Za-z]/gi, "").toUpperCase();
+}
+
+// Parse X-XX-XXXXX format into (REGN, DIST, SEQN) tuple key
+// e.g. "5-74-07004" -> { regn: "5", dist: "74", seqn: "07004" }
+function parseShortFFL(ffl: string): { regn: string; dist: string; seqn: string } | null {
+  const digits = ffl.replace(/\D/g, "");
+  // X-XX-XXXXX = 1 digit + 2 digits + 5 digits = 8 digits total
+  if (digits.length !== 8) return null;
+  return {
+    regn: digits[0],
+    dist: digits.slice(1, 3),
+    seqn: digits.slice(3),
+  };
 }
 
 export async function loadFFLMaster(): Promise<void> {
@@ -102,6 +117,26 @@ export async function loadFFLMaster(): Promise<void> {
       premiseZip: parseZipCode(rec.PREMISE_ZIP_CODE),
       voicePhone: rec.VOICE_PHONE,
     });
+
+    // Secondary index: REGN-DIST-SEQN (padded) -> record
+    // This supports short-format lookup via X-XX-XXXXX
+    const regn = rec.LIC_REGN.trim().replace(/^0+/, "") || "0";
+    const dist = rec.LIC_DIST.trim().replace(/^0+/, "") || "0";
+    const seqn = rec.LIC_SEQN.trim().replace(/^0+/, "") || "0";
+    const tupleKey = `${regn}-${dist}-${seqn}`;
+    // Only store first match per tuple (short format can be ambiguous)
+    if (!fflByTuple.has(tupleKey)) {
+      fflByTuple.set(tupleKey, {
+        fflNumber,
+        licenseeName,
+        businessName,
+        premiseStreet: rec.PREMISE_STREET,
+        premiseCity: rec.PREMISE_CITY,
+        premiseState: rec.PREMISE_STATE,
+        premiseZip: parseZipCode(rec.PREMISE_ZIP_CODE),
+        voicePhone: rec.VOICE_PHONE,
+      });
+    }
   }
   loaded = true;
   console.log(`[ffl-master] Loaded ${fflMap.size} FFL records`);
@@ -110,7 +145,19 @@ export async function loadFFLMaster(): Promise<void> {
 export function validateFFL(fflNumber: string): FFLRecord | null {
   if (!loaded) return null;
   const normalized = normalizeKey(fflNumber);
-  return fflMap.get(normalized) || null;
+  // Try full format first
+  const full = fflMap.get(normalized);
+  if (full) return full;
+  // Try short format X-XX-XXXXX
+  const short = parseShortFFL(fflNumber);
+  if (short) {
+    // Strip leading zeros to match how the secondary index is built
+    const regn = short.regn.replace(/^0+/, "") || "0";
+    const dist = short.dist.replace(/^0+/, "") || "0";
+    const seqn = short.seqn.replace(/^0+/, "") || "0";
+    return fflByTuple.get(`${regn}-${dist}-${seqn}`) || null;
+  }
+  return null;
 }
 
 export function getFFLCount(): number {
