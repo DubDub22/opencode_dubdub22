@@ -1463,7 +1463,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         try {
           await sendViaGmail({
             to: dealerEmail,
-            cc: "inquiries@dubdub22.com",
+            bcc: "inquiries@dubdub22.com",
             subject: `DubDub22 Customer Interest — ${dealer.business_name}`,
             text: [
               `A customer has inquired about the DubDub22 suppressor through our web site and selected you as their preferred dealer. In order to help our dealers maximize profits, we don't cut you out of the sale. Our products are only available through dealers. Please visit us at dubdub22.com to order a demo unit or a stocking order for your store.`,
