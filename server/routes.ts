@@ -592,7 +592,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           d.*,
           COUNT(ds.id) AS order_count,
           COUNT(*) FILTER (WHERE ds.order_type = 'demo_order') AS demo_count,
-          COUNT(*) FILTER (WHERE ds.order_type = 'retail_order') AS retail_count
+          COUNT(*) FILTER (WHERE ds.order_type = 'retail_order') AS retail_count,
+          d.demo_fulfilled_at
         FROM dealers d
         LEFT JOIN dealer_submissions ds ON ds.dealer_id = d.id
         GROUP BY d.id
@@ -1069,24 +1070,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return res.json({ hasShippedDemo: false, demoFulfilledAt: null });
     }
     try {
-      // Check submissions table first (has_ordered_demo = true)
-      const sub = await pool.query(
-        `SELECT created_at FROM submissions WHERE email = $1 AND has_ordered_demo = 'true' AND type = 'dealer' ORDER BY created_at DESC LIMIT 1`,
+      // Use demo_fulfilled_at on dealers table directly
+      const dealer = await pool.query(
+        `SELECT demo_fulfilled_at FROM dealers WHERE LOWER(email) = LOWER($1) LIMIT 1`,
         [email]
       );
-      if (sub.rows.length > 0) {
-        return res.json({ hasShippedDemo: true, demoFulfilledAt: sub.rows[0].created_at });
-      }
-      // Also check dealer_orders for shipped demo samples
-      const dealerOrder = await pool.query(
-        `SELECT o.created_at FROM dealer_orders o
-         JOIN dealers d ON o.dealer_id::text = d.id::text
-         WHERE d.email = $1 AND o.is_dealer_sample = true AND o.status = 'shipped'
-         ORDER BY o.created_at DESC LIMIT 1`,
-        [email]
-      );
-      if (dealerOrder.rows.length > 0) {
-        return res.json({ hasShippedDemo: true, demoFulfilledAt: dealerOrder.rows[0].created_at });
+      if (dealer.rows.length > 0 && dealer.rows[0].demo_fulfilled_at) {
+        return res.json({ hasShippedDemo: true, demoFulfilledAt: dealer.rows[0].demo_fulfilled_at });
       }
       return res.json({ hasShippedDemo: false, demoFulfilledAt: null });
     } catch {
@@ -1529,29 +1519,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/admin/warranty-requests", requireAdmin, async (req, res) => {
     try {
       const { search, status } = req.query;
-      let query = `
-        SELECT wr.*,
-          sn.serial,
-          c.name as customer_name, c.email as customer_email, c.phone as customer_phone,
-          u.name as reviewed_by_name
-        FROM warranty_requests wr
-        LEFT JOIN serial_numbers sn ON wr.serial_number_id = sn.id
-        LEFT JOIN customers c ON wr.customer_id = c.id
-        LEFT JOIN users u ON wr.reviewed_by = u.id
-        WHERE 1=1`;
+      let query = `SELECT * FROM submissions WHERE type = 'warranty'`;
       const params: any[] = [];
       let idx = 1;
 
       if (status && status !== "all") {
-        query += ` AND wr.status = $${idx++}`;
+        query += ` AND status = $${idx++}`;
         params.push(status);
       }
       if (search) {
-        query += ` AND (wr.request_type ILIKE $${idx} OR wr.description ILIKE $${idx} OR sn.serial_number ILIKE $${idx} OR c.name ILIKE $${idx} OR c.email ILIKE $${idx})`;
+        query += ` AND (contact_name ILIKE $${idx} OR email ILIKE $${idx} OR serial_number ILIKE $${idx} OR description ILIKE $${idx})`;
         params.push(`%${search}%`);
         idx++;
       }
-      query += ` ORDER BY wr.created_at DESC`;
+      query += ` ORDER BY created_at DESC`;
 
       const result = await pool.query(query, params);
       return res.json({ ok: true, data: result.rows });
@@ -1631,7 +1612,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { status, admin_notes } = req.body;
       const result = await pool.query(
-        `UPDATE warranty_requests SET status = COALESCE($1, status), admin_notes = COALESCE($2, admin_notes), updated_at = CURRENT_TIMESTAMP WHERE id = $3 RETURNING *`,
+        `UPDATE submissions SET status = COALESCE($1, status), admin_notes = COALESCE($2, admin_notes), updated_at = CURRENT_TIMESTAMP WHERE id = $3 AND type = 'warranty' RETURNING *`,
         [status, admin_notes, req.params.id]
       );
       if (result.rows.length === 0) return res.status(404).json({ ok: false, error: "not_found" });

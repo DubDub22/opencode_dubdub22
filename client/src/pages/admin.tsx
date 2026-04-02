@@ -1702,7 +1702,7 @@ function WarrantyTab({
     if (statusFilter !== "all" && r.status !== statusFilter) return false;
     if (search) {
       const q = search.toLowerCase();
-      const s = `${r.request_type || ""} ${r.description || ""} ${r.serial_number || ""} ${r.customer_name || ""} ${r.customer_email || ""}`.toLowerCase();
+      const s = `${r.contact_name || ""} ${r.email || ""} ${r.serial_number || ""} ${r.description || ""}`.toLowerCase();
       if (!s.includes(q)) return false;
     }
     return true;
