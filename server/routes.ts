@@ -824,6 +824,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // List serial label runs
+  app.get("/api/admin/label-runs", requireAdmin, async (req, res) => {
+    try {
+      const result = await pool.query(
+        "SELECT id, start_serial, end_serial, filename, label_count, created_by, created_at FROM serial_label_runs ORDER BY created_at DESC LIMIT 50"
+      );
+      return res.json({ ok: true, data: result.rows });
+    } catch (err: any) {
+      console.error("label_runs_list_error", err);
+      return res.status(500).json({ ok: false, error: "Failed to fetch label runs" });
+    }
+  });
+
   // Generate serial label PDF (roll strip, 2x2 labels)
   app.post("/api/admin/labels/generate", requireAdmin, async (req, res) => {
     try {
@@ -844,7 +857,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!pdfPath) {
         return res.status(500).json({ ok: false, error: "Label generation failed", detail: output });
       }
-      return res.json({ ok: true, pdfPath, filename: `labels_${start}-${end}.pdf` });
+      const filename = `labels_${start}-${end}.pdf`;
+      const labelCount = end - start + 1;
+      await pool.query(
+        "INSERT INTO serial_label_runs (start_serial, end_serial, filename, file_path, label_count) VALUES ($1, $2, $3, $4, $5)",
+        [start, end, filename, pdfPath, labelCount]
+      );
+      return res.json({ ok: true, pdfPath, filename });
     } catch (err: any) {
       console.error("label_generate_error", err);
       return res.status(500).json({ ok: false, error: "Generation failed", detail: err.message });
@@ -858,15 +877,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!requestedPath || typeof requestedPath !== "string") {
         return res.status(400).json({ ok: false, error: "path is required" });
       }
-      const safePath = requestedPath.replace(/[^0-9\-.]/g, "");
-      const pdfPath = `/home/dubdub/DubDub-Hub/static/labels/${safePath}`;
+      // Block path traversal and invalid filenames (allow pdf and png)
+      if (requestedPath.includes("..") || !/^[a-zA-Z0-9_\-.]+\.(pdf|png)$/.test(requestedPath)) {
+        return res.status(400).json({ ok: false, error: "Invalid filename" });
+      }
+      const labelPath = `/home/dubdub/DubDub-Hub/static/labels/${requestedPath}`;
       const fs = await import("fs");
-      if (!fs.existsSync(pdfPath)) {
+      if (!fs.existsSync(labelPath)) {
         return res.status(404).json({ ok: false, error: "File not found" });
       }
-      res.setHeader("Content-Type", "application/pdf");
-      res.setHeader("Content-Disposition", `attachment; filename="${safePath}"`);
-      return res.sendFile(pdfPath);
+      const isPng = requestedPath.endsWith(".png");
+      res.setHeader("Content-Type", isPng ? "image/png" : "application/pdf");
+      res.setHeader("Content-Disposition", `attachment; filename="${requestedPath}"`);
+      return res.sendFile(labelPath);
     } catch (err: any) {
       console.error("label_download_error", err);
       return res.status(500).json({ ok: false, error: "Download failed" });

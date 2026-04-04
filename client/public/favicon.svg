@@ -1,23 +1,13 @@
 <svg width="256" height="256" viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg">
   <defs>
-    <radialGradient id="grad" cx="50%" cy="50%" r="50%">
-      <stop offset="0%" stop-color="#3a3a3a"/>
-      <stop offset="100%" stop-color="#141414"/>
-    </radialGradient>
+    <clipPath id="circle-clip">
+      <circle cx="128" cy="128" r="128"/>
+    </clipPath>
   </defs>
-  <rect width="256" height="256" rx="64" fill="url(#grad)" />
-  
-  <g stroke="#ffffff" stroke-linecap="round" fill="none" stroke-opacity="0.8">
-    <path d="M 128 32 C 160 32, 224 96, 224 160" stroke-width="12" />
-    <path d="M 224 128 C 224 160, 160 224, 96 224" stroke-width="12" />
-    <path d="M 128 224 C 96 224, 32 160, 32 96" stroke-width="12" />
-    <path d="M 32 128 C 32 96, 96 32, 160 32" stroke-width="12" />
-
-    <path d="M 128 64 C 140 64, 192 100, 192 140" stroke-width="8" stroke-opacity="0.6"/>
-    <path d="M 192 128 C 192 140, 140 192, 100 192" stroke-width="8" stroke-opacity="0.6"/>
-    <path d="M 128 192 C 140 192, 64 156, 64 116" stroke-width="8" stroke-opacity="0.6"/>
-    <path d="M 64 128 C 64 140, 116 64, 156 64" stroke-width="8" stroke-opacity="0.6"/>
-  </g>
-  
-  <circle cx="128" cy="128" r="32" fill="#000" stroke="#888" stroke-width="4"/>
+  <!-- Background -->
+  <rect width="256" height="256" fill="#141414" rx="0"/>
+  <!-- Embedded top-down suppressor image, cropped to circle -->
+  <image href="/attached_assets/Screenshot 2025-11-25 at 1.58.38 AM_1764054189441.png" width="1328" height="1292" clip-path="url(#circle-clip)" transform="translate(-536,-518) scale(0.192)"/>
+  <!-- Orange ring overlay -->
+  <circle cx="128" cy="128" r="118" fill="none" stroke="#ff6600" stroke-width="8"/>
 </svg>

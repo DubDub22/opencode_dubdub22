@@ -7,7 +7,8 @@ import {
   Copy, Image as ImageIcon, Download, Trash2, Package,
   ChevronRight, ArrowLeft, Building2, FileText,
   Upload, Eye, X, Search, Inbox,
-  MessageSquare, ShieldCheck, Phone, Files, CheckCircle, XCircle, Send
+  MessageSquare, ShieldCheck, Phone, Files, CheckCircle, XCircle, Send,
+  Hash, RefreshCw
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -96,7 +97,7 @@ type Dealer = {
   submissions?: Submission[];
 };
 
-type Tab = "submissions" | "warranty" | "dealer_inquiries" | "files" | "tax_forms";
+type Tab = "submissions" | "warranty" | "dealer_inquiries" | "files" | "tax_forms" | "serials";
 
 // ── Schemas ────────────────────────────────────────────────────────────────────
 
@@ -2151,6 +2152,106 @@ function TaxFormsTab() {
   );
 }
 
+// ── Serials Tab ────────────────────────────────────────────────────────────────
+
+function SerialsTab() {
+  const { toast } = useToast();
+  const [runs, setRuns] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [downloading, setDownloading] = useState<number | null>(null);
+
+  const fetchRuns = useCallback(async () => {
+    try {
+      const res = await fetch("/api/admin/label-runs");
+      if (!res.ok) throw new Error("Failed to fetch");
+      const data = await res.json();
+      setRuns(data.data || []);
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    } finally {
+      setLoading(false);
+    }
+  }, [toast]);
+
+  useEffect(() => { fetchRuns(); }, [fetchRuns]);
+
+  const handleDownload = async (run: any) => {
+    setDownloading(run.id);
+    try {
+      const res = await fetch(`/api/admin/labels/download?path=${encodeURIComponent(run.filename)}`);
+      if (!res.ok) throw new Error("Download failed");
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = run.filename;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast({ title: "Download started", description: run.filename });
+    } catch (err: any) {
+      toast({ title: "Download failed", description: err.message, variant: "destructive" });
+    } finally {
+      setDownloading(null);
+    }
+  };
+
+  if (loading) return <p className="text-muted-foreground text-sm">Loading...</p>;
+
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+        <div>
+          <h2 className="text-lg font-semibold">Serial Label Runs</h2>
+          <p className="text-sm text-muted-foreground">All generated label strips — click to re-download.</p>
+        </div>
+        <Button size="sm" variant="outline" onClick={fetchRuns}>
+          <RefreshCw className="w-3.5 h-3.5 mr-1.5" />Refresh
+        </Button>
+      </div>
+
+      {runs.length === 0 ? (
+        <p className="text-muted-foreground text-sm">No label runs yet. Generate your first set from the Files tab.</p>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm text-left">
+            <thead>
+              <tr className="border-b border-border text-muted-foreground">
+                <th className="pb-2 pr-4 font-medium">Range</th>
+                <th className="pb-2 pr-4 font-medium">Count</th>
+                <th className="pb-2 pr-4 font-medium">Generated</th>
+                <th className="pb-2 font-medium">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {runs.map(run => (
+                <tr key={run.id} className="border-b border-border/50 hover:bg-muted/20">
+                  <td className="py-2.5 pr-4 font-mono text-sm">
+                    {run.start_serial} – {run.end_serial}
+                  </td>
+                  <td className="py-2.5 pr-4">{run.label_count} labels</td>
+                  <td className="py-2.5 pr-4 text-muted-foreground text-xs">
+                    {new Date(run.created_at).toLocaleString()}
+                  </td>
+                  <td className="py-2.5">
+                    <Button
+                      variant="outline" size="sm" className="text-xs h-7 gap-1.5"
+                      onClick={() => handleDownload(run)}
+                      disabled={downloading === run.id}
+                    >
+                      <Download className="w-3 h-3" />
+                      {downloading === run.id ? "Preparing..." : "Download"}
+                    </Button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Files Tab ─────────────────────────────────────────────────────────────────
 
 function FilesTab() {
@@ -2307,7 +2408,7 @@ function FilesTab() {
               disabled={generating || !labelStart || !labelEnd}
             >
               <Download className="w-3.5 h-3.5" />
-              {generating ? "Generating..." : "Generate & Download PDF"}
+              {generating ? "Generating..." : "Generate & Download"}
             </Button>
           </form>
           {labelError && <p className="text-xs text-red-500 mt-2">{labelError}</p>}
@@ -2604,6 +2705,14 @@ export default function AdminPage() {
           >
             <FileText className="w-4 h-4 inline mr-1.5" />Tax Forms
           </button>
+          <button
+            onClick={() => { setTab("serials"); }}
+            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
+              tab === "serials" ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            <Hash className="w-4 h-4 inline mr-1.5" />Serials
+          </button>
         </div>
 
         {/* Tab content */}
@@ -2662,6 +2771,14 @@ export default function AdminPage() {
           <Card className="bg-card/50 border-border">
             <CardContent className="p-4 md:p-6">
               <TaxFormsTab />
+            </CardContent>
+          </Card>
+        )}
+
+        {tab === "serials" && (
+          <Card className="bg-card/50 border-border">
+            <CardContent className="p-4 md:p-6">
+              <SerialsTab />
             </CardContent>
           </Card>
         )}
