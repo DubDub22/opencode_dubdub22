@@ -81,7 +81,6 @@ const FileZone = React.forwardRef<HTMLInputElement, {
           required={props.required}
           ref={ref}
           className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
-          style={{ pointerEvents: 'none' }}
           onChange={handleChange}
           onDragOver={() => setDragging(true)}
           onDragLeave={() => setDragging(false)}
