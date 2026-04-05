@@ -30,26 +30,10 @@ type DealerApplyValues = z.infer<typeof dealerApplySchema>;
 
 // ─── Helpers ───────────────────────────────────────────────────────────────────
 
-async function processImage(file: File | null): Promise<string | undefined> {
-  if (!file) return undefined;
+async function readFileAsBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
-    reader.onload = (e) => {
-      const img = new Image();
-      img.src = e.target?.result as string;
-      img.onload = () => {
-        const canvas = document.createElement("canvas");
-        let w = img.width, h = img.height;
-        const MAX = 1024;
-        if (w > h && w > MAX) { h = Math.round(h * MAX / w); w = MAX; }
-        else if (h > MAX) { w = Math.round(w * MAX / h); h = MAX; }
-        canvas.width = w; canvas.height = h;
-        const ctx = canvas.getContext("2d");
-        if (ctx) ctx.drawImage(img, 0, 0, w, h);
-        resolve(canvas.toDataURL("image/jpeg", 0.6).split(",")[1]);
-      };
-      img.onerror = reject;
-    };
+    reader.onload = (e) => resolve(e.target?.result as string);
     reader.onerror = reject;
     reader.readAsDataURL(file);
   });
@@ -57,14 +41,14 @@ async function processImage(file: File | null): Promise<string | undefined> {
 
 // ─── File Upload Zone ───────────────────────────────────────────────────────────
 
-function FileZone(props: {
+const FileZone = React.forwardRef<HTMLInputElement, {
   id: string;
   label: string;
   accept: string;
   required?: boolean;
   description?: string;
   onFileSelect?: (file: File | null) => void;
-}) {
+}>((props, ref) => {
   const [dragging, setDragging] = useState(false);
   const [fileName, setFileName] = useState<string | null>(null);
 
@@ -94,6 +78,7 @@ function FileZone(props: {
           type="file"
           accept={props.accept}
           required={props.required}
+          ref={ref}
           className="absolute inset-0 w-[200%] h-[200%] -ml-10 -mt-10 opacity-0 cursor-pointer z-50"
           onChange={handleChange}
           onDragOver={() => setDragging(true)}
@@ -113,27 +98,29 @@ function FileZone(props: {
       </div>
     </div>
   );
-}
+});
 
 // ─── Pending FFL Upload (dealer not in database) ────────────────────────────────
 
 function PendingUpload(props: { fflNumber: string }) {
   const { toast } = useToast();
-  const [fflFile, setFflFile] = useState<File | null>(null);
-  const [sotFile, setSotFile] = useState<File | null>(null);
+  const fflRef = React.useRef<HTMLInputElement>(null);
+  const sotRef = React.useRef<HTMLInputElement>(null);
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    const fflFile = fflRef.current?.files?.[0] || null;
+    const sotFile = sotRef.current?.files?.[0] || null;
     if (!fflFile && !sotFile) {
       toast({ title: "FFL or SOT Required", description: "Please upload your FFL or SOT document.", variant: "destructive" });
       return;
     }
     setSubmitting(true);
     try {
-      const fflData = await processImage(fflFile);
-      const sotData = sotFile ? await processImage(sotFile) : undefined;
+      const fflData = fflFile ? await readFileAsBase64(fflFile).then(b => b.split(",")[1]) : undefined;
+      const sotData = sotFile ? await readFileAsBase64(sotFile).then(b => b.split(",")[1]) : undefined;
       const resp = await fetch("/api/ffl/upload", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -188,14 +175,14 @@ function PendingUpload(props: { fflNumber: string }) {
         label="FFL Document"
         accept=".pdf,.png,.jpg,.jpeg"
         description="Accepted: PDF, PNG, JPG"
-        onFileSelect={setFflFile}
+        ref={fflRef}
       />
       <FileZone
         id="sot-upload"
         label="SOT Document"
         accept=".pdf,.png,.jpg,.jpeg"
         description="Accepted: PDF, PNG, JPG"
-        onFileSelect={setSotFile}
+        ref={sotRef}
       />
       <Button
         type="submit"
@@ -221,8 +208,8 @@ function DealerForm(props: { fflNumber: string; dealerName?: string; email?: str
   const { toast } = useToast();
   const [orderKind, setOrderKind] = useState<"inquiry" | "demo" | "stocking">("inquiry");
   const [quantityCans, setQuantityCans] = useState("5");
-  const [fflFile, setFflFile] = useState<File | null>(null);
-  const [sotFile, setSotFile] = useState<File | null>(null);
+  const fflRef = React.useRef<HTMLInputElement>(null);
+  const sotRef = React.useRef<HTMLInputElement>(null);
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
 
@@ -241,14 +228,16 @@ function DealerForm(props: { fflNumber: string; dealerName?: string; email?: str
   });
 
   async function onSubmit(values: DealerApplyValues) {
+    const fflFile = fflRef.current?.files?.[0] || null;
+    const sotFile = sotRef.current?.files?.[0] || null;
     if (!fflFile && !sotFile) {
       toast({ title: "FFL or SOT Required", description: "Please upload your FFL or SOT document.", variant: "destructive" });
       return;
     }
     setSubmitting(true);
     try {
-      const fflData = fflFile ? await processImage(fflFile) : undefined;
-      const sotData = sotFile ? await processImage(sotFile) : undefined;
+      const fflData = fflFile ? await readFileAsBase64(fflFile).then(b => b.split(",")[1]) : undefined;
+      const sotData = sotFile ? await readFileAsBase64(sotFile).then(b => b.split(",")[1]) : undefined;
 
       const body: Record<string, unknown> = {
         ...values,
@@ -537,7 +526,7 @@ function DealerForm(props: { fflNumber: string; dealerName?: string; email?: str
             label="FFL on File"
             accept=".pdf,.png,.jpg,.jpeg"
             description="Accepted: PDF, PNG, JPG"
-            onFileSelect={setFflFile}
+            ref={fflRef}
           />
           <FileZone
             id="sot-upload"
@@ -545,7 +534,7 @@ function DealerForm(props: { fflNumber: string; dealerName?: string; email?: str
             accept=".pdf,.png,.jpg,.jpeg"
             required={sotRequired}
             description="Accepted: PDF, PNG, JPG"
-            onFileSelect={setSotFile}
+            ref={sotRef}
           />
         </div>
 
