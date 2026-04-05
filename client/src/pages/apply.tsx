@@ -194,9 +194,10 @@ function PendingUpload(props: { fflNumber: string }) {
         ref={sotRef}
       />
       <Button
-        type="submit"
+        type="button"
         disabled={submitting}
         className="w-full font-display text-lg h-12 bg-primary hover:bg-primary/90 cursor-pointer"
+        onClick={() => { console.log("[DUB_DUB] button clicked"); handleSubmit({ preventDefault: () => {}, stopPropagation: () => {} } as any); }}
       >
         {submitting ? (
           <span className="flex items-center gap-2">
