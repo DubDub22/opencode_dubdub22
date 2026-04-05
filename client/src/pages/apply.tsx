@@ -63,9 +63,16 @@ function FileZone(props: {
   accept: string;
   required?: boolean;
   description?: string;
+  onFileSelect?: (file: File | null) => void;
 }) {
   const [dragging, setDragging] = useState(false);
   const [fileName, setFileName] = useState<string | null>(null);
+
+  function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0] || null;
+    setFileName(file?.name || null);
+    props.onFileSelect?.(file);
+  }
 
   return (
     <div className="space-y-2">
@@ -88,7 +95,7 @@ function FileZone(props: {
           accept={props.accept}
           required={props.required}
           className="absolute inset-0 w-[200%] h-[200%] -ml-10 -mt-10 opacity-0 cursor-pointer z-50"
-          onChange={(e) => setFileName(e.target.files?.[0]?.name || null)}
+          onChange={handleChange}
           onDragOver={() => setDragging(true)}
           onDragLeave={() => setDragging(false)}
           onDrop={() => setDragging(false)}
@@ -182,12 +189,14 @@ function PendingUpload(props: { fflNumber: string }) {
         accept=".pdf,.png,.jpg,.jpeg"
         required
         description="Accepted: PDF, PNG, JPG"
+        onFileSelect={setFflFile}
       />
       <FileZone
         id="sot-upload"
         label="SOT Document"
         accept=".pdf,.png,.jpg,.jpeg"
         description="Accepted: PDF, PNG, JPG"
+        onFileSelect={setSotFile}
       />
       <Button
         type="submit"
