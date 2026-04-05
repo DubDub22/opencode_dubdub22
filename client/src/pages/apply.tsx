@@ -111,16 +111,21 @@ function PendingUpload(props: { fflNumber: string }) {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    e.stopPropagation();
     const fflFile = fflRef.current?.files?.[0] || null;
     const sotFile = sotRef.current?.files?.[0] || null;
+    console.log("[DUB_DUB] handleSubmit fired", { fflFile: fflFile?.name, sotFile: sotFile?.name });
     if (!fflFile && !sotFile) {
+      console.log("[DUB_DUB] NO FILES - showing toast");
       toast({ title: "FFL or SOT Required", description: "Please upload your FFL or SOT document.", variant: "destructive" });
       return;
     }
     setSubmitting(true);
     try {
+      console.log("[DUB_DUB] reading files...");
       const fflData = fflFile ? await readFileAsBase64(fflFile).then(b => b.split(",")[1]) : undefined;
       const sotData = sotFile ? await readFileAsBase64(sotFile).then(b => b.split(",")[1]) : undefined;
+      console.log("[DUB_DUB] fflData length:", fflData?.length, "sotData length:", sotData?.length);
       const resp = await fetch("/api/ffl/upload", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -131,12 +136,16 @@ function PendingUpload(props: { fflNumber: string }) {
           sotFileName: sotFile?.name || null,
         }),
       });
+      console.log("[DUB_DUB] resp status:", resp.status);
       const data = await resp.json();
+      console.log("[DUB_DUB] resp data:", JSON.stringify(data));
       if (!resp.ok) throw new Error(data.error || "Upload failed");
       setSubmitted(true);
     } catch (err: any) {
+      console.log("[DUB_DUB] catch err:", err.message);
       toast({ title: "Upload Failed", description: err.message, variant: "destructive" });
     } finally {
+      console.log("[DUB_DUB] finally, setting submitting=false");
       setSubmitting(false);
     }
   }
