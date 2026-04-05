@@ -1671,7 +1671,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // ── Admin: Dealer Inquiries (combined submissions + retail_inquiries) ──
+  // ── Admin: Dealer Inquiries (submissions dealer leads only) ──
   app.get("/api/admin/dealer-inquiries", requireAdmin, async (req, res) => {
     try {
       const { search } = req.query;
@@ -1679,22 +1679,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let idx = 1;
 
       // Submissions: dealer leads (type=dealer, has_ordered_demo=false)
-      let subQuery = `SELECT 'submission' as source, id::text as id, contact_name, business_name, email, phone, NULL::text as message, created_at::timestamp as created_at FROM submissions WHERE type = 'dealer' AND has_ordered_demo = 'false'`;
+      let query = `SELECT 'submission' as source, id::text as id, contact_name, business_name, email, phone, NULL::text as message, created_at::timestamp as created_at FROM submissions WHERE type = 'dealer' AND has_ordered_demo = 'false'`;
       if (search) {
-        subQuery += ` AND (contact_name ILIKE $${idx} OR business_name ILIKE $${idx} OR email ILIKE $${idx})`;
+        query += ` AND (contact_name ILIKE $${idx} OR business_name ILIKE $${idx} OR email ILIKE $${idx})`;
         params.push(`%${search}%`);
         idx++;
       }
+      query += ` ORDER BY created_at DESC`;
 
-      // Retail inquiries: duplicate leads from the public form
-      let retailQuery = `SELECT 'retail_inquiry' as source, ri.id::text as id, ri.contact_name, d.business_name, ri.email, ri.phone, ri.message, ri.created_at FROM retail_inquiries ri LEFT JOIN dealers d ON ri.dealer_id = d.id`;
-      if (search) {
-        retailQuery += ` WHERE (ri.contact_name ILIKE $${idx} OR d.business_name ILIKE $${idx} OR ri.email ILIKE $${idx})`;
-        params.push(`%${search}%`);
-      }
-
-      const combined = `SELECT * FROM ((${subQuery}) UNION ALL (${retailQuery})) AS combined ORDER BY created_at DESC`;
-      const result = await pool.query(combined, params);
+      const result = await pool.query(query, params);
       return res.json({ ok: true, data: result.rows });
     } catch (err: any) {
       console.error("admin_dealer_inquiries_error", err);
