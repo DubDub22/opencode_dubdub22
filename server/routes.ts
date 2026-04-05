@@ -1863,6 +1863,78 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Admin: Get pending FFL uploads (dealers who submitted FFL/SOT for verification)
+  app.get("/api/admin/verify-ffl", requireAdmin, async (req, res) => {
+    try {
+      const result = await pool.query(`
+        SELECT id, business_name, contact_name, email, phone,
+               ffl_license_number, ffl_file_name, ffl_file_data,
+               sot_file_name, sot_file_data, verified, source,
+               ffl_form_status, sot_form_status,
+               created_at, updated_at
+        FROM dealers
+        WHERE ffl_file_data IS NOT NULL AND ffl_file_data != ''
+           OR sot_file_data IS NOT NULL AND sot_file_data != ''
+        ORDER BY updated_at DESC
+      `);
+      return res.json({ ok: true, data: result.rows });
+    } catch (err: any) {
+      console.error("admin_verify_ffl_error", err);
+      return res.status(500).json({ ok: false, error: "server_error" });
+    }
+  });
+
+  // Admin: Approve FFL upload (mark verified, change source to web_form)
+  app.post("/api/admin/verify-ffl/:id/approve", requireAdmin, async (req, res) => {
+    try {
+      const { id } = req.params;
+      await pool.query(
+        `UPDATE dealers SET verified = true, source = 'web_form',
+         ffl_form_status = 'accepted', sot_form_status = 'accepted'
+         WHERE id = $1`,
+        [id]
+      );
+      return res.json({ ok: true });
+    } catch (err: any) {
+      console.error("admin_verify_ffl_approve_error", err);
+      return res.status(500).json({ ok: false, error: "server_error" });
+    }
+  });
+
+  // Admin: Deny FFL upload (clear files, mark pending, send email)
+  app.post("/api/admin/verify-ffl/:id/deny", requireAdmin, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { reason } = req.body;
+      const dealer = await pool.query(`SELECT * FROM dealers WHERE id = $1`, [id]);
+      if (!dealer.rows.length) return res.status(404).json({ ok: false, error: "not_found" });
+
+      await pool.query(
+        `UPDATE dealers SET
+           ffl_file_data = NULL, ffl_file_name = NULL,
+           sot_file_data = NULL, sot_file_name = NULL,
+           ffl_form_status = 'denied', sot_form_status = 'denied'
+         WHERE id = $1`,
+        [id]
+      );
+
+      const emailHtml = `<p>Your FFL/SOT submission has been reviewed and could not be verified at this time.</p>
+${reason ? `<p><strong>Reason:</strong> ${reason}</p>` : ""}
+<p>Please visit <a href="https://dubdub22.com/dealers">dubdub22.com/dealers</a> to submit a new, valid FFL/SOT.</p>
+<p>— DubDub22 Minions</p>`;
+      await sendEmail({
+        to: dealer.rows[0].email,
+        subject: `DubDub22 FFL/SOT Verification — Action Required`,
+        html: emailHtml,
+      });
+
+      return res.json({ ok: true });
+    } catch (err: any) {
+      console.error("admin_verify_ffl_deny_error", err);
+      return res.status(500).json({ ok: false, error: "server_error" });
+    }
+  });
+
   // Admin: List all tax form records
   app.get("/api/admin/tax-forms", requireAdmin, async (req, res) => {
     try {

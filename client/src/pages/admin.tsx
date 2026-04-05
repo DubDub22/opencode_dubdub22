@@ -8,7 +8,7 @@ import {
   ChevronRight, ArrowLeft, Building2, FileText,
   Upload, Eye, X, Search, Inbox,
   MessageSquare, ShieldCheck, Phone, Files, CheckCircle, XCircle, Send,
-  Hash, RefreshCw
+  Hash, RefreshCw, User
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -97,7 +97,7 @@ type Dealer = {
   submissions?: Submission[];
 };
 
-type Tab = "submissions" | "warranty" | "dealer_inquiries" | "retail_inquiries" | "files" | "tax_forms" | "serials";
+type Tab = "submissions" | "warranty" | "dealer_inquiries" | "retail_inquiries" | "files" | "tax_forms" | "verify_ffl" | "serials";
 
 // ── Schemas ────────────────────────────────────────────────────────────────────
 
@@ -1930,6 +1930,193 @@ function DealerInquiriesTab({
   );
 }
 
+// ── Verify FFL Tab ─────────────────────────────────────────────────────────────
+
+function VerifyFflTab() {
+  const { toast } = useToast();
+  const [records, setRecords] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [reviewTarget, setReviewTarget] = useState<any | null>(null);
+  const [denyReason, setDenyReason] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  const fetchRecords = useCallback(async () => {
+    try {
+      const res = await fetch("/api/admin/verify-ffl");
+      if (!res.ok) throw new Error("Failed to fetch");
+      const data = await res.json();
+      setRecords(data.data || []);
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    } finally {
+      setLoading(false);
+    }
+  }, [toast]);
+
+  useEffect(() => { fetchRecords(); }, [fetchRecords]);
+
+  const handleApprove = async (id: string) => {
+    try {
+      setSaving(true);
+      const res = await fetch(`/api/admin/verify-ffl/${id}/approve`, { method: "POST" });
+      if (!res.ok) throw new Error("Approve failed");
+      toast({ title: "Approved", description: "Dealer verified and notified by email." });
+      setReviewTarget(null);
+      fetchRecords();
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDeny = async (id: string) => {
+    if (!denyReason.trim()) {
+      toast({ title: "Reason Required", description: "Please enter a reason for the denial.", variant: "destructive" });
+      return;
+    }
+    try {
+      setSaving(true);
+      const res = await fetch(`/api/admin/verify-ffl/${id}/deny`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reason: denyReason }),
+      });
+      if (!res.ok) throw new Error("Deny failed");
+      toast({ title: "Denied", description: "Dealer notified with re-upload link." });
+      setReviewTarget(null);
+      setDenyReason("");
+      fetchRecords();
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (loading) return <p className="text-muted-foreground text-sm">Loading...</p>;
+
+  if (reviewTarget) {
+    return (
+      <div className="space-y-4">
+        <button onClick={() => setReviewTarget(null)} className="text-sm text-muted-foreground hover:text-foreground flex items-center gap-1">
+          <ArrowLeft className="w-4 h-4" /> Back to list
+        </button>
+        <div className="bg-card rounded-lg border border-border p-6 space-y-4">
+          <h2 className="text-xl font-bold">FFL/SOT Review</h2>
+          <div className="grid sm:grid-cols-2 gap-4 text-sm">
+            <div><span className="text-muted-foreground">Dealer:</span> <strong>{reviewTarget.business_name}</strong></div>
+            <div><span className="text-muted-foreground">Contact:</span> {reviewTarget.contact_name}</div>
+            <div><span className="text-muted-foreground">Email:</span> {reviewTarget.email}</div>
+            <div><span className="text-muted-foreground">Phone:</span> {reviewTarget.phone}</div>
+            <div><span className="text-muted-foreground">FFL:</span> <span className="font-mono">{reviewTarget.ffl_license_number}</span></div>
+            <div><span className="text-muted-foreground">Submitted:</span> {reviewTarget.updated_at ? format(new Date(reviewTarget.updated_at), "MMM d, yyyy") : "—"}</div>
+          </div>
+
+          <div className="grid sm:grid-cols-2 gap-4">
+            {reviewTarget.ffl_file_data ? (
+              <div className="space-y-2">
+                <p className="text-sm font-medium">FFL Document</p>
+                <img
+                  src={`data:image/jpeg;base64,${reviewTarget.ffl_file_data}`}
+                  alt="FFL"
+                  className="w-full max-h-64 object-contain border rounded bg-white cursor-pointer"
+                  onClick={() => window.open(`data:image/jpeg;base64,${reviewTarget.ffl_file_data}`, "_blank")}
+                />
+              </div>
+            ) : (
+              <div className="p-4 border border-dashed rounded text-muted-foreground text-sm">No FFL on file</div>
+            )}
+            {reviewTarget.sot_file_data ? (
+              <div className="space-y-2">
+                <p className="text-sm font-medium">SOT Document</p>
+                <img
+                  src={`data:image/jpeg;base64,${reviewTarget.sot_file_data}`}
+                  alt="SOT"
+                  className="w-full max-h-64 object-contain border rounded bg-white cursor-pointer"
+                  onClick={() => window.open(`data:image/jpeg;base64,${reviewTarget.sot_file_data}`, "_blank")}
+                />
+              </div>
+            ) : (
+              <div className="p-4 border border-dashed rounded text-muted-foreground text-sm">No SOT on file</div>
+            )}
+          </div>
+
+          <div className="flex flex-col sm:flex-row gap-3 pt-4 border-t">
+            <Button
+              onClick={() => handleApprove(reviewTarget.id)}
+              disabled={saving}
+              className="bg-green-600 hover:bg-green-700 text-white cursor-pointer"
+            >
+              {saving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <CheckCircle className="w-4 h-4 mr-2" />}
+              Approve & Verify
+            </Button>
+            <div className="flex-1 space-y-2">
+              <Input
+                placeholder="Reason for denial (optional)"
+                value={denyReason}
+                onChange={e => setDenyReason(e.target.value)}
+                className="bg-background"
+              />
+              <Button
+                onClick={() => handleDeny(reviewTarget.id)}
+                disabled={saving}
+                variant="destructive"
+                className="w-full"
+              >
+                {saving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <XCircle className="w-4 h-4 mr-2" />}
+                Deny & Notify
+              </Button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <h2 className="text-lg font-semibold">Pending FFL/SOT Verification ({records.length})</h2>
+      {records.length === 0 ? (
+        <p className="text-muted-foreground text-sm">No pending FFL/SOT uploads to review.</p>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm text-left">
+            <thead>
+              <tr className="border-b border-border text-muted-foreground">
+                <th className="pb-2 pr-4 font-medium">Dealer</th>
+                <th className="pb-2 pr-4 font-medium">FFL</th>
+                <th className="pb-2 pr-4 font-medium">Contact</th>
+                <th className="pb-2 pr-4 font-medium">Email</th>
+                <th className="pb-2 pr-4 font-medium">FFL File</th>
+                <th className="pb-2 pr-4 font-medium">SOT File</th>
+                <th className="pb-2 pr-4 font-medium">Submitted</th>
+                <th className="pb-2 font-medium">Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              {records.map(r => (
+                <tr key={r.id} className="border-b border-border hover:bg-muted/50">
+                  <td className="py-2 pr-4 font-medium">{r.business_name}</td>
+                  <td className="py-2 pr-4 font-mono text-xs">{r.ffl_license_number || "—"}</td>
+                  <td className="py-2 pr-4">{r.contact_name || "—"}</td>
+                  <td className="py-2 pr-4">{r.email || "—"}</td>
+                  <td className="py-2 pr-4">{r.ffl_file_data ? <CheckCircle className="w-4 h-4 text-green-400" /> : <XCircle className="w-4 h-4 text-muted-foreground" />}</td>
+                  <td className="py-2 pr-4">{r.sot_file_data ? <CheckCircle className="w-4 h-4 text-green-400" /> : <XCircle className="w-4 h-4 text-muted-foreground" />}</td>
+                  <td className="py-2 pr-4 text-muted-foreground">{r.updated_at ? format(new Date(r.updated_at), "MMM d") : "—"}</td>
+                  <td className="py-2">
+                    <Button size="sm" onClick={() => setReviewTarget(r)} className="cursor-pointer">Review</Button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Tax Forms Tab ─────────────────────────────────────────────────────────────
 
 function TaxFormsTab() {
@@ -2470,6 +2657,7 @@ export default function AdminPage() {
   const [dealerInquiryDeleteTarget, setDealerInquiryDeleteTarget] = useState<any | null>(null);
   const [retailInquiries, setRetailInquiries] = useState<any[]>([]);
   const [retailInquiriesSearch, setRetailInquiriesSearch] = useState("");
+  const [retailInquiriesStatus, setRetailInquiriesStatus] = useState("all");
 
   const pinForm = useForm<z.infer<typeof pinSchema>>({ resolver: zodResolver(pinSchema), defaultValues: { pin: "" } });
 
@@ -2534,17 +2722,7 @@ export default function AdminPage() {
       const res = await fetch("/api/admin/retail-inquiries");
       if (!res.ok) throw new Error("Failed to fetch retail inquiries");
       const data = await res.json();
-      const normalized = (data.data || []).map((r: any) => ({
-        id: r.id,
-        contactName: r.contact_name,
-        businessName: r.dealer_name,
-        email: r.email,
-        phone: r.phone,
-        message: r.message,
-        createdAt: r.created_at,
-        status: r.status,
-      }));
-      setRetailInquiries(normalized);
+      setRetailInquiries(data.data || []);
     } catch (err: any) { toast({ title: "Error", description: err.message, variant: "destructive" }); }
   }, []);
 
@@ -2742,6 +2920,14 @@ export default function AdminPage() {
             <FileText className="w-4 h-4 inline mr-1.5" />Tax Forms
           </button>
           <button
+            onClick={() => { setTab("verify_ffl"); }}
+            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
+              tab === "verify_ffl" ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            <ShieldCheck className="w-4 h-4 inline mr-1.5" />VERIFY FFL
+          </button>
+          <button
             onClick={() => { setTab("serials"); }}
             className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
               tab === "serials" ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"
@@ -2802,6 +2988,9 @@ export default function AdminPage() {
                 inquiries={retailInquiries}
                 search={retailInquiriesSearch}
                 setSearch={setRetailInquiriesSearch}
+                statusFilter={retailInquiriesStatus}
+                setStatusFilter={setRetailInquiriesStatus}
+                onRefresh={fetchRetailInquiries}
               />
             </CardContent>
           </Card>
@@ -2819,6 +3008,14 @@ export default function AdminPage() {
           <Card className="bg-card/50 border-border">
             <CardContent className="p-4 md:p-6">
               <TaxFormsTab />
+            </CardContent>
+          </Card>
+        )}
+
+        {tab === "verify_ffl" && (
+          <Card className="bg-card/50 border-border">
+            <CardContent className="p-4 md:p-6">
+              <VerifyFflTab />
             </CardContent>
           </Card>
         )}
