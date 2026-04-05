@@ -40,9 +40,16 @@ function PendingUpload(props: { fflNumber: string }) {
     dealerName: z.string().min(2, "FFL / Dealer name is required"),
     contactName: z.string().min(2, "Contact name is required"),
     email: z.string().email("Valid email is required"),
+    confirmEmail: z.string().email("Please confirm your email"),
     phone: z.string().min(10, "Valid phone number is required"),
     address: z.string().min(5, "Address is required"),
+    city: z.string().min(2, "City is required"),
+    state: z.string().min(2, "State is required"),
+    zipCode: z.string().min(5, "ZIP code is required"),
     message: z.string().optional(),
+  }).refine((data) => data.email === data.confirmEmail, {
+    message: "Emails do not match",
+    path: ["confirmEmail"],
   });
 
   type PendingValues = z.infer<typeof pendingSchema>;
@@ -53,8 +60,12 @@ function PendingUpload(props: { fflNumber: string }) {
       dealerName: "",
       contactName: "",
       email: "",
+      confirmEmail: "",
       phone: "",
       address: "",
+      city: "",
+      state: "",
+      zipCode: "",
       message: "",
     },
   });
@@ -72,6 +83,9 @@ function PendingUpload(props: { fflNumber: string }) {
           email: values.email,
           phone: values.phone,
           address: values.address,
+          city: values.city,
+          state: values.state,
+          zipCode: values.zipCode,
           message: values.message || null,
         }),
       });
@@ -159,6 +173,21 @@ function PendingUpload(props: { fflNumber: string }) {
               </FormItem>
             )}
           />
+          {form.watch("email").includes("@") && (
+            <FormField
+              control={form.control}
+              name="confirmEmail"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Confirm Email</FormLabel>
+                  <FormControl>
+                    <Input {...field} type="email" className="bg-card border-border" />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          )}
           <FormField
             control={form.control}
             name="phone"
@@ -187,6 +216,48 @@ function PendingUpload(props: { fflNumber: string }) {
             </FormItem>
           )}
         />
+
+        <div className="grid grid-cols-3 gap-4">
+          <FormField
+            control={form.control}
+            name="city"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>City</FormLabel>
+                <FormControl>
+                  <Input {...field} className="bg-card border-border" />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="state"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>State</FormLabel>
+                <FormControl>
+                  <Input {...field} className="bg-card border-border" />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="zipCode"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>ZIP Code</FormLabel>
+                <FormControl>
+                  <Input {...field} className="bg-card border-border" />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </div>
 
         <FormField
           control={form.control}

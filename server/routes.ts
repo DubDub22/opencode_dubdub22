@@ -1123,29 +1123,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // ── FFL Upload (pending dealer — text only, no file) ─────────────────────────
   app.post("/api/ffl/upload", async (req, res) => {
     try {
-      const { fflNumber, dealerName, contactName, email, phone, address, message } = req.body;
+      const { fflNumber, dealerName, contactName, email, phone, address, city, state, zipCode, message } = req.body;
       if (!fflNumber) return res.status(400).json({ ok: false, error: "missing_ffl" });
 
       const normalized = fflNumber.replace(/[^0-9A-Za-z]/gi, "").toUpperCase();
 
       // Check if already in dealers table
       const existing = await pool.query(
-        `SELECT id, business_name, contact_name, email, phone, business_address FROM dealers WHERE UPPER(REPLACE(REPLACE(ffl_license_number, '-', ''), ' ', '')) = $1`,
+        `SELECT id, business_name, contact_name, email, phone, business_address, city, state, zip FROM dealers WHERE UPPER(REPLACE(REPLACE(ffl_license_number, '-', ''), ' ', '')) = $1`,
         [normalized]
       );
 
       if (existing.rows.length > 0) {
         // Update existing record with contact info (file fields left as-is)
         await pool.query(
-          `UPDATE dealers SET business_name = COALESCE(NULLIF($1, ''), business_name), contact_name = COALESCE(NULLIF($2, ''), contact_name), email = COALESCE(NULLIF($3, ''), email), phone = COALESCE(NULLIF($4, ''), phone), business_address = COALESCE(NULLIF($5, ''), business_address), notes = COALESCE(NULLIF($6, ''), notes) WHERE id = $7`,
-          [dealerName, contactName, email, phone, address, message, existing.rows[0].id]
+          `UPDATE dealers SET business_name = COALESCE(NULLIF($1, ''), business_name), contact_name = COALESCE(NULLIF($2, ''), contact_name), email = COALESCE(NULLIF($3, ''), email), phone = COALESCE(NULLIF($4, ''), phone), business_address = COALESCE(NULLIF($5, ''), business_address), city = COALESCE(NULLIF($6, ''), city), state = COALESCE(NULLIF($7, ''), state), zip = COALESCE(NULLIF($8, ''), zip), notes = COALESCE(NULLIF($9, ''), notes) WHERE id = $10`,
+          [dealerName, contactName, email, phone, address, city, state, zipCode, message, existing.rows[0].id]
         );
       } else {
         // Create a pending dealer entry
         await pool.query(
-          `INSERT INTO dealers (business_name, ffl_license_number, contact_name, email, phone, business_address, notes, verified, source)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, false, 'pending_upload')`,
-          [dealerName || `Pending FFL ${normalized}`, normalized, contactName || null, email || null, phone || null, address || null, message || null]
+          `INSERT INTO dealers (business_name, ffl_license_number, contact_name, email, phone, business_address, city, state, zip, notes, verified, source)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, false, 'pending_upload')`,
+          [dealerName || `Pending FFL ${normalized}`, normalized, contactName || null, email || null, phone || null, address || null, city || null, state || null, zipCode || null, message || null]
         );
       }
 
