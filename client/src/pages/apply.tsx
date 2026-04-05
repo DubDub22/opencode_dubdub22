@@ -20,7 +20,6 @@ const dealerApplySchema = z.object({
   contactName: z.string().min(2, "Contact name is required"),
   email: z.string().email("Valid email is required"),
   confirmEmail: z.string().email("Please confirm your email"),
-  fflNumber: z.string().min(15, "Full 15-digit FFL number is required").max(15),
   fflExpiry: z.string().optional(),
   ein: z.string().optional(),
   contactPhone: z.string().optional(),
@@ -382,6 +381,36 @@ function DealerForm(props: { fflNumber: string; dealerName?: string; email?: str
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
 
+  // Parse FFL number into 6 segments for display/editing
+  const parseFflSegments = (ffl: string): string[] => {
+    const cleaned = ffl.replace(/-/g, "");
+    return [
+      cleaned.slice(0, 1)  || "",
+      cleaned.slice(1, 3)  || "",
+      cleaned.slice(3, 6)  || "",
+      cleaned.slice(6, 8)  || "",
+      cleaned.slice(8, 10) || "",
+      cleaned.slice(10, 15) || "",
+    ];
+  };
+
+  const [fflSegs, setFflSegs] = useState<string[]>(() => parseFflSegments(props.fflNumber));
+
+  function handleFflSegChange(idx: number, val: string) {
+    const cleaned = val.toUpperCase().replace(/[^A-Z0-9]/g, "");
+    const maxLens = [1, 2, 3, 2, 2, 5];
+    const capped = cleaned.slice(0, maxLens[idx]);
+    const next = [...fflSegs];
+    next[idx] = capped;
+    setFflSegs(next);
+    // Auto-advance focus
+    if (capped.length >= maxLens[idx] && idx < 5) {
+      setTimeout(() => {
+        (document.getElementById(`df-seg${idx + 1}`) as HTMLInputElement)?.focus();
+      }, 0);
+    }
+  }
+
   const form = useForm<DealerApplyValues>({
     resolver: zodResolver(dealerApplySchema),
     defaultValues: {
@@ -389,7 +418,6 @@ function DealerForm(props: { fflNumber: string; dealerName?: string; email?: str
       contactName: "",
       email: props.email || "",
       confirmEmail: "",
-      fflNumber: props.fflNumber,
       fflExpiry: props.expiry || "",
       ein: "",
       contactPhone: props.phone || "",
@@ -402,11 +430,17 @@ function DealerForm(props: { fflNumber: string; dealerName?: string; email?: str
   });
 
   async function onSubmit(values: DealerApplyValues) {
+    const fullFfl = fflSegs.join("-");
+    if (fullFfl.replace(/-/g, "").length < 15) {
+      toast({ title: "Invalid FFL", description: "FFL number must be 15 characters.", variant: "destructive" });
+      return;
+    }
     setSubmitting(true);
     try {
-      const { confirmEmail, ...rest } = values;
+      const { confirmEmail, fflNumber: _fflNumber, ...rest } = values;
       const body: Record<string, unknown> = {
         ...rest,
+        fflNumber: fullFfl,
         orderKind,
       };
 
@@ -514,22 +548,86 @@ function DealerForm(props: { fflNumber: string; dealerName?: string; email?: str
           )} />
         </div>
 
-        {/* ── FFL / Expiry / EIN ── */}
+        {/* ── FFL Number — 6-segment display (read-only, pre-populated from DB) ── */}
+        <div className="space-y-2">
+          <label className="text-sm font-medium">FFL Number</label>
+          <div className="flex items-center gap-1 font-mono text-sm">
+            <input
+              key={`df-seg0-${fflSegs[0]}`}
+              type="text"
+              maxLength={1}
+              value={fflSegs[0]}
+              onChange={e => handleFflSegChange(0, e.target.value)}
+              className="w-8 h-9 border border-border rounded bg-card text-center uppercase"
+              id="df-seg0"
+              placeholder="X"
+            />
+            <span className="text-muted-foreground mx-0.5">-</span>
+            <input
+              key={`df-seg1-${fflSegs[1]}`}
+              type="text"
+              maxLength={2}
+              value={fflSegs[1]}
+              onChange={e => handleFflSegChange(1, e.target.value)}
+              className="w-10 h-9 border border-border rounded bg-card text-center uppercase"
+              id="df-seg1"
+              placeholder="XX"
+            />
+            <span className="text-muted-foreground mx-0.5">-</span>
+            <input
+              key={`df-seg2-${fflSegs[2]}`}
+              type="text"
+              maxLength={3}
+              value={fflSegs[2]}
+              onChange={e => handleFflSegChange(2, e.target.value)}
+              className="w-12 h-9 border border-border rounded bg-card text-center uppercase"
+              id="df-seg2"
+              placeholder="XXX"
+            />
+            <span className="text-muted-foreground mx-0.5">-</span>
+            <input
+              key={`df-seg3-${fflSegs[3]}`}
+              type="text"
+              maxLength={2}
+              value={fflSegs[3]}
+              onChange={e => handleFflSegChange(3, e.target.value)}
+              className="w-10 h-9 border border-border rounded bg-card text-center uppercase"
+              id="df-seg3"
+              placeholder="XX"
+            />
+            <span className="text-muted-foreground mx-0.5">-</span>
+            <input
+              key={`df-seg4-${fflSegs[4]}`}
+              type="text"
+              maxLength={2}
+              value={fflSegs[4]}
+              onChange={e => handleFflSegChange(4, e.target.value)}
+              className="w-10 h-9 border border-border rounded bg-card text-center uppercase"
+              id="df-seg4"
+              placeholder="XX"
+            />
+            <span className="text-muted-foreground mx-0.5">-</span>
+            <input
+              key={`df-seg5-${fflSegs[5]}`}
+              type="text"
+              maxLength={5}
+              value={fflSegs[5]}
+              onChange={e => handleFflSegChange(5, e.target.value)}
+              className="w-14 h-9 border border-border rounded bg-card text-center uppercase"
+              id="df-seg5"
+              placeholder="XXXXX"
+            />
+          </div>
+          <p className="text-xs text-muted-foreground">Pre-populated from your FFL on file. Edit if needed.</p>
+        </div>
+
+        {/* ── FFL Expiry / EIN ── */}
         <div className="grid md:grid-cols-2 gap-4">
-          <FormField control={form.control} name="fflNumber" render={({ field }) => (
-            <FormItem><FormLabel>FFL Number</FormLabel><FormControl><Input {...field} className="bg-card border-border font-mono" /></FormControl><FormMessage /></FormItem>
-          )} />
           <FormField control={form.control} name="fflExpiry" render={({ field }) => (
             <FormItem><FormLabel>FFL Expiration <span className="text-xs text-muted-foreground font-normal">(optional)</span></FormLabel><FormControl><Input {...field} placeholder="MM/DD/YYYY" className="bg-card border-border" /></FormControl><FormMessage /></FormItem>
           )} />
-        </div>
-
-        <div className="grid md:grid-cols-2 gap-4">
           <FormField control={form.control} name="ein" render={({ field }) => (
             <FormItem><FormLabel>EIN <span className="text-xs text-muted-foreground font-normal">(optional)</span></FormLabel><FormControl><Input {...field} placeholder="XX-XXXXXXX" className="bg-card border-border" /></FormControl><FormMessage /></FormItem>
-          )} />
-          <FormField control={form.control} name="address" render={({ field }) => (
-            <FormItem><FormLabel>Business Address <span className="text-xs text-muted-foreground font-normal">(optional)</span></FormLabel><FormControl><Input {...field} className="bg-card border-border" /></FormControl><FormMessage /></FormItem>
           )} />
         </div>
 
