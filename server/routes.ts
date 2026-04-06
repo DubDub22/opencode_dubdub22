@@ -1380,6 +1380,28 @@ DubDub22 Minions`;
         );
       }
 
+      // Send auto-reply to the dealer
+      if (email) {
+        try {
+          await sendViaGmail({
+            to: email,
+            subject: `We Received Your DubDub22 ${isInquiry ? 'Inquiry' : 'Order'}`,
+            text: [
+              `Thank you for ${isInquiry ? 'submitting a dealer inquiry' : 'placing a dealer order'} with DubDub22.`,
+              ``,
+              `We've received your ${isInquiry ? 'inquiry' : 'order'} and will be in touch soon.`,
+              ``,
+              `If you have any questions, reach out to us at sales@dubdub22.com.`,
+              ``,
+              `Best regards,`,
+              `DubDub22 Team`,
+            ].join("\n"),
+          });
+        } catch (gmailErr) {
+          console.error("dealer_request_auto_reply_error", gmailErr);
+        }
+      }
+
       return res.json({ ok: true, id: submissionId || "unknown" });
     } catch (err: any) {
       console.error("dealer_request_error", err?.message || err);
