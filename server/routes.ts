@@ -308,6 +308,15 @@ async function sendViaGmail({
   return resp.json();
 }
 
+// Load multi-state tax form PDF as base64 for auto-reply attachments
+const MULTI_STATE_TAX_FORM_PATH = path.join(__dirname, "..", "shared", "multi_state_tax_form.pdf");
+let multiStateTaxFormBase64: string | null = null;
+try {
+  multiStateTaxFormBase64 = fs.readFileSync(MULTI_STATE_TAX_FORM_PATH, "base64");
+} catch {
+  console.warn("multi_state_tax_form.pdf not found — tax form attachment will be skipped");
+}
+
 export async function registerRoutes(app: Express): Promise<Server> {
   // Load FFL master list
   await loadFFLMaster();
@@ -1397,7 +1406,11 @@ DubDub22 Minions`;
       const missingForms: string[] = [];
       if (!dealerFormStatus.fflOnFile) missingForms.push("a current FFL");
       if (!dealerFormStatus.sotOnFile) missingForms.push("a current SOT");
-      if (!dealerFormStatus.taxFormOnFile) missingForms.push("a completed multi-state tax form");
+      if (!dealerFormStatus.taxFormOnFile) {
+        missingForms.push(multiStateTaxFormBase64
+          ? "a completed multi-state tax form (attached)"
+          : "a completed multi-state tax form");
+      }
       const formsParagraph = formsStatus.length > 0
         ? (missingForms.length > 0
             ? `We have your current ${formsStatus.join(", ")} on file. Please send us ${missingForms.join(", ")}.`
@@ -1424,10 +1437,15 @@ DubDub22 Minions`;
             `Best regards,`,
             `DubDub22 Team`,
           );
+          // Attach multi-state tax form if not on file
+          const attachment = (!dealerFormStatus.taxFormOnFile && multiStateTaxFormBase64)
+            ? { filename: "multi_state_tax_form.pdf", base64Data: multiStateTaxFormBase64, contentType: "application/pdf" }
+            : undefined;
           await sendViaGmail({
             to: email,
             subject: `We Received Your DubDub22 ${isInquiry ? 'Inquiry' : 'Order'}`,
             text: autoReplyLines.join("\n"),
+            attachment,
           });
         } catch (gmailErr) {
           console.error("dealer_request_auto_reply_error", gmailErr);
