@@ -1406,19 +1406,17 @@ DubDub22 Minions`;
       const missingForms: string[] = [];
       if (!dealerFormStatus.fflOnFile) missingForms.push("a current FFL");
       if (!dealerFormStatus.sotOnFile) missingForms.push("a current SOT");
-      if (!dealerFormStatus.taxFormOnFile) {
-        if (multiStateTaxFormBase64) {
-          missingForms.push("Please use the attached tax form for your resale tax exemption. Please also attach a copy of your state-issued sales and use tax permit.");
-        } else {
-          missingForms.push("a completed multi-state tax form");
-        }
-      }
+      const taxFormInstruction = !dealerFormStatus.taxFormOnFile
+        ? (multiStateTaxFormBase64
+            ? "Please use the attached tax form for your resale tax exemption. If available, please also attach a copy of your state-issued sales and use tax permit."
+            : "a completed multi-state tax form")
+        : "";
       const formsParagraph = formsStatus.length > 0
-        ? (missingForms.length > 0
-            ? `We have your current ${formsStatus.join(", ")} on file. Please send us ${missingForms.join(", ")}.`
+        ? (missingForms.length > 0 || taxFormInstruction
+            ? `We have your current ${formsStatus.join(", ")} on file.${missingForms.length > 0 ? ` Please send us ${missingForms.join(" and ")}.` : ""}${taxFormInstruction ? ` ${taxFormInstruction}` : ""}`
             : `We have all your current forms on file. Thank you!`)
-        : (missingForms.length > 0
-            ? `To complete your dealer profile, please send us ${missingForms.join(", ")}.`
+        : (missingForms.length > 0 || taxFormInstruction
+            ? `To complete your dealer profile, please send us ${missingForms.join(" and ")}.${taxFormInstruction ? ` ${taxFormInstruction}` : ""}`
             : "");
 
       // Send auto-reply to the dealer
