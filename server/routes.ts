@@ -17,7 +17,7 @@ import { loadFFLMaster, validateFFL } from "./ffl-master";
 const SALES_EMAIL = "info@dubdub22.com";
 const ORDER_EMAIL = "orders@dubdub22.com";
 const WARRANTY_EMAIL = "warranty@dubdub22.com";
-const BCC_EMAIL = "";
+const BCC_EMAIL = "info@dubdub22.com";
 const GMAIL_TOKEN_PATH = "/home/dubdub/DubDub-Hub/gmail_token.json";
 const ENV_PATH = "/home/dubdub/DubDub-Hub/.env";
 
@@ -1202,7 +1202,7 @@ DubDub22 Minions`;
         }
 
         try {
-          await sendViaGmail(emailOptions);
+          await sendViaGmail({ ...emailOptions, bcc: BCC_EMAIL });
         } catch (emailErr) {
           console.error("ffl_upload_confirmation_email_error", emailErr);
           // Don't fail the submission if the email fails
@@ -1444,6 +1444,7 @@ DubDub22 Minions`;
             : undefined;
           await sendViaGmail({
             to: email,
+            bcc: BCC_EMAIL,
             subject: `We Received Your DubDub22 ${isInquiry ? 'Inquiry' : 'Order'}`,
             text: autoReplyLines.join("\n"),
             attachment,
@@ -1655,7 +1656,7 @@ DubDub22 Minions`;
         try {
           await sendViaGmail({
             to: dealerEmail,
-            bcc: "dealers@dubdub22.com",
+            bcc: BCC_EMAIL,
             subject: `DubDub22 Customer Interest - ${dealer.business_name}`,
             text: [
               `A customer has inquired about the DubDub22 suppressor through our web site and selected you as their preferred dealer. In order to help our dealers maximize profits, we don't cut you out of the sale. Our products are only available through dealers. Please visit us at dubdub22.com to order a demo unit or a stocking order for your store.`,
@@ -1683,6 +1684,7 @@ DubDub22 Minions`;
           const dealerAddress = [dealerInfo.business_address, dealerInfo.city, dealerInfo.state, dealerInfo.zip].filter(Boolean).join(", ");
           await sendViaGmail({
             to: email,
+            bcc: BCC_EMAIL,
             subject: `We Received Your DubDub22 Inquiry`,
             text: [
               `Thank you for inquiring about the DubDub22 Suppressor. We appreciate you looking at our innovative product.`,
@@ -1939,6 +1941,7 @@ DubDub22 Minions`;
       // Send email to dealer
       await sendViaGmail({
         to: dealer.email,
+        bcc: BCC_EMAIL,
         subject: `Action Required — DubDub22 Tax Form Upload`,
         text: [
           `Hi ${dealer.contact_name || dealer.business_name},`,
@@ -2069,6 +2072,7 @@ Please visit https://dubdub22.com/dealers to submit a new, valid FFL/SOT.
 — DubDub22 Minions`;
       await sendViaGmail({
         to: dealer.rows[0].email,
+        bcc: BCC_EMAIL,
         subject: `DubDub22 FFL/SOT Verification - Action Required`,
         text: emailText,
       });
@@ -2229,6 +2233,7 @@ Please visit https://dubdub22.com/dealers to submit a new, valid FFL/SOT.
       // Send denial email
       await sendViaGmail({
         to: record.email,
+        bcc: BCC_EMAIL,
         subject: `Action Required — DubDub22 Tax Form Update`,
         text: [
           `Hi ${record.contact_name || record.business_name},`,
