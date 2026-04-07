@@ -17,7 +17,7 @@ const orderFormSchema = z.object({
   contactName: z.string().min(2, { message: "Name is required." }),
   email: z.string().email({ message: "Please enter a valid email address." }),
   confirmEmail: z.string().email({ message: "Please confirm your email address." }),
-  phone: z.string().optional(),
+  phone: z.string().min(1, { message: "Phone number is required." }),
   message: z.string().optional(),
 }).refine((data) => data.email === data.confirmEmail, {
   message: "Email addresses must match.",
@@ -271,9 +271,7 @@ export default function OrderPage() {
                 name="phone"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>
-                      Phone {intent === "info" && <span className="text-xs text-muted-foreground">(optional)</span>}
-                    </FormLabel>
+                    <FormLabel>Phone <span className="text-xs text-destructive">*</span></FormLabel>
                     <FormControl>
                       <Input
                         placeholder="(555) 123-4567"

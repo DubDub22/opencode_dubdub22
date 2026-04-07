@@ -1530,6 +1530,9 @@ DubDub22 Minions`;
       if (!contactName || !email) {
         return res.status(400).json({ ok: false, error: "missing_required_fields" });
       }
+      if (!phone) {
+        return res.status(400).json({ ok: false, error: "phone_required" });
+      }
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
         return res.status(400).json({ ok: false, error: "invalid_email" });
       }
@@ -1546,6 +1549,10 @@ DubDub22 Minions`;
         }
       }
 
+      // Route emails by intent: info → dealerinquiry@dubdub22.com, demo/order → orders@dubdub22.com
+      const INQUIRY_EMAIL = "dealerinquiry@dubdub22.com";
+      const emailTo = isInfo ? INQUIRY_EMAIL : ORDER_EMAIL;
+
       const subjectLine = isInfo
         ? "Retail Inquiry"
         : isDemo
@@ -1557,7 +1564,7 @@ DubDub22 Minions`;
         "",
         `Contact: ${contactName}`,
         `Email: ${email}`,
-        phone ? `Phone: ${phone}` : null,
+        `Phone: ${phone}`,
         !isInfo && qty ? `Quantity: ${qty}` : null,
         message ? `\nMessage:\n${message}` : null,
         fflFileName && !isInfo ? `\nSOT File: ${fflFileName}` : null,
@@ -1571,9 +1578,9 @@ DubDub22 Minions`;
         jpeg: "image/jpeg",
       };
 
-      // Send email
+      // Send email to the appropriate route
       await sendViaGmail({
-        to: ORDER_EMAIL,
+        to: emailTo,
         bcc: BCC_EMAIL,
         subject: `DubDub22 ${subjectLine}`,
         text: bodyLines.join("\n"),
