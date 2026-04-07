@@ -285,7 +285,7 @@ async function sendViaGmail({
 
   const accessToken = await refreshAccessToken(refreshToken, clientId, clientSecret);
   const raw = buildMime({
-    from: from || `DubDub22 Forms <${sender}>`,
+    from: from || `DubDub22 <info@dubdub22.com>`,
     to,
     cc,
     bcc,
@@ -1339,7 +1339,7 @@ DubDub22 Minions`;
         sendViaGmail({
           to: SALES_EMAIL,
           bcc: BCC_EMAIL,
-          from: `DubDub22 Inquiries <${sender}>`,
+          from: `DubDub22 Inquiries <inquiry@dubdub22.com>`,
           subject: `DubDub22 ${isInquiry ? 'Dealer Inquiry' : 'Dealer Order'} - ${bizName}`,
           text: body,
           replyTo: email,
@@ -1435,7 +1435,7 @@ DubDub22 Minions`;
           await sendViaGmail({
             to: email,
             bcc: BCC_EMAIL,
-            from: isInquiry ? `DubDub22 Inquiries <${sender}>` : `DubDub22 Orders <${sender}>`,
+            from: isInquiry ? `DubDub22 Inquiries <inquiry@dubdub22.com>` : `DubDub22 Orders <orders@dubdub22.com>`,
             subject: `We Received Your DubDub22 ${isInquiry ? 'Inquiry' : 'Order'}`,
             text: autoReplyLines.join("\n"),
             attachment,
@@ -1487,14 +1487,39 @@ DubDub22 Minions`;
       ].join("\n");
 
       const [gmailResult, dbResult] = await Promise.all([
+        // Email to Tom
         sendViaGmail({
           to: WARRANTY_EMAIL,
           bcc: BCC_EMAIL,
-          subject: `DubDub22 Warranty - ${serialNumber}`,
+          subject: `DUBDUB22 WARRANTY - ${serialNumber}`,
           text: body,
           replyTo: email,
+          from: "DubDub22 Warranty <warranty@dubdub22.com>",
         }).catch(err => {
           console.error("gmail_failed", err);
+          return null;
+        }),
+        // Auto-reply to customer
+        sendViaGmail({
+          to: email,
+          bcc: BCC_EMAIL,
+          subject: `DUBDUB22 WARRANTY RECEIVED - ${serialNumber}`,
+          text: [
+            `Dear ${name},`,
+            "",
+            "We have received your warranty request.",
+            "",
+            `Serial Number: ${serialNumber}`,
+            `Description: ${description}`,
+            "",
+            "Our team will review your submission and contact you within 1–2 business days.",
+            "",
+            "Thank you,",
+            "DubDub22 / Double T Tactical",
+          ].join("\n"),
+          from: "DubDub22 Warranty <warranty@dubdub22.com>",
+        }).catch(err => {
+          console.error("warranty_auto_reply_failed", err);
           return null;
         }),
         storage.createSubmission({
@@ -1586,7 +1611,7 @@ DubDub22 Minions`;
       await sendViaGmail({
         to: emailTo,
         bcc: BCC_EMAIL,
-        from: isInfo ? `DubDub22 Inquiries <${sender}>` : `DubDub22 Orders <${sender}>`,
+        from: isInfo ? `DubDub22 Inquiries <inquiry@dubdub22.com>` : `DubDub22 Orders <orders@dubdub22.com>`,
         subject: `DubDub22 ${subjectLine}`,
         text: bodyLines.join("\n"),
         replyTo: email,
@@ -1669,7 +1694,7 @@ DubDub22 Minions`;
           await sendViaGmail({
             to: dealerEmail,
             bcc: BCC_EMAIL,
-            from: `DubDub22 Inquiries <${sender}>`,
+            from: `DubDub22 Inquiries <inquiry@dubdub22.com>`,
             subject: `DubDub22 Customer Interest - ${dealer.business_name}`,
             text: [
               `A customer has inquired about the DubDub22 suppressor through our web site and selected you as their preferred dealer. In order to help our dealers maximize profits, we don't cut you out of the sale. Our products are only available through dealers. Please visit us at dubdub22.com to order a demo unit or a stocking order for your store.`,
@@ -1698,7 +1723,7 @@ DubDub22 Minions`;
           await sendViaGmail({
             to: email,
             bcc: BCC_EMAIL,
-            from: `DubDub22 Inquiries <${sender}>`,
+            from: `DubDub22 Inquiries <inquiry@dubdub22.com>`,
             subject: `We Received Your DubDub22 Inquiry`,
             text: [
               `Thank you for inquiring about the DubDub22 Suppressor. We appreciate you looking at our innovative product.`,
@@ -1956,7 +1981,7 @@ DubDub22 Minions`;
       await sendViaGmail({
         to: dealer.email,
         bcc: BCC_EMAIL,
-        from: `DubDub22 Documents <${sender}>`,
+        from: `DubDub22 Documents <orders@dubdub22.com>`,
         subject: `Action Required — DubDub22 Tax Form Upload`,
         text: [
           `Hi ${dealer.contact_name || dealer.business_name},`,
@@ -2088,7 +2113,7 @@ Please visit https://dubdub22.com/dealers to submit a new, valid FFL/SOT.
       await sendViaGmail({
         to: dealer.rows[0].email,
         bcc: BCC_EMAIL,
-        from: `DubDub22 Documents <${sender}>`,
+        from: `DubDub22 Documents <orders@dubdub22.com>`,
         subject: `DubDub22 FFL/SOT Verification - Action Required`,
         text: emailText,
       });
@@ -2250,7 +2275,7 @@ Please visit https://dubdub22.com/dealers to submit a new, valid FFL/SOT.
       await sendViaGmail({
         to: record.email,
         bcc: BCC_EMAIL,
-        from: `DubDub22 Documents <${sender}>`,
+        from: `DubDub22 Documents <orders@dubdub22.com>`,
         subject: `Action Required — DubDub22 Tax Form Update`,
         text: [
           `Hi ${record.contact_name || record.business_name},`,
@@ -2432,7 +2457,7 @@ print(pdf_path)
       await sendViaGmail({
         to: toEmail,
         bcc: BCC_EMAIL,
-        from: `DubDub22 Orders <${sender}>`,
+        from: `DubDub22 Orders <orders@dubdub22.com>`,
         subject: `INVOICE ${invoiceNumber} — DubDub22 Suppressor`,
         text: emailBody,
         attachment,
