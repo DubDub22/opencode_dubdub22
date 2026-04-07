@@ -516,8 +516,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!trackingNumber?.trim()) {
         return res.status(400).json({ ok: false, error: "tracking_number_required" });
       }
+      // Look up the submission first — if it's a demo (type=dealer, qty=1), lock the demo flag
+      const sub = await pool.query(`SELECT type, quantity FROM submissions WHERE id = $1`, [id]);
+      const isDemo = sub.rows[0]?.type === 'dealer' && sub.rows[0]?.quantity === '1';
       await pool.query(
-        `UPDATE submissions SET tracking_number = $1, atf_form_name = $2, atf_form_data = $3, shipped_at = NOW()::text WHERE id = $4`,
+        `UPDATE submissions SET tracking_number = $1, atf_form_name = $2, atf_form_data = $3, shipped_at = NOW()::text${isDemo ? `, has_ordered_demo = 'true'` : ``} WHERE id = $4`,
         [trackingNumber.trim(), atfFormName || null, atfFormData || null, id]
       );
       return res.json({ ok: true });
@@ -1257,24 +1260,6 @@ DubDub22 Minions`;
       const isDemoOrder = orderKind === "demo" || (!isInquiry && quantityCans === '1');
       const isStockingOrder = orderKind === "stocking" || (!isInquiry && quantityCans !== '1');
 
-      // ── Demo can rules ──────────────────────────────────────────────
-      // Demo cans: limit 1 per dealer (email + business name)
-      if (isDemoOrder) {
-        const existingDemo = await pool.query(
-          `SELECT id FROM submissions
-           WHERE email = $1 AND business_name ILIKE $2 AND has_ordered_demo = 'true' AND type = 'dealer'
-           LIMIT 1`,
-          [email.toLowerCase(), businessName]
-        );
-        if (existingDemo.rows.length > 0) {
-          return res.status(400).json({
-            ok: false,
-            error: "demo_already_ordered",
-            message: "Demo can limit of 1 per dealer has already been fulfilled for this business. Please order in multiples of 5 if placing a new order.",
-          });
-        }
-      }
-
       // All dealer orders must be qty 1 (demo) or multiple of 5
       if (!isInquiry && quantityCans && quantityCans !== '1' && Number(quantityCans) % 5 !== 0) {
         return res.status(400).json({
@@ -1310,18 +1295,18 @@ DubDub22 Minions`;
           `INSERT INTO dealers (business_name, contact_name, email, phone, source, tier)
            VALUES ($1, $2, $3, $4, 'web_form', 'Preferred')
            RETURNING id`,
-          [businessName, contactName, email.toLowerCase(), phone || null]
+          [bizName, contactName, email.toLowerCase(), phone || null]
         );
         dealerId = newDealer.rows[0].id;
       }
 
-      // Mark demo_ordered = true on demo orders (one-way flag)
-      if (isDemoOrder) {
-        await pool.query(
-          `UPDATE dealers SET demo_ordered = true WHERE id = $1`,
-          [dealerId]
-        );
-      }
+      // DEBUG: disabled demo_ordered flag write — remove after debugging
+      // if (isDemoOrder) {
+      //   await pool.query(
+      //     `UPDATE dealers SET demo_ordered = true WHERE id = $1`,
+      //     [dealerId]
+      //   );
+      // }
 
       const body = [
         `DubDub22 ${isInquiry ? 'Dealer Inquiry' : isDemoOrder ? 'Dealer Order (DEMO CAN)' : 'Dealer Order'}`,
@@ -1465,9 +1450,9 @@ DubDub22 Minions`;
 
   app.post("/api/dealer-terms-accepted", async (req, res) => {
     try {
-      const { dealerName, dealerEmail, dealerPhone, orderType, quantity } = req.body || {};
+      const { dealerName, dealerEmail, dealerPhone, orderType, quantity, signatureName, signatureDate } = req.body || {};
       // Log the acceptance for now — no DB write needed yet
-      console.log("Dealer terms accepted:", { dealerName, dealerEmail, orderType, quantity });
+      console.log("Dealer terms accepted:", { dealerName, dealerEmail, orderType, quantity, signatureName, signatureDate });
       return res.json({ ok: true });
     } catch (err: any) {
       console.error("dealer_terms_accepted_error", err);
