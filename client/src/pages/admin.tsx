@@ -83,6 +83,7 @@ type Dealer = {
   fflFileData?: string;
   fflOnFile?: boolean;
   fflExpiryDate?: string;
+  fflLoaExpiry?: string;
   taxExempt?: boolean;
   taxExemptNotes?: string;
   salesTaxId?: string;
@@ -127,6 +128,7 @@ const dealerFormSchema = z.object({
   fflLicenseNumber: z.string().optional(),
   fflLicenseType: z.string().optional(),
   fflExpiry: z.string().optional(),
+  fflLoaExpiry: z.string().optional(),
   taxExempt: z.boolean().optional(),
   taxExemptNotes: z.string().optional(),
   salesTaxId: z.string().optional(),
@@ -655,6 +657,7 @@ function DealerDetail({
       fflLicenseNumber: dealer.fflLicenseNumber || "",
       fflLicenseType: dealer.fflLicenseType || "",
       fflExpiry: dealer.fflExpiry || "",
+      fflLoaExpiry: dealer.fflLoaExpiry || "",
       taxExempt: dealer.taxExempt || false,
       taxExemptNotes: dealer.taxExemptNotes || "",
       salesTaxId: dealer.salesTaxId || "",
@@ -1036,6 +1039,14 @@ function DealerDetail({
                       render={({ field }) => (
                         <FormItem><FormLabel>Expiry Date</FormLabel>
                           <FormControl><Input {...field} className="bg-background" /></FormControl>
+                          <FormMessage /></FormItem>
+                      )} />
+                  </div>
+                  <div className="grid grid-cols-1 gap-4">
+                    <FormField control={form.control} name="fflLoaExpiry"
+                      render={({ field }) => (
+                        <FormItem><FormLabel className="text-xs">LOA Expiry <span className="text-muted-foreground font-normal">(internal — ATF LOA accepted as valid FFL)</span></FormLabel>
+                          <FormControl><Input {...field} className="bg-background" placeholder="YYYY-MM-DD" /></FormControl>
                           <FormMessage /></FormItem>
                       )} />
                   </div>

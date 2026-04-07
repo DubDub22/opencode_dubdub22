@@ -704,6 +704,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         "fflLicenseNumber","fflLicenseType","fflExpiry",
         "fflFileName","fflFileData",
         "fflOnFile","fflExpiryDate",
+        "fflLoaExpiry",
         "taxExempt","taxExemptNotes","salesTaxId",
         "salesTaxFormData","salesTaxFormName",
         "taxFormOnFile",
