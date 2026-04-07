@@ -1526,7 +1526,8 @@ DubDub22 Minions`;
     try {
       const {
         intent, contactName, email, phone,
-        message, quantity, fflFileName, fflFileData
+        message, quantity, fflFileName, fflFileData,
+        customerAddress, customerCity, customerState, customerZip
       } = req.body || {};
 
       if (!contactName || !email) {
@@ -2272,13 +2273,71 @@ Please visit https://dubdub22.com/dealers to submit a new, valid FFL/SOT.
     }
   });
 
-  // ── Manual Retail Invoice ──────────────────────────────────────────────────
-  app.post("/api/admin/retail-invoice", requireAdmin, async (req, res) => {
+  // ── Send Invoice ───────────────────────────────────────────────────────────
+  app.post("/api/admin/send-invoice", requireAdmin, async (req, res) => {
     try {
-      const { customerName, customerEmail, customerPhone, customerAddress, customerCity, customerState, customerZip } = req.body || {};
+      const {
+        submissionId,
+        customerName: inName,
+        customerEmail: inEmail,
+        customerPhone: inPhone,
+        customerAddress: inAddress,
+        customerCity: inCity,
+        customerState: inState,
+        customerZip: inZip,
+        quantity: inQty,
+        overrideUnitPrice,
+      } = req.body || {};
+
+      let customerName = inName;
+      let customerEmail = inEmail;
+      let customerPhone = inPhone;
+      let customerAddress = inAddress;
+      let customerCity = inCity;
+      let customerState = inState;
+      let customerZip = inZip;
+      let quantity = inQty ?? 1;
+
       if (!customerName) {
         return res.status(400).json({ ok: false, error: "customer_name_required" });
       }
+
+      // Look up submission if ID provided to determine type & pre-fill missing fields
+      let isRetail = true;
+      let subDealerId: string | null = null;
+      if (submissionId) {
+        const [subRow] = await pool.query(
+          `SELECT s.*, ds.dealer_id FROM submissions s
+           LEFT JOIN dealer_submissions ds ON ds.submission_id = s.id
+           WHERE s.id = $1 LIMIT 1`,
+          [submissionId]
+        );
+        if (subRow && subRow.rows.length > 0) {
+          const sub = subRow.rows[0];
+          isRetail = sub.type !== 'dealer';
+          subDealerId = sub.dealer_id || null;
+          // Pre-fill any missing fields from submission
+          customerName = customerName || sub.contact_name || "";
+          customerEmail = customerEmail || sub.email || "";
+          customerPhone = customerPhone || sub.phone || "";
+          customerAddress = customerAddress || sub.customer_address || "";
+          customerCity = customerCity || sub.customer_city || "";
+          customerState = customerState || sub.customer_state || "";
+          customerZip = customerZip || sub.customer_zip || "";
+          // Quantity: use override or fall back to submission quantity
+          if (!quantity || quantity === 1) {
+            quantity = sub.quantity ? parseInt(sub.quantity, 10) || 1 : 1;
+          }
+        }
+      }
+
+      const qty = Math.max(1, parseInt(String(quantity), 10) || 1);
+      // Dealer orders = $60/unit, no tax; Retail orders = $129/unit with 8.25% tax
+      const unitPrice = overrideUnitPrice != null ? parseFloat(String(overrideUnitPrice)) : (isRetail ? 129.0 : 60.0);
+      const subtotal = qty * unitPrice;
+      const taxRate = 0.0825;
+      const taxAmount = isRetail ? parseFloat((subtotal * taxRate).toFixed(2)) : 0.0;
+      const total = subtotal + taxAmount;
 
       // Get next invoice number from shared counter
       const counterResult = await pool.query(
@@ -2289,32 +2348,24 @@ Please visit https://dubdub22.com/dealers to submit a new, valid FFL/SOT.
       const invoiceNum = counterResult.rows[0].last_number;
       const invoiceNumber = `INV-${String(invoiceNum).padStart(4, "0")}`;
 
-      // Invoice amounts
-      const quantity = 1;
-      const unitPrice = 129.0;
-      const subtotal = quantity * unitPrice;
-      const taxRate = 0.0825;
-      const taxAmount = parseFloat((subtotal * taxRate).toFixed(2));
-      const total = subtotal + taxAmount;
-
-      // Generate PDF via Python script
+      // Generate PDF
       let pdfPath = null;
       try {
         const args = JSON.stringify({
           invoiceNumber,
-          customerName,
+          customerName: customerName || "",
           customerEmail: customerEmail || "",
           customerPhone: customerPhone || "",
           customerAddress: customerAddress || "",
           customerCity: customerCity || "",
           customerState: customerState || "",
           customerZip: customerZip || "",
-          quantity,
+          quantity: qty,
           unitPrice,
           subtotal,
           taxAmount,
           totalAmount: total,
-          isRetail: true,
+          isRetail,
         });
         const pdfOut = execSync(`/home/dubdub/DubDub-Hub/venv/bin/python -c "
 import sys, json, os
@@ -2334,19 +2385,21 @@ print(pdf_path)
       // Save invoice record
       const insertResult = await pool.query(
         `INSERT INTO invoices
-           (invoice_number, dealer_id, is_retail, retail_customer_name, retail_customer_email,
+           (invoice_number, dealer_id, submission_id, is_retail, retail_customer_name, retail_customer_email,
             retail_customer_phone, retail_customer_address, retail_customer_city,
             retail_customer_state, retail_customer_zip,
             quantity, unit_price, subtotal, tax_rate, tax_amount, total_amount, pdf_path, status, sent_at)
-         VALUES ($1, 0, true, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, 'sent', NOW())
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, 'sent', NOW())
          RETURNING id`,
-        [invoiceNumber, customerName, customerEmail || null, customerPhone || null,
+        [invoiceNumber, subDealerId || 0, submissionId || null, isRetail,
+         customerName, customerEmail || null, customerPhone || null,
          customerAddress || null, customerCity || null, customerState || null, customerZip || null,
-         quantity, unitPrice, subtotal, taxRate, taxAmount, total, pdfPath]
+         qty, unitPrice, subtotal, taxRate, taxAmount, total, pdfPath]
       );
       const invoiceId = insertResult.rows[0].id;
 
-      // Build email
+      // Build email body
+      const lineDesc = isRetail ? "DUBDUB22 SUPPRESSOR" : "DUBDUB22 SUPPRESSOR (Dealer)";
       const emailBody = [
         `INVOICE: ${invoiceNumber}`,
         ``,
@@ -2356,8 +2409,8 @@ print(pdf_path)
         customerAddress ? `Address: ${customerAddress}` : null,
         [customerCity, customerState, customerZip].filter(Boolean).join(", ") || null,
         ``,
-        `1 × DUBDUB22 SUPPRESSOR @ $${unitPrice.toFixed(2)} = $${subtotal.toFixed(2)}`,
-        `Sales Tax (8.25%): $${taxAmount.toFixed(2)}`,
+        `${qty} × ${lineDesc} @ $${unitPrice.toFixed(2)} = $${subtotal.toFixed(2)}`,
+        isRetail ? `Sales Tax (8.25%): $${taxAmount.toFixed(2)}` : null,
         ``,
         `TOTAL: $${total.toFixed(2)}`,
         ``,
@@ -2368,7 +2421,6 @@ print(pdf_path)
         ? { filename: `${invoiceNumber}.pdf`, base64Data: fs.readFileSync(pdfPath).toString("base64"), contentType: "application/pdf" }
         : undefined;
 
-      // Email to customer (if email provided), BCC to Tom
       const toEmail = customerEmail || "tomtrevino@doublettactical.com";
       await sendViaGmail({
         to: toEmail,
@@ -2380,7 +2432,7 @@ print(pdf_path)
 
       return res.json({ ok: true, invoiceNumber, invoiceId });
     } catch (err: any) {
-      console.error("retail_invoice_error", err);
+      console.error("send_invoice_error", err);
       return res.status(500).json({ ok: false, error: err?.message || "server_error" });
     }
   });

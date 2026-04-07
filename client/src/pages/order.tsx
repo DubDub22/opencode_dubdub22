@@ -19,6 +19,11 @@ const orderFormSchema = z.object({
   confirmEmail: z.string().email({ message: "Please confirm your email address." }),
   phone: z.string().min(1, { message: "Phone number is required." }),
   message: z.string().optional(),
+  // Address fields — required for order intent, optional otherwise
+  customerAddress: z.string().optional(),
+  customerCity: z.string().optional(),
+  customerState: z.string().optional(),
+  customerZip: z.string().optional(),
 }).refine((data) => data.email === data.confirmEmail, {
   message: "Email addresses must match.",
   path: ["confirmEmail"],
@@ -62,6 +67,10 @@ export default function OrderPage() {
       confirmEmail: "",
       phone: "",
       message: "",
+      customerAddress: "",
+      customerCity: "",
+      customerState: "",
+      customerZip: "",
     },
   });
 
@@ -95,6 +104,10 @@ export default function OrderPage() {
         quantity: isInfo ? null : intent === "demo" ? "1" : quantity,
         fflFileName: fflName,
         fflFileData: fileBase64,
+        customerAddress: values.customerAddress || null,
+        customerCity: values.customerCity || null,
+        customerState: values.customerState || null,
+        customerZip: values.customerZip || null,
       };
 
       const resp = await fetch("/api/retail-order", {
@@ -285,6 +298,81 @@ export default function OrderPage() {
                 )}
               />
             </motion.div>
+
+            {/* Shipping Address — only for "order" intent */}
+            {intent === "order" && (
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.05 }}
+                className="space-y-3"
+              >
+                <div>
+                  <label className="text-sm font-medium mb-1 block">Shipping Address</label>
+                  <FormField
+                    control={form.control}
+                    name="customerAddress"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormControl>
+                          <Input placeholder="123 Main St" {...field} className="bg-card border-border focus:border-primary h-11" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-sm font-medium mb-1 block">City</label>
+                    <FormField
+                      control={form.control}
+                      name="customerCity"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormControl>
+                            <Input placeholder="Austin" {...field} className="bg-card border-border focus:border-primary h-11" />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="text-sm font-medium mb-1 block">State</label>
+                      <FormField
+                        control={form.control}
+                        name="customerState"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormControl>
+                              <Input placeholder="TX" {...field} maxLength={2} className="bg-card border-border focus:border-primary h-11 uppercase" />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium mb-1 block">ZIP</label>
+                      <FormField
+                        control={form.control}
+                        name="customerZip"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormControl>
+                              <Input placeholder="78701" {...field} className="bg-card border-border focus:border-primary h-11" />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                  </div>
+                </div>
+              </motion.div>
+            )}
 
             {/* FFL Upload — only for demo and order */}
             {intent !== "info" && (

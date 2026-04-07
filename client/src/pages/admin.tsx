@@ -380,8 +380,16 @@ function SubmissionCard({ sub, onDelete, onShip, onInvoice }: { sub: Submission;
               Mark as Shipped
             </Button>
             {sub.type === "dealer" && (
-              <Button variant="outline" size="sm" className="w-full h-8 text-xs border-green-600 text-green-600 hover:bg-green-50" onClick={onInvoice}>
-                Send Invoice
+              <Button
+                variant="outline"
+                size="sm"
+                className={`w-full h-8 text-xs ${(sub as any).hasInvoice
+                  ? "border-green-600 text-green-600 hover:bg-green-50"
+                  : "border-red-600 text-red-600 hover:bg-red-50"
+                }`}
+                onClick={onInvoice}
+              >
+                {(sub as any).hasInvoice ? `✓ Invoice Sent` : "Send Invoice"}
               </Button>
             )}
           </div>
@@ -439,8 +447,16 @@ function SubmissionRow({ sub, onDelete, onShip, onInvoice }: { sub: Submission; 
               Mark Shipped
             </Button>
             {sub.type === "dealer" && (
-              <Button variant="outline" size="sm" className="h-7 text-xs whitespace-nowrap border-green-600 text-green-600 hover:bg-green-50 w-full mt-1" onClick={onInvoice}>
-                Send Invoice
+              <Button
+                variant="outline"
+                size="sm"
+                className={`h-7 text-xs whitespace-nowrap w-full mt-1 ${(sub as any).hasInvoice
+                  ? "border-green-600 text-green-600 hover:bg-green-50"
+                  : "border-red-600 text-red-600 hover:bg-red-50"
+                }`}
+                onClick={onInvoice}
+              >
+                {(sub as any).hasInvoice ? `✓ Invoice Sent` : "Send Invoice"}
               </Button>
             )}
           </div>
@@ -1510,33 +1526,36 @@ function InvoiceDialog({ sub, open, onClose }: {
   const [quantity, setQuantity] = useState(1);
   const [sending, setSending] = useState(false);
 
-  // Pre-fill from submission when opened
+  // Dealer = $60/unit no tax; Retail = $129/unit with 8.25% tax
+  const isRetail = sub?.type !== "dealer";
+  const unitPrice = isRetail ? 129.0 : 60.0;
+  const subtotal = quantity * unitPrice;
+  const taxAmount = isRetail ? parseFloat((subtotal * 0.0825).toFixed(2)) : 0;
+  const total = subtotal + taxAmount;
+
+  // Pre-fill from submission when opened (including address)
   useEffect(() => {
     if (open && sub) {
-      setCustomerName(sub.contactName || "");
-      setCustomerEmail(sub.email || "");
-      setCustomerPhone(sub.phone || "");
-      setCustomerAddress("");
-      setCustomerCity("");
-      setCustomerState("");
-      setCustomerZip("");
+      setCustomerName(sub.contactName || sub.retailCustomerName || "");
+      setCustomerEmail(sub.email || sub.retailCustomerEmail || "");
+      setCustomerPhone(sub.phone || sub.retailCustomerPhone || "");
+      setCustomerAddress((sub as any).customerAddress || sub.retailCustomerAddress || "");
+      setCustomerCity((sub as any).customerCity || sub.retailCustomerCity || "");
+      setCustomerState((sub as any).customerState || sub.retailCustomerState || "");
+      setCustomerZip((sub as any).customerZip || sub.retailCustomerZip || "");
       setQuantity(sub.quantity ? parseInt(sub.quantity) || 1 : 1);
     }
   }, [open, sub]);
-
-  const unitPrice = 129.0;
-  const subtotal = quantity * unitPrice;
-  const taxAmount = parseFloat((subtotal * 0.0825).toFixed(2));
-  const total = subtotal + taxAmount;
 
   const handleSend = async () => {
     if (!customerName.trim()) { toast({ title: "Customer name required", variant: "destructive" }); return; }
     setSending(true);
     try {
-      const res = await fetch("/api/admin/retail-invoice", {
+      const res = await fetch("/api/admin/send-invoice", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          submissionId: sub?.id || null,
           customerName: customerName.trim(),
           customerEmail: customerEmail.trim() || undefined,
           customerPhone: customerPhone.trim() || undefined,
@@ -1544,6 +1563,7 @@ function InvoiceDialog({ sub, open, onClose }: {
           customerCity: customerCity.trim() || undefined,
           customerState: customerState.trim() || undefined,
           customerZip: customerZip.trim() || undefined,
+          quantity,
         }),
       });
       const data = await res.json();
@@ -1560,11 +1580,17 @@ function InvoiceDialog({ sub, open, onClose }: {
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="bg-card border-border max-w-lg">
         <DialogHeader>
-          <DialogTitle className="text-lg font-bold">Send Invoice — {sub.contactName || sub.email}</DialogTitle>
+          <DialogTitle className="text-lg font-bold">
+            {isRetail ? "Send Retail Invoice" : "Send Dealer Invoice"} — {sub.contactName || sub.email}
+          </DialogTitle>
         </DialogHeader>
         <div className="space-y-4 py-2 max-h-[70vh] overflow-y-auto">
-          {/* Quantity + pricing summary */}
+          {/* Pricing summary */}
           <div className="bg-secondary/30 rounded-lg p-3 space-y-1">
+            <div className="text-xs text-muted-foreground mb-1">
+              {isRetail ? "Retail" : "Dealer"} — ${unitPrice.toFixed(2)}/unit
+              {!isRetail && <span className="ml-2 text-green-600 font-medium">No tax</span>}
+            </div>
             <div className="flex items-center gap-3">
               <label className="text-sm font-medium w-24">Quantity:</label>
               <select
@@ -1579,9 +1605,11 @@ function InvoiceDialog({ sub, open, onClose }: {
             <div className="flex justify-between text-sm pl-24">
               <span>Subtotal:</span><span>${subtotal.toFixed(2)}</span>
             </div>
-            <div className="flex justify-between text-sm pl-24">
-              <span>Tax (8.25%):</span><span>${taxAmount.toFixed(2)}</span>
-            </div>
+            {isRetail && (
+              <div className="flex justify-between text-sm pl-24">
+                <span>Tax (8.25%):</span><span>${taxAmount.toFixed(2)}</span>
+              </div>
+            )}
             <div className="flex justify-between font-bold text-sm pl-24 border-t border-border pt-1">
               <span>Total:</span><span>${total.toFixed(2)}</span>
             </div>

@@ -54,8 +54,17 @@ export class DatabaseStorage implements IStorage {
     return sub;
   }
 
-  async getSubmissions(): Promise<Submission[]> {
-    return db.select().from(submissions).orderBy(desc(submissions.createdAt));
+  async getSubmissions(): Promise<any[]> {
+    // Get submissions with their invoice status (hasInvoice = true if invoice sent)
+    const rows = await db.execute(sql`
+      SELECT s.*,
+        CASE WHEN i.id IS NOT NULL THEN true ELSE false END AS has_invoice,
+        i.invoice_number
+      FROM submissions s
+      LEFT JOIN invoices i ON i.submission_id = s.id AND i.status = 'sent'
+      ORDER BY s.created_at DESC
+    `);
+    return rows;
   }
 
   async deleteSubmission(id: string): Promise<void> {
