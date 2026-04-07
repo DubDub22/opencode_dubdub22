@@ -14,6 +14,7 @@ import WarrantyPage from "@/pages/warranty";
 import AdminPage from "@/pages/admin";
 import OrderPage from "@/pages/order";
 import OrderConfirmationPage from "@/pages/order-confirmation";
+import OrderReceivedPage from "@/pages/order-received";
 import ContactPage from "@/pages/contact";
 import InTheWildPage from "@/pages/in-the-wild";
 
@@ -27,6 +28,7 @@ function Router() {
       <Route path="/warranty" component={WarrantyPage} />
       <Route path="/order" component={OrderPage} />
       <Route path="/order-confirmation" component={OrderConfirmationPage} />
+      <Route path="/order-received" component={OrderReceivedPage} />
       <Route path="/admin" component={AdminPage} />
       <Route path="/contact" component={ContactPage} />
       <Route path="/in-the-wild" component={InTheWildPage} />

@@ -468,6 +468,22 @@ function DealerForm(props: { fflNumber: string; dealerName?: string; email?: str
       });
       const data = await resp.json();
       if (!resp.ok) throw new Error(data.error || "Request failed");
+
+      // Demo / stocking orders → redirect to order confirmation to accept terms
+      if (orderKind !== "inquiry") {
+        const qty = quantityCans ? String(quantityCans) : "1";
+        const params = new URLSearchParams({
+          type: orderKind === "demo" ? "demo" : "stocking",
+          qty,
+          dealer: encodeURIComponent(values.businessName || values.dealerName || ""),
+          email: encodeURIComponent(values.email || ""),
+          phone: encodeURIComponent(values.phone || ""),
+        });
+        window.location.href = `/order-confirmation?${params.toString()}`;
+        return;
+      }
+
+      // Inquiries show the success screen
       setSubmitted(true);
     } catch (err: any) {
       toast({ title: "Submission Failed", description: err.message, variant: "destructive" });

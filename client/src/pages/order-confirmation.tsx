@@ -8,8 +8,9 @@ import SiteFooter from "@/components/SiteFooter";
 import { useToast } from "@/hooks/use-toast";
 import { useSearchParams } from "wouter";
 
-const DUB_DUB_PRICE_PER_UNIT = 695.00;
-const TAX_RATE = 0.0; // No sales tax unless applicable
+// Dealer pricing: $60/unit for stocking orders; demo units are informational only (no charge)
+const DEALER_PRICE_PER_UNIT = 60.0;
+const TAX_RATE = 0.0; // Dealer orders — tax exemption applies via resale certificate
 
 function formatCurrency(amount: number): string {
   return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(amount);
@@ -30,7 +31,7 @@ export default function OrderConfirmationPage() {
   const [accepting, setAccepting] = useState(false);
 
   const unitCount = orderType === "stocking" ? quantity : 1;
-  const subtotal = DUB_DUB_PRICE_PER_UNIT * unitCount;
+  const subtotal = DEALER_PRICE_PER_UNIT * unitCount;
   const tax = subtotal * TAX_RATE;
   const total = subtotal + tax;
 
@@ -48,17 +49,20 @@ export default function OrderConfirmationPage() {
 
     setAccepting(true);
     try {
-      // TODO: Create order record in backend, then redirect to Authorize.net
-      // For now, redirect to Authorize.net hosted payment page
-      const params = new URLSearchParams({
-        order_type: orderType,
-        quantity: String(unitCount),
-        dealer_name: dealerName,
-        dealer_email: dealerEmail,
-        total: String(total.toFixed(2)),
+      // POST terms acceptance to backend so we have a record
+      await fetch("/api/dealer-terms-accepted", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          dealerName,
+          dealerEmail,
+          dealerPhone,
+          orderType,
+          quantity: unitCount,
+        }),
       });
-      // Navigate to invoice/payment step — Authorize.net redirect will be wired up
-      window.location.href = `/invoice?${params.toString()}`;
+      // Redirect to order-received page — Tom will review and send invoice manually
+      window.location.href = "/order-received";
     } catch {
       toast({
         title: "Error",
@@ -136,7 +140,7 @@ export default function OrderConfirmationPage() {
                   NFA-regulated sound suppressor — Class 3
                 </span>
               </div>
-              <span className="font-medium">{formatCurrency(DUB_DUB_PRICE_PER_UNIT)} each</span>
+              <span className="font-medium">{formatCurrency(DEALER_PRICE_PER_UNIT)} each</span>
             </div>
 
             {isStocking ? (

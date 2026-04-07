@@ -1463,6 +1463,18 @@ DubDub22 Minions`;
     }
   });
 
+  app.post("/api/dealer-terms-accepted", async (req, res) => {
+    try {
+      const { dealerName, dealerEmail, dealerPhone, orderType, quantity } = req.body || {};
+      // Log the acceptance for now — no DB write needed yet
+      console.log("Dealer terms accepted:", { dealerName, dealerEmail, orderType, quantity });
+      return res.json({ ok: true });
+    } catch (err: any) {
+      console.error("dealer_terms_accepted_error", err);
+      return res.status(500).json({ ok: false, error: err?.message });
+    }
+  });
+
   app.post("/api/warranty-request", async (req, res) => {
     try {
       const { name, email, serialNumber, description, serialPhotoName, serialPhotoData, damagePhoto1Name, damagePhoto1Data, damagePhoto2Name, damagePhoto2Data } = req.body || {};
