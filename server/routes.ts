@@ -17,6 +17,7 @@ import { loadFFLMaster, validateFFL } from "./ffl-master";
 const SALES_EMAIL = "info@dubdub22.com";
 const ORDER_EMAIL = "orders@dubdub22.com";
 const WARRANTY_EMAIL = "warranty@dubdub22.com";
+const CONTACT_EMAIL = "contact@dubdub22.com";
 const BCC_EMAIL = "info@dubdub22.com";
 const GMAIL_TOKEN_PATH = "/home/dubdub/DubDub-Hub/gmail_token.json";
 const ENV_PATH = "/home/dubdub/DubDub-Hub/.env";
@@ -2289,12 +2290,33 @@ Please visit https://dubdub22.com/dealers to submit a new, valid FFL/SOT.
         message,
       ].join("\n");
 
+      // Send to Tom
       await sendViaGmail({
-        to: SALES_EMAIL,
+        to: CONTACT_EMAIL,
         bcc: BCC_EMAIL,
-        subject: `Contact Form — ${subject}`,
+        subject: `CONTACT FORM — ${subject.toUpperCase()}`,
         text: body,
         replyTo: email,
+      });
+
+      // Auto-reply to the submitter
+      await sendViaGmail({
+        to: email,
+        bcc: BCC_EMAIL,
+        subject: `WE RECEIVED YOUR MESSAGE — ${subject.toUpperCase()}`,
+        text: [
+          `Hi ${name},`,
+          ``,
+          `Thanks for reaching out to DubDub22. We've received your message and will get back to you within 1–2 business days.`,
+          ``,
+          `Here's a copy of what you submitted:`,
+          ``,
+          `Subject: ${subject}`,
+          `Message: ${message}`,
+          ``,
+          `Best regards,`,
+          `DubDub22 Team`,
+        ].join("\n"),
       });
 
       return res.json({ ok: true });
