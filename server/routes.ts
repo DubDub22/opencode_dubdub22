@@ -1756,7 +1756,7 @@ DubDub22 Minions`;
           await sendViaGmail({
             to: email,
             from: `DubDub22 Orders <orders@dubdub22.com>`,
-            subject: `DubDub22 ${intentLabel} — Order Received`,
+            subject: `${intentLabel} — Order Received`,
             text: [
               `Your ${intentLabel.toLowerCase()} for ${qtyLabel} has been received by DubDub22.`,
               ``,
