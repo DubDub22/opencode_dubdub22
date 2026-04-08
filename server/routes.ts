@@ -1731,10 +1731,9 @@ DubDub22 Minions`;
         jpeg: "image/jpeg",
       };
 
-      // Send email to the appropriate route
+      // Send email to Tom / the orders team
       await sendViaGmail({
         to: emailTo,
-        bcc: BCC_EMAIL,
         from: isInfo ? `DubDub22 Inquiries <inquiry@dubdub22.com>` : `DubDub22 Orders <orders@dubdub22.com>`,
         subject: `DubDub22 ${subjectLine}`,
         text: bodyLines.join("\n"),
@@ -1748,6 +1747,35 @@ DubDub22 Minions`;
         console.error("retail_order_gmail_error", err);
         // Don't fail the whole request if email fails
       });
+
+      // Send a confirmation email to the dealer (the submitter)
+      if (!isInfo && email) {
+        const intentLabel = intent === "demo" ? "Demo Request" : "Stocking Order";
+        const qtyLabel = intent === "demo" ? "1 unit" : `${qty} units`;
+        try {
+          await sendViaGmail({
+            to: email,
+            from: `DubDub22 Orders <orders@dubdub22.com>`,
+            subject: `DubDub22 ${intentLabel} — Order Received`,
+            text: [
+              `Your ${intentLabel.toLowerCase()} for ${qtyLabel} has been received by DubDub22.`,
+              ``,
+              `Contact: ${contactName}`,
+              `Phone: ${phone || "Not provided"}`,
+              qty ? `Quantity: ${qty}` : null,
+              ``,
+              `Tom will review your order and send an invoice via Authorize.net. You'll receive payment instructions separately.`,
+              ``,
+              `Questions? Reply to this email or contact us at orders@dubdub22.com.`,
+              ``,
+              `— Double T Tactical — Floresville, TX — dubdub22.com`,
+            ].filter(Boolean).join("\n"),
+            replyTo: "orders@dubdub22.com",
+          });
+        } catch (dealerEmailErr) {
+          console.error("retail_order_dealer_confirmation_email_error", dealerEmailErr);
+        }
+      }
 
       // Insert into submissions table so it appears in the admin panel
       const orderType = isInfo ? "inquiry" : "dealer_order";
