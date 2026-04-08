@@ -3247,14 +3247,7 @@ export default function AdminPage() {
           >
             <FileText className="w-4 h-4 inline mr-1.5" />Tax Forms
           </button>
-          <button
-            onClick={() => { setTab("verify_ffl"); }}
-            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
-              tab === "verify_ffl" ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            <ShieldCheck className="w-4 h-4 inline mr-1.5" />VERIFY FFL
-          </button>
+
           <button
             onClick={() => { setTab("serials"); }}
             className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
@@ -3335,14 +3328,6 @@ export default function AdminPage() {
           <Card className="bg-card/50 border-border">
             <CardContent className="p-4 md:p-6">
               <TaxFormsTab />
-            </CardContent>
-          </Card>
-        )}
-
-        {tab === "verify_ffl" && (
-          <Card className="bg-card/50 border-border">
-            <CardContent className="p-4 md:p-6">
-              <VerifyFflTab />
             </CardContent>
           </Card>
         )}

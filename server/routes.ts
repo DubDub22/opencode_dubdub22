@@ -1958,12 +1958,12 @@ DubDub22 Minions`;
       const params: any[] = [];
       let idx = 1;
 
-      // Submissions: dealer leads (type=dealer) that are NOT linked to a dealer_submission
-      // with order_type='dealer' or demo_order — those are actual orders, not inquiries.
-      // We use dealer_submissions.order_type to distinguish: only show rows where there is
-      // no linked dealer_submission, OR the linked order_type is 'inquiry'.
-      // This prevents qty 5 stocking orders from appearing in the Dealer Inquiries tab.
-      let query = `SELECT
+      // Two sources: (1) submissions with type=dealer that aren't converted to orders,
+      // and (2) dealers who uploaded an FFL/SOT file directly (ffl_file_data present)
+      // but are not yet verified (verified=false).
+      //
+      // Source (1): dealer leads from the website form
+      const submissionsQuery = `SELECT
         'submission' as source,
         s.id::text as id,
         s.contact_name,
@@ -1982,14 +1982,37 @@ DubDub22 Minions`;
         LEFT JOIN dealer_submissions ds ON ds.submission_id = s.id
         WHERE s.type = 'dealer'
           AND (ds.id IS NULL OR ds.order_type = 'inquiry')`;
+
+      // Source (2): dealers with FFL/SOT uploads awaiting verification
+      const dealersQuery = `SELECT
+        'dealer' as source,
+        d.id::text as id,
+        d.contact_name,
+        d.business_name,
+        d.email,
+        d.phone,
+        NULL::text as message,
+        d.created_at::timestamp as created_at,
+        d.ffl_on_file as dealer_ffl_on_file,
+        d.ffl_expiry_date as dealer_ffl_expiry,
+        d.sot_on_file as dealer_sot_on_file,
+        d.sot_expiry_date as dealer_sot_expiry,
+        d.ffl_license_number as dealer_ffl_license_number
+        FROM dealers d
+        WHERE (d.ffl_file_data IS NOT NULL AND d.ffl_file_data != '')
+           OR (d.sot_file_data IS NOT NULL AND d.sot_file_data != '')`;
+
+      const combinedQuery = `SELECT * FROM (${submissionsQuery}) sub UNION ALL (${dealersQuery})`;
+
+      let finalQuery = combinedQuery;
       if (search) {
-        query += ` AND (s.contact_name ILIKE $${idx} OR s.business_name ILIKE $${idx} OR s.email ILIKE $${idx})`;
+        finalQuery = `${combinedQuery} WHERE contact_name ILIKE $${idx} OR business_name ILIKE $${idx} OR email ILIKE $${idx}`;
         params.push(`%${search}%`);
         idx++;
       }
-      query += ` ORDER BY s.created_at DESC`;
+      finalQuery += ` ORDER BY created_at DESC`;
 
-      const result = await pool.query(query, params);
+      const result = await pool.query(finalQuery, params);
       return res.json({ ok: true, data: result.rows });
     } catch (err: any) {
       console.error("admin_dealer_inquiries_error", err);
@@ -2005,6 +2028,12 @@ DubDub22 Minions`;
         await pool.query(`DELETE FROM submissions WHERE id = $1`, [id]);
       } else if (source === "retail_inquiry") {
         await pool.query(`DELETE FROM retail_inquiries WHERE id = $1`, [id]);
+      } else if (source === "dealer") {
+        // Clear FFL/SOT files from the dealer record without deleting the dealer
+        await pool.query(
+          `UPDATE dealers SET ffl_file_data = NULL, ffl_file_name = NULL, sot_file_data = NULL, sot_file_name = NULL WHERE id = $1`,
+          [id]
+        );
       } else {
         return res.status(400).json({ ok: false, error: "invalid_source" });
       }
