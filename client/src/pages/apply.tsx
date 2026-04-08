@@ -379,6 +379,22 @@ function DealerForm(props: { fflNumber: string; dealerName?: string; email?: str
   const [quantityCans, setQuantityCans] = useState("5");
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [hasDemoUnitShipped, setHasDemoUnitShipped] = useState(false);
+
+  // Check if dealer already received a demo unit — if so, hide the demo option
+  React.useEffect(() => {
+    if (!props.email) return;
+    fetch(`/api/dealer-request/demo-status?email=${encodeURIComponent(props.email)}`)
+      .then(r => r.json())
+      .then(data => {
+        if (data.hasShippedDemo) {
+          setHasDemoUnitShipped(true);
+          // If demo was selected, fall back to inquiry
+          setOrderKind("inquiry");
+        }
+      })
+      .catch(() => {});
+  }, [props.email]);
 
   // Parse FFL number into 6 segments for display/editing
   // Handles both dashed ("1-66-075-01-8B-00358") and raw 15-digit ("166075018B00358") formats
@@ -534,7 +550,7 @@ function DealerForm(props: { fflNumber: string; dealerName?: string; email?: str
               { value: "inquiry", label: "Dealer Inquiry", sub: "Request more information about DubDub22" },
               { value: "demo", label: "Demo Order", sub: "Order 1 Demo Can", price: "$60" },
               { value: "stocking", label: "Stocking Order", sub: "Order in bulk for your inventory", price: "$60/unit" },
-            ].map((opt) => (
+            ].filter(opt => opt.value !== "demo" || !hasDemoUnitShipped).map((opt) => (
               <label
                 key={opt.value}
                 className={
