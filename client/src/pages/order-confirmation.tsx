@@ -24,6 +24,7 @@ export default function OrderConfirmationPage() {
   const orderType = searchParams.get("type") || "demo"; // "demo" | "stocking"
   const quantity = parseInt(searchParams.get("qty") || "1", 10);
   const dealerName = searchParams.get("dealer") || "Registered Dealer";
+  const dealerContact = searchParams.get("contact") || dealerName;
   const dealerEmail = searchParams.get("email") || "";
   const dealerPhone = searchParams.get("phone") || "";
 
@@ -69,7 +70,7 @@ export default function OrderConfirmationPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           intent: isStocking ? "order" : "demo",
-          contactName: dealerName,
+          contactName: dealerContact,
           email: dealerEmail,
           phone: dealerPhone || null,
           message: null,
@@ -149,6 +150,12 @@ export default function OrderConfirmationPage() {
               <span className="text-muted-foreground block">Dealer / Business</span>
               <span className="font-medium">{dealerName}</span>
             </div>
+            {dealerContact && dealerContact !== dealerName && (
+              <div>
+                <span className="text-muted-foreground block">Contact</span>
+                <span className="font-medium">{dealerContact}</span>
+              </div>
+            )}
             {dealerEmail && (
               <div>
                 <span className="text-muted-foreground block">Email</span>

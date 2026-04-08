@@ -502,6 +502,7 @@ function DealerForm(props: { fflNumber: string; dealerName?: string; email?: str
           type: orderKind === "demo" ? "demo" : "stocking",
           qty,
           dealer: encodeURIComponent(values.dealerName || ""),
+          contact: encodeURIComponent(values.contactName || ""),
           email: encodeURIComponent(values.email || ""),
           phone: encodeURIComponent(values.contactPhone || ""),
         });
