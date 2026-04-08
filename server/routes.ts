@@ -1467,7 +1467,7 @@ DubDub22 Minions`;
           to: SALES_EMAIL,
           bcc: BCC_EMAIL,
           from: `DubDub22 Orders <orders@dubdub22.com>`,
-          subject: `DubDub22 Dealer Order - ${bizName}`,
+          subject: `DubDub22 Dealer Order`,
           text: orderBody,
           replyTo: email,
           attachment: (fflFileData || sotFileData) ? {
@@ -1678,7 +1678,7 @@ DubDub22 Minions`;
   app.post("/api/retail-order", async (req, res) => {
     try {
       const {
-        intent, contactName, email, phone,
+        intent, contactName, businessName, email, phone,
         message, quantity, fflFileName, fflFileData,
         customerAddress, customerCity, customerState, customerZip
       } = req.body || {};
@@ -1710,11 +1710,12 @@ DubDub22 Minions`;
 
       const subjectLine = isInfo
         ? "Dealer Inquiry"
-        : `Dealer Order — ${qty} cans`;
+        : `Dealer Order`;
 
       const bodyLines = [
         `DubDub22 ${subjectLine}`,
         "",
+        `Business: ${businessName || "N/A"}`,
         `Contact: ${contactName}`,
         `Email: ${email}`,
         `Phone: ${phone}`,
