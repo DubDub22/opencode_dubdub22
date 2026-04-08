@@ -1,4 +1,5 @@
 import ShippingPolicyPage from "@/pages/shipping-policy";
+import ReturnsRestockingPage from "@/pages/returns";
 import UploadTaxFormPage from "./pages/upload-tax-form";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
@@ -27,6 +28,7 @@ function Router() {
       <Route path="/apply" component={ApplyPage} />
       <Route path="/warranty" component={WarrantyPage} />
       <Route path="/shipping" component={ShippingPolicyPage} />
+      <Route path="/returns" component={ReturnsRestockingPage} />
       <Route path="/order" component={OrderPage} />
       <Route path="/order-confirmation" component={OrderConfirmationPage} />
       <Route path="/order-received" component={OrderReceivedPage} />
