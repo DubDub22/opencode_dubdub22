@@ -1254,11 +1254,42 @@ DubDub22 Minions`;
         }
 
         try {
-          await sendViaGmail({ ...emailOptions, bcc: BCC_EMAIL });
+          await sendViaGmail(emailOptions);
         } catch (emailErr) {
           console.error("ffl_upload_confirmation_email_error", emailErr);
           // Don't fail the submission if the email fails
         }
+      }
+
+      // Send NEW DEALER VERIFICATION email to Tom with all submitted form data
+      const adminEmail = process.env.ADMIN_EMAIL || "tom@dubdub22.com";
+      const verificationText = `New dealer application submitted via FFL challenge page.
+
+=== DEALER FORM DATA ===
+FFL Number: ${fflNumber}
+Business Name: ${dealerName || "N/A"}
+Contact Name: ${contactName || "N/A"}
+Email: ${email || "N/A"}
+Phone: ${phone || "N/A"}
+Address: ${address || "N/A"}
+City: ${city || "N/A"}
+State: ${state || "N/A"}
+Zip: ${zipCode || "N/A"}
+Notes: ${message || "N/A"}
+Source: pending_upload
+Status: pending (awaiting FFL/SOT verification)
+
+Action required: Review and verify this dealer's FFL before approving.`;
+
+      try {
+        await sendViaGmail({
+          from: "DubDub22 Inquiries <inquiry@dubdub22.com>",
+          to: adminEmail,
+          subject: "NEW DEALER VERIFICATION",
+          text: verificationText,
+        });
+      } catch (emailErr) {
+        console.error("ffl_upload_admin_notification_error", emailErr);
       }
 
       return res.json({ ok: true, message: "FFL submitted for review" });
