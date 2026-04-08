@@ -2187,12 +2187,49 @@ DubDub22 Minions`;
   app.post("/api/admin/verify-ffl/:id/approve", requireAdmin, async (req, res) => {
     try {
       const { id } = req.params;
+      const dealer = await pool.query(`SELECT * FROM dealers WHERE id = $1`, [id]);
+      if (!dealer.rows.length) return res.status(404).json({ ok: false, error: "not_found" });
+      const d = dealer.rows[0];
+
       await pool.query(
         `UPDATE dealers SET verified = true, source = 'web_form',
          ffl_form_status = 'accepted', sot_form_status = 'accepted'
          WHERE id = $1`,
         [id]
       );
+
+      // Email Tom with all dealer data — from inquiry@dubdub22.com, subject "NEW DEALER VERIFICATION"
+      const emailBody = [
+        `NEW DEALER VERIFICATION — Approved`,
+        ``,
+        `Business Name: ${d.business_name || ''}`,
+        `Contact Name: ${d.contact_name || ''}`,
+        `Email: ${d.email || ''}`,
+        `Phone: ${d.phone || ''}`,
+        `FFL License: ${d.ffl_license_number || ''}`,
+        `FFL Expiry: ${d.ffl_expiry || ''}`,
+        `Business Address: ${d.business_address || ''}`,
+        `City: ${d.city || ''}`,
+        `State: ${d.state || ''}`,
+        `Zip: ${d.zip || ''}`,
+        `EIN: ${d.ein || ''}`,
+        `Tier: ${d.tier || ''}`,
+        `Verified: ${d.verified ? 'Yes' : 'No'}`,
+        `Source: ${d.source || ''}`,
+        ``,
+        `Submitted at: ${d.created_at ? new Date(d.created_at).toLocaleString() : 'N/A'}`,
+        `Approved at: ${new Date().toLocaleString()}`,
+      ].join("\n");
+
+      await sendViaGmail({
+        to: process.env.ADMIN_EMAIL || "tom@dubdub22.com",
+        from: `DubDub22 Inquiries <inquiry@dubdub22.com>`,
+        subject: `NEW DEALER VERIFICATION`,
+        text: emailBody,
+      }).catch(err => {
+        console.error("ffl_approve_notification_email_error", err);
+      });
+
       return res.json({ ok: true });
     } catch (err: any) {
       console.error("admin_verify_ffl_approve_error", err);
