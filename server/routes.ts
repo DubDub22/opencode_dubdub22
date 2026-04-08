@@ -2253,7 +2253,7 @@ Action required: Review and verify this dealer's FFL before approving.`;
       ].join("\n");
 
       await sendViaGmail({
-        bcc: process.env.ADMIN_EMAIL || "tom@dubdub22.com",
+        to: "inquiry@dubdub22.com",
         from: `DubDub22 Inquiries <inquiry@dubdub22.com>`,
         subject: `NEW DEALER VERIFICATION`,
         text: emailBody,
