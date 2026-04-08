@@ -1546,12 +1546,12 @@ function InvoiceDialog({ sub, open, onClose }: {
   const [quantity, setQuantity] = useState(1);
   const [sending, setSending] = useState(false);
 
-  // Dealer = $60/unit no tax; Warranty = $129/unit with 8.25% tax
+  // Dealer = $60/unit no tax; Warranty = $10 flat S&H only
   const isWarranty = sub?.type === "warranty";
-  const unitPrice = isWarranty ? 129.0 : 60.0;
-  const subtotal = quantity * unitPrice;
-  const taxAmount = isWarranty ? parseFloat((subtotal * 0.0825).toFixed(2)) : 0;
-  const total = subtotal + taxAmount;
+  const unitPrice = isWarranty ? 0 : 60.0;
+  const subtotal = isWarranty ? 10.0 : quantity * unitPrice;
+  const taxAmount = 0;
+  const total = subtotal;
 
   // Pre-fill from submission when opened (including address)
   useEffect(() => {
@@ -1608,9 +1608,10 @@ function InvoiceDialog({ sub, open, onClose }: {
           {/* Pricing summary */}
           <div className="bg-secondary/30 rounded-lg p-3 space-y-1">
             <div className="text-xs text-muted-foreground mb-1">
-              {isWarranty ? "Warranty" : "Dealer"} — ${unitPrice.toFixed(2)}/unit
+              {isWarranty ? "Warranty" : "Dealer"} — {isWarranty ? "$10 flat S&H" : `${unitPrice.toFixed(2)}/unit`}
               {!isWarranty && <span className="ml-2 text-green-600 font-medium">No tax</span>}
             </div>
+            {!isWarranty && (
             <div className="flex items-center gap-3">
               <label className="text-sm font-medium w-24">Quantity:</label>
               <select
@@ -1622,13 +1623,16 @@ function InvoiceDialog({ sub, open, onClose }: {
               </select>
               <span className="text-sm text-muted-foreground">× ${unitPrice.toFixed(2)} = ${subtotal.toFixed(2)}</span>
             </div>
+            )}
+            {isWarranty && (
+              <div className="flex justify-between text-sm pl-0">
+                <span>Shipping &amp; Handling:</span><span>$10.00</span>
+              </div>
+            )}
+            {!isWarranty && (
             <div className="flex justify-between text-sm pl-24">
               <span>Subtotal:</span><span>${subtotal.toFixed(2)}</span>
             </div>
-            {isWarranty && (
-              <div className="flex justify-between text-sm pl-24">
-                <span>Tax (8.25%):</span><span>${taxAmount.toFixed(2)}</span>
-              </div>
             )}
             <div className="flex justify-between font-bold text-sm pl-24 border-t border-border pt-1">
               <span>Total:</span><span>${total.toFixed(2)}</span>
