@@ -1388,23 +1388,53 @@ DubDub22 Minions`;
       //   );
       // }
 
-      const body = [
-        `DubDub22 ${isInquiry ? 'Dealer Inquiry' : isDemoOrder ? 'Dealer Order (DEMO CAN)' : 'Dealer Order'}`,
-        "",
-        `Contact: ${contactName}`,
-        `Business: ${bizName}`,
-        `Email: ${email}`,
-        `Phone: ${phone || "N/A"}`,
-        fflNumber ? `FFL: ${fflNumber}` : null,
-        ein ? `EIN: ${ein}` : null,
-        isInquiry ? "" : `Quantity: ${quantityCans}${isDemoOrder ? ' (DEMO CAN)' : isStockingOrder ? ' (STOCKING ORDER)' : ''}`,
-        isInquiry ? "" : `FFL on File: ${fflFileName || "Not provided"}`,
-        isInquiry ? "" : `SOT: ${sotFileName || "Not provided"}`,
-        isInquiry ? "" : `Resale Certificate: ${resaleFileName || "Not provided"}`,
-        isInquiry ? "" : `Multi-State Tax Form: ${taxFormFileName || "Not provided"}`,
-        message ? `\nMessage:\n${message}` : "",
-      ].filter(Boolean).join("\n");
+      // ── For inquiries: send dealer a confirmation email mirroring Path 1 format, BCC Tom ──
+      if (isInquiry && email) {
+        const taxFormPath = path.join(__dirname, "../shared/multi_state_tax_form.pdf");
+        const taxFormBase64 = fs.existsSync(taxFormPath)
+          ? fs.readFileSync(taxFormPath).toString("base64")
+          : null;
 
+        const inquiryEmailText = `Thanks for submitting your dealer application to DubDub22. Here is what we received:
+
+=== YOUR SUBMISSION ===
+${fflNumber ? `FFL Number: ${fflNumber}` : 'FFL: Not provided'}
+Business Name: ${bizName || "N/A"}
+Contact Name: ${contactName || "N/A"}
+Email: ${email}
+Phone: ${phone || "N/A"}
+${ein ? `EIN: ${ein}` : ''}
+${message ? `Notes: ${message}` : ''}
+
+=== TO COMPLETE YOUR DEALER PROFILE ===
+Please email us the following:
+- A copy of your FFL
+- A copy of your SOT
+- The completed multi-state tax form (attached to this email)
+
+We'll review your application and be in touch shortly.
+
+DubDub22 Minions`;
+
+        const emailOpts: {
+          to: string;
+          bcc: string;
+          subject: string;
+          text: string;
+          attachment?: { filename: string; base64Data: string; contentType: string };
+        } = {
+          to: email,
+          bcc: BCC_EMAIL,
+          subject: "Your DubDub22 Dealer Application",
+          text: inquiryEmailText,
+        };
+        if (taxFormBase64) {
+          emailOpts.attachment = { filename: "multi_state_tax_form.pdf", base64Data: taxFormBase64, contentType: "application/pdf" };
+        }
+        try { await sendViaGmail(emailOpts); } catch (e) { console.error("dealer_inquiry_email_error", e); }
+      }
+
+      // ── For orders: send Tom the order details ──
       const ext = (fflFileName || "").split(".").pop()?.toLowerCase() || "";
       const contentTypeMap: Record<string, string> = {
         pdf: "application/pdf",
@@ -1413,23 +1443,40 @@ DubDub22 Minions`;
         jpeg: "image/jpeg",
       };
 
+      const orderBody = [
+        `DubDub22 ${isDemoOrder ? 'Dealer Order (DEMO CAN)' : 'Dealer Order'}`,
+        "",
+        `Contact: ${contactName}`,
+        `Business: ${bizName}`,
+        `Email: ${email}`,
+        `Phone: ${phone || "N/A"}`,
+        fflNumber ? `FFL: ${fflNumber}` : null,
+        ein ? `EIN: ${ein}` : null,
+        `Quantity: ${quantityCans}${isDemoOrder ? ' (DEMO CAN)' : ' (STOCKING ORDER)'}`,
+        `FFL on File: ${fflFileName || "Not provided"}`,
+        `SOT: ${sotFileName || "Not provided"}`,
+        `Resale Certificate: ${resaleFileName || "Not provided"}`,
+        `Multi-State Tax Form: ${taxFormFileName || "Not provided"}`,
+        message ? `\nMessage:\n${message}` : "",
+      ].filter(Boolean).join("\n");
+
       const [gmailResult, dbResult] = await Promise.all([
-        sendViaGmail({
+        !isInquiry ? sendViaGmail({
           to: SALES_EMAIL,
           bcc: BCC_EMAIL,
-          from: `DubDub22 Inquiries <inquiry@dubdub22.com>`,
-          subject: `DubDub22 ${isInquiry ? 'Dealer Inquiry' : 'Dealer Order'} - ${bizName}`,
-          text: body,
+          from: `DubDub22 Orders <orders@dubdub22.com>`,
+          subject: `DubDub22 Dealer Order - ${bizName}`,
+          text: orderBody,
           replyTo: email,
-          attachment: (fflFileData || sotFileData) && !isInquiry ? {
+          attachment: (fflFileData || sotFileData) ? {
             filename: fflFileName || sotFileName || "document",
             base64Data: fflFileData || sotFileData || "",
             contentType: contentTypeMap[ext] || "application/octet-stream",
           } : undefined,
         }).catch(err => {
           console.error("gmail_failed", err);
-          return null; // Don't fail the whole request
-        }),
+          return null;
+        }) : Promise.resolve(null),
         storage.createSubmission({
           type: "dealer",
           contactName,
@@ -1487,8 +1534,8 @@ DubDub22 Minions`;
             ? `To complete your dealer profile, please send us ${missingForms.join(" and ")}.${taxFormInstruction ? ` ${taxFormInstruction}` : ""}`
             : "");
 
-      // Send auto-reply to the dealer
-      if (email) {
+      // Send auto-reply to the dealer (orders only — inquiries get the Path 1-style email above)
+      if (email && !isInquiry) {
         try {
           const autoReplyLines = [
             `Thank you for ${isInquiry ? 'submitting a dealer inquiry' : 'placing a dealer order'} with DubDub22.`,
