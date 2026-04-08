@@ -98,9 +98,27 @@ export default function OrderConfirmationPage() {
     window.location.href = "/order";
   }
 
+  const stepsComplete = accepted && signatureName.trim();
+  const step1Done = accepted;
+  const step2Done = !!signatureName.trim();
+
   return (
     <div className="min-h-screen bg-background text-foreground">
       <SiteHeader variant="home" />
+
+      {/* Sticky CTA banner — visible until both steps are done */}
+      {!stepsComplete && (
+        <div className="sticky top-0 z-10 bg-primary text-primary-foreground px-4 py-3 text-sm font-medium shadow-md">
+          <div className="container mx-auto max-w-2xl flex items-center gap-3">
+            <span className="text-xs font-bold uppercase tracking-wider opacity-75">Next:</span>
+            <span className={step1Done ? "line-through opacity-50" : ""}>☐ Read & accept the Terms &amp; Conditions</span>
+            <span className="opacity-40 mx-1">›</span>
+            <span className={step2Done ? "line-through opacity-50" : ""}>☐ Type your name to sign</span>
+            <span className="opacity-40 mx-1">›</span>
+            <span className={stepsComplete ? "text-green-300 font-bold" : "opacity-50"}>✓ Click Accept below</span>
+          </div>
+        </div>
+      )}
 
       <main className="container mx-auto px-6 py-12 max-w-2xl">
         <motion.div
@@ -349,6 +367,11 @@ export default function OrderConfirmationPage() {
         </motion.div>
 
         {/* Action buttons */}
+        {!accepted && (
+          <div className="bg-amber-500/10 border border-amber-500/30 rounded-md px-4 py-3 mb-4 text-sm text-amber-700 dark:text-amber-400">
+            <strong>To continue:</strong> Scroll up, check the Terms acceptance box, and type your name in the Signature field below.
+          </div>
+        )}
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
