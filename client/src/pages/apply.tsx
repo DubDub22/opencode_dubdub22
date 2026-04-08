@@ -2,8 +2,7 @@ import React, { useState } from "react";
 import { useSearchParams } from "wouter";
 import { motion } from "framer-motion";
 import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
+
 import { CheckCircle, Loader2 } from "lucide-react";
 import SiteHeader from "@/components/SiteHeader";
 import SiteFooter from "@/components/SiteFooter";
@@ -13,27 +12,22 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 
-// ─── Schema ────────────────────────────────────────────────────────────────────
+// ─── Types ────────────────────────────────────────────────────────────────────
 
-const dealerApplySchema = z.object({
-  dealerName: z.string().min(2, "Dealer / FFL name is required"),
-  contactName: z.string().min(2, "Contact name is required"),
-  email: z.string().email("Valid email is required"),
-  confirmEmail: z.string().email("Please confirm your email"),
-  fflExpiry: z.string().optional(),
-  ein: z.string().optional(),
-  contactPhone: z.string().optional(),
-  address: z.string().optional(),
-  city: z.string().min(2, "City is required"),
-  state: z.string().min(2, "State is required"),
-  zipCode: z.string().min(5, "ZIP code is required"),
-  message: z.string().min(1, "Message is required"),
-}).refine((data) => data.email === data.confirmEmail, {
-  message: "Emails do not match",
-  path: ["confirmEmail"],
-});
-
-type DealerApplyValues = z.infer<typeof dealerApplySchema>;
+interface DealerApplyValues {
+  dealerName: string;
+  contactName: string;
+  email: string;
+  confirmEmail: string;
+  fflExpiry: string;
+  ein: string;
+  contactPhone: string;
+  address: string;
+  city: string;
+  state: string;
+  zipCode: string;
+  message: string;
+}
 
 // ─── Pending FFL Upload (dealer not in database) ────────────────────────────────
 
@@ -44,26 +38,20 @@ function PendingUpload(props: { fflNumber: string }) {
   const [fflSegs, setFflSegs] = useState(["", "", "", "", "", ""]);
   const [fflError, setFflError] = useState("");
 
-  const pendingSchema = z.object({
-    dealerName: z.string().min(2, "FFL / Dealer name is required"),
-    contactName: z.string().min(2, "Contact name is required"),
-    email: z.string().email("Valid email is required"),
-    confirmEmail: z.string().email("Please confirm your email"),
-    phone: z.string().min(10, "Valid phone number is required"),
-    address: z.string().min(5, "Address is required"),
-    city: z.string().min(2, "City is required"),
-    state: z.string().min(2, "State is required"),
-    zipCode: z.string().min(5, "ZIP code is required"),
-    message: z.string().optional(),
-  }).refine((data) => data.email === data.confirmEmail, {
-    message: "Emails do not match",
-    path: ["confirmEmail"],
-  });
-
-  type PendingValues = z.infer<typeof pendingSchema>;
+  type PendingValues = {
+    dealerName: string;
+    contactName: string;
+    email: string;
+    confirmEmail: string;
+    phone: string;
+    address: string;
+    city: string;
+    state: string;
+    zipCode: string;
+    message: string;
+  };
 
   const form = useForm<PendingValues>({
-    resolver: zodResolver(pendingSchema),
     defaultValues: {
       dealerName: "",
       contactName: "",
@@ -79,6 +67,17 @@ function PendingUpload(props: { fflNumber: string }) {
   });
 
   async function onSubmit(values: PendingValues) {
+    // Manual validation
+    if (!values.dealerName || values.dealerName.trim().length < 2) { toast({ title: "Validation", description: "Dealer name must be at least 2 characters", variant: "destructive" }); return; }
+    if (!values.contactName || values.contactName.trim().length < 2) { toast({ title: "Validation", description: "Contact name must be at least 2 characters", variant: "destructive" }); return; }
+    if (!values.email || !/^[^@]+@[^@]+\.[^@]+$/.test(values.email)) { toast({ title: "Validation", description: "Valid email is required", variant: "destructive" }); return; }
+    if (values.email !== values.confirmEmail) { toast({ title: "Validation", description: "Emails do not match", variant: "destructive" }); return; }
+    if (!values.phone || values.phone.replace(/\D/g, "").length < 10) { toast({ title: "Validation", description: "Valid phone number is required", variant: "destructive" }); return; }
+    if (!values.address || values.address.trim().length < 5) { toast({ title: "Validation", description: "Address is required", variant: "destructive" }); return; }
+    if (!values.city || values.city.trim().length < 2) { toast({ title: "Validation", description: "City is required", variant: "destructive" }); return; }
+    if (!values.state || values.state.trim().length < 2) { toast({ title: "Validation", description: "State is required", variant: "destructive" }); return; }
+    if (!values.zipCode || values.zipCode.trim().length < 5) { toast({ title: "Validation", description: "ZIP code is required", variant: "destructive" }); return; }
+
     const fullFfl = fflSegs.join("-");
     if (fflSegs.some(s => s.length === 0)) {
       setFflError("Please fill in all FFL number segments");
@@ -425,7 +424,6 @@ function DealerForm(props: { fflNumber: string; dealerName?: string; email?: str
   }
 
   const form = useForm<DealerApplyValues>({
-    resolver: zodResolver(dealerApplySchema),
     defaultValues: {
       dealerName: props.dealerName || "",
       contactName: "",
@@ -443,6 +441,17 @@ function DealerForm(props: { fflNumber: string; dealerName?: string; email?: str
   });
 
   async function onSubmit(values: DealerApplyValues) {
+    // Manual validation
+    if (!values.dealerName || values.dealerName.trim().length < 2) { toast({ title: "Validation", description: "Dealer / FFL name must be at least 2 characters", variant: "destructive" }); return; }
+    if (!values.contactName || values.contactName.trim().length < 2) { toast({ title: "Validation", description: "Contact name must be at least 2 characters", variant: "destructive" }); return; }
+    if (!values.email || !/^[^@]+@[^@]+\.[^@]+$/.test(values.email)) { toast({ title: "Validation", description: "Valid email is required", variant: "destructive" }); return; }
+    if (values.email !== values.confirmEmail) { toast({ title: "Validation", description: "Emails do not match", variant: "destructive" }); return; }
+    if (!values.contactPhone || values.contactPhone.replace(/\D/g, "").length < 10) { toast({ title: "Validation", description: "Contact phone is required", variant: "destructive" }); return; }
+    if (!values.city || values.city.trim().length < 2) { toast({ title: "Validation", description: "City is required", variant: "destructive" }); return; }
+    if (!values.state || values.state.trim().length < 2) { toast({ title: "Validation", description: "State is required", variant: "destructive" }); return; }
+    if (!values.zipCode || values.zipCode.trim().length < 5) { toast({ title: "Validation", description: "ZIP code is required", variant: "destructive" }); return; }
+    if (orderKind === "inquiry" && (!values.message || values.message.trim().length < 1)) { toast({ title: "Validation", description: "Message is required", variant: "destructive" }); return; }
+
     const fullFfl = fflSegs.join("-");
     if (fullFfl.replace(/-/g, "").length < 15) {
       toast({ title: "Invalid FFL", description: "FFL number must be 15 characters.", variant: "destructive" });
@@ -475,9 +484,9 @@ function DealerForm(props: { fflNumber: string; dealerName?: string; email?: str
         const params = new URLSearchParams({
           type: orderKind === "demo" ? "demo" : "stocking",
           qty,
-          dealer: encodeURIComponent(values.businessName || values.dealerName || ""),
+          dealer: encodeURIComponent(values.dealerName || ""),
           email: encodeURIComponent(values.email || ""),
-          phone: encodeURIComponent(values.phone || ""),
+          phone: encodeURIComponent(values.contactPhone || ""),
         });
         window.location.href = `/order-confirmation?${params.toString()}`;
         return;
@@ -646,7 +655,7 @@ function DealerForm(props: { fflNumber: string; dealerName?: string; email?: str
 
         <div className="grid md:grid-cols-2 gap-4">
           <FormField control={form.control} name="contactPhone" render={({ field }) => (
-            <FormItem><FormLabel>Contact Phone <span className="text-xs text-muted-foreground font-normal">(optional)</span></FormLabel><FormControl><Input {...field} type="tel" className="bg-card border-border" /></FormControl><FormMessage /></FormItem>
+            <FormItem><FormLabel>Contact Phone</FormLabel><FormControl><Input {...field} type="tel" className="bg-card border-border" /></FormControl><FormMessage /></FormItem>
           )} />
         </div>
 

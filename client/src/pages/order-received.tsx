@@ -21,7 +21,7 @@ export default function OrderReceivedPage() {
           </div>
           <h1 className="text-4xl font-bold mb-4">Order Received</h1>
           <p className="text-muted-foreground text-lg mb-8 max-w-md mx-auto">
-            Your order has been submitted. Thomas will review it and reach out within 1–2 business days with next steps and your invoice.
+            Your order has been submitted. It will be reviewed within 1–2 business days with next steps and your invoice.
           </p>
           <p className="text-sm text-muted-foreground mb-10">
             Check your email for a confirmation. If you don&apos;t see it, check your spam folder.

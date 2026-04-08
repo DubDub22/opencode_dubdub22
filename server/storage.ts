@@ -54,7 +54,7 @@ export class DatabaseStorage implements IStorage {
     return sub;
   }
 
-  async getSubmissions(): Promise<any[]> {
+  async getSubmissions(includeArchived = false): Promise<any[]> {
     // Get submissions with their invoice status (hasInvoice = true if invoice sent)
     const result = await db.execute(sql`
       SELECT s.*,
@@ -62,9 +62,18 @@ export class DatabaseStorage implements IStorage {
         i.invoice_number
       FROM submissions s
       LEFT JOIN invoices i ON i.submission_id = s.id AND i.status = 'sent'
+      WHERE ${includeArchived ? "1=1" : "s.archived = false"}
       ORDER BY s.created_at DESC
     `);
     return result.rows;
+  }
+
+  async archiveSubmission(id: string): Promise<void> {
+    await db.update(submissions).set({ archived: true }).where(eq(submissions.id, id));
+  }
+
+  async unarchiveSubmission(id: string): Promise<void> {
+    await db.update(submissions).set({ archived: false }).where(eq(submissions.id, id));
   }
 
   async deleteSubmission(id: string): Promise<void> {

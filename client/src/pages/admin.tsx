@@ -53,6 +53,7 @@ type Submission = {
   hasOrderedDemo?: string;
   createdAt: string;
   order_type?: string;
+  archived?: boolean;
 };
 
 type Dealer = {
@@ -234,14 +235,15 @@ function fmtDate(d: string) {
 // ── Submissions Tab ───────────────────────────────────────────────────────────
 
 function SubmissionsTab({
-  submissions, isLoading, search, setSearch, typeFilter, setTypeFilter,
-  sortDir, setSortDir, setDeleteTarget, setShipTarget, setInvoiceTarget, onFetchSubmissions
+  submissions, isLoading, search, setSearch,
+  sortDir, setSortDir, showArchived, setShowArchived,
+  setArchiveTarget, setShipTarget, setInvoiceTarget, onFetchSubmissions
 }: {
   submissions: Submission[]; isLoading: boolean;
   search: string; setSearch: (s: string) => void;
-  typeFilter: string; setTypeFilter: (s: string) => void;
   sortDir: "desc" | "asc"; setSortDir: (d: "desc" | "asc") => void;
-  setDeleteTarget: (s: Submission | null) => void;
+  showArchived: boolean; setShowArchived: (v: boolean) => void;
+  setArchiveTarget: (s: Submission | null) => void;
   setShipTarget: (s: Submission | null) => void;
   setInvoiceTarget: (s: Submission | null) => void;
   onFetchSubmissions: () => void;
@@ -249,10 +251,6 @@ function SubmissionsTab({
   // Exclude warranty submissions — they go to the Warranty tab
   const filtered = submissions.filter((sub) => {
     if (sub.type === "warranty") return false;
-    if (typeFilter !== "all") {
-      if (typeFilter === "dealer") { if (!(sub.type === "dealer" && sub.hasOrderedDemo === "true")) return false; }
-      else if (sub.type !== typeFilter) return false;
-    }
     if (search) {
       const q = search.toLowerCase();
       const s = `${fmtDate(sub.createdAt)} ${sub.contactName} ${sub.businessName} ${sub.email} ${sub.phone} ${sub.serialNumber} ${sub.description || ""}`.toLowerCase();
@@ -273,20 +271,20 @@ function SubmissionsTab({
           onChange={(e) => setSearch(e.target.value)}
           className="sm:max-w-xs bg-background h-9"
         />
-        <select
-          value={typeFilter}
-          onChange={(e) => setTypeFilter(e.target.value)}
-          className="h-9 rounded-md bg-background border border-border px-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
-        >
-          <option value="all">All Orders</option>
-          <option value="dealer">Dealer Orders</option>
-        </select>
         <Button variant="outline" size="sm" onClick={() => setSortDir(d => d === "desc" ? "asc" : "desc")}
           className="h-9 bg-background text-xs whitespace-nowrap">
           {sortDir === "desc" ? "↓ Newest" : "↑ Oldest"}
         </Button>
         <Button variant="ghost" size="sm" onClick={onFetchSubmissions} className="h-9 text-xs">
           Refresh
+        </Button>
+        <Button
+          variant={showArchived ? "default" : "outline"}
+          size="sm"
+          onClick={() => { setShowArchived(v => !v); onFetchSubmissions(); }}
+          className={`h-9 text-xs whitespace-nowrap ${showArchived ? "bg-orange-500 hover:bg-orange-600 text-white border-orange-500" : "bg-background"}`}
+        >
+          {showArchived ? "✓ Archived" : "Archived"}
         </Button>
       </div>
 
@@ -295,6 +293,7 @@ function SubmissionsTab({
         {isLoading ? <p className="text-center py-8 text-muted-foreground">Loading...</p>
           : filtered.length === 0 ? <p className="text-center py-8 text-muted-foreground">No submissions.</p>
           : filtered.map(sub => <SubmissionCard key={sub.id} sub={sub}
+            onArchive={() => setArchiveTarget(sub)}
             onDelete={() => setDeleteTarget(sub)}
             onShip={() => setShipTarget(sub)}
             onInvoice={() => setInvoiceTarget(sub)} />)}
@@ -317,6 +316,7 @@ function SubmissionsTab({
             {isLoading ? <tr><td colSpan={6} className="text-center py-8">Loading...</td></tr>
               : filtered.length === 0 ? <tr><td colSpan={6} className="text-center py-8 text-muted-foreground">No submissions found.</td></tr>
               : filtered.map(sub => <SubmissionRow key={sub.id} sub={sub}
+                onArchive={() => setArchiveTarget(sub)}
                 onDelete={() => setDeleteTarget(sub)}
                 onShip={() => setShipTarget(sub)}
                 onInvoice={() => setInvoiceTarget(sub)} />)}
@@ -327,19 +327,29 @@ function SubmissionsTab({
   );
 }
 
-function SubmissionCard({ sub, onDelete, onShip, onInvoice }: { sub: Submission; onDelete: () => void; onShip: () => void; onInvoice: () => void }) {
+function SubmissionCard({ sub, onArchive, onDelete, onShip, onInvoice }: { sub: Submission; onArchive: () => void; onDelete: () => void; onShip: () => void; onInvoice: () => void }) {
   return (
-    <div className="border border-border rounded-lg p-3 bg-card hover:bg-secondary/5">
+    <div className={`border border-border rounded-lg p-3 bg-card hover:bg-secondary/5 ${sub.archived ? "opacity-60 bg-secondary/5" : ""}`}>
       <div className="flex items-start justify-between gap-2 mb-2">
         <div className="flex items-center gap-2 flex-wrap">
           <span className={`px-2 py-0.5 rounded text-xs font-bold ${sub.type === "dealer" ? "bg-orange-500 text-white" : "bg-red-500 text-white"}`}>
             {sub.type.toUpperCase()}
           </span>
+          {sub.archived && <span className="px-1.5 py-0.5 bg-gray-400 text-white text-xs rounded">Archived</span>}
           <span className="text-xs text-muted-foreground font-mono">{fmtDate(sub.createdAt)}</span>
         </div>
-        <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0 text-muted-foreground hover:text-red-500" onClick={onDelete}>
-          <Trash2 className="h-3.5 w-3.5" />
-        </Button>
+        <div className="flex gap-1">
+          {!sub.archived && (
+            <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0 text-muted-foreground hover:text-orange-500" onClick={onArchive} title="Archive">
+              <Trash2 className="h-3.5 w-3.5" />
+            </Button>
+          )}
+          {sub.archived && (
+            <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0 text-green-600 hover:text-green-500" onClick={onArchive} title="Unarchive">
+              <RefreshCw className="h-3.5 w-3.5" />
+            </Button>
+          )}
+        </div>
       </div>
       <div className="space-y-1 mb-2">
         <p className="text-sm font-semibold">{sub.contactName}</p>
@@ -397,9 +407,9 @@ function SubmissionCard({ sub, onDelete, onShip, onInvoice }: { sub: Submission;
   );
 }
 
-function SubmissionRow({ sub, onDelete, onShip, onInvoice }: { sub: Submission; onDelete: () => void; onShip: () => void; onInvoice: () => void }) {
+function SubmissionRow({ sub, onArchive, onDelete, onShip, onInvoice }: { sub: Submission; onArchive: () => void; onDelete: () => void; onShip: () => void; onInvoice: () => void }) {
   return (
-    <tr className="border-b border-border hover:bg-secondary/10">
+    <tr className={`border-b border-border hover:bg-secondary/10 ${sub.archived ? "opacity-50" : ""}`}>
       <td className="px-3 py-3 whitespace-nowrap text-muted-foreground text-xs font-mono">{fmtDate(sub.createdAt)}</td>
       <td className="px-3 py-3">
         <span className={`px-2 py-0.5 rounded text-xs font-bold ${sub.type === "dealer" ? "bg-orange-500 text-white" : "bg-red-500 text-white"}`}>
@@ -466,9 +476,17 @@ function SubmissionRow({ sub, onDelete, onShip, onInvoice }: { sub: Submission; 
         )}
       </td>
       <td className="px-3 py-3">
-        <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-red-500" onClick={onDelete}>
-          <Trash2 className="h-3.5 w-3.5" />
-        </Button>
+        <div className="flex gap-1">
+          {!sub.archived ? (
+            <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-orange-500" onClick={onArchive} title="Archive">
+              <Trash2 className="h-3.5 w-3.5" />
+            </Button>
+          ) : (
+            <Button variant="ghost" size="icon" className="h-7 w-7 text-green-600 hover:text-green-500" onClick={onArchive} title="Unarchive">
+              <RefreshCw className="h-3.5 w-3.5" />
+            </Button>
+          )}
+        </div>
       </td>
     </tr>
   );
@@ -2950,8 +2968,9 @@ export default function AdminPage() {
   const [submissions, setSubmissions] = useState<Submission[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [search, setSearch] = useState("");
-  const [typeFilter, setTypeFilter] = useState("all");
+  const [showArchived, setShowArchived] = useState(false);
   const [sortDir, setSortDir] = useState<"desc" | "asc">("desc");
+  const [archiveTarget, setArchiveTarget] = useState<Submission | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Submission | null>(null);
   const [shipTarget, setShipTarget] = useState<Submission | null>(null);
   const [invoiceTarget, setInvoiceTarget] = useState<Submission | null>(null);
@@ -2970,7 +2989,7 @@ export default function AdminPage() {
   const fetchSubmissions = useCallback(async () => {
     try {
       setIsLoading(true);
-      const res = await fetch("/api/admin/submissions");
+      const res = await fetch(`/api/admin/submissions?includeArchived=${showArchived}`);
       if (res.status === 403) { setAuthStatus("needs_pin"); setIsLoading(false); return; }
       if (!res.ok) throw new Error("Failed to fetch");
       const data = await res.json();
@@ -2978,7 +2997,7 @@ export default function AdminPage() {
       setAuthStatus("authorized");
     } catch (err: any) { toast({ title: "Error", description: err.message, variant: "destructive" }); }
     finally { setIsLoading(false); }
-  }, []);
+  }, [showArchived]);
 
   const fetchDealers = useCallback(async () => {
     try {
@@ -3100,6 +3119,22 @@ export default function AdminPage() {
       toast({ title: "Deleted", description: "Submission removed." });
     } catch { toast({ title: "Error", description: "Could not delete.", variant: "destructive" }); }
     finally { setDeleteTarget(null); }
+  };
+
+  const handleArchive = async () => {
+    if (!archiveTarget) return;
+    try {
+      const isArchived = archiveTarget.archived;
+      const endpoint = isArchived
+        ? `/api/admin/submissions/${archiveTarget.id}/unarchive`
+        : `/api/admin/submissions/${archiveTarget.id}/archive`;
+      const method = "PATCH";
+      const res = await fetch(endpoint, { method });
+      if (!res.ok) throw new Error("Archive failed");
+      setSubmissions(prev => prev.map(s => s.id === archiveTarget.id ? { ...s, archived: !isArchived } : s));
+      toast({ title: isArchived ? "Unarchived" : "Archived", description: isArchived ? "Submission restored." : "Submission moved to archived." });
+    } catch { toast({ title: "Error", description: "Could not archive.", variant: "destructive" }); }
+    finally { setArchiveTarget(null); }
   };
 
   const handleDealerInquiryDelete = async () => {
@@ -3255,10 +3290,10 @@ export default function AdminPage() {
               <SubmissionsTab
                 submissions={submissions} isLoading={isLoading}
                 search={search} setSearch={setSearch}
-                typeFilter={typeFilter} setTypeFilter={setTypeFilter}
                 sortDir={sortDir} setSortDir={setSortDir}
-                setDeleteTarget={setDeleteTarget} setShipTarget={setShipTarget}
-                setInvoiceTarget={setInvoiceTarget}
+                showArchived={showArchived} setShowArchived={setShowArchived}
+                setArchiveTarget={setArchiveTarget}
+                setShipTarget={setShipTarget} setInvoiceTarget={setInvoiceTarget}
                 onFetchSubmissions={fetchSubmissions}
               />
             </CardContent>
@@ -3340,6 +3375,27 @@ export default function AdminPage() {
           </Card>
         )}
       </div>
+
+      {/* Archive confirmation */}
+      <AlertDialog open={!!archiveTarget} onOpenChange={open => !open && setArchiveTarget(null)}>
+        <AlertDialogContent className="bg-card border-border">
+          <AlertDialogHeader>
+            <AlertDialogTitle>{archiveTarget?.archived ? "Unarchive Submission?" : "Archive Submission?"}</AlertDialogTitle>
+            <AlertDialogDescription className="text-muted-foreground">
+              {archiveTarget?.archived
+                ? `This will restore the submission from ${archiveTarget?.contactName} (${archiveTarget?.email}) back to the Orders tab.`
+                : `This will move the submission from ${archiveTarget?.contactName} (${archiveTarget?.email}) to Archived. You can restore it later.`
+              }
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="bg-secondary text-foreground hover:bg-secondary/80 border-border">Cancel</AlertDialogCancel>
+            <AlertDialogAction className="bg-orange-600 text-white hover:bg-orange-700" onClick={handleArchive}>
+              {archiveTarget?.archived ? "Unarchive" : "Archive"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Delete confirmation */}
       <AlertDialog open={!!deleteTarget} onOpenChange={open => !open && setDeleteTarget(null)}>

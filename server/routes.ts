@@ -492,7 +492,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/admin/submissions", requireAdmin, async (req, res) => {
     try {
-      const submissions = await storage.getSubmissions();
+      const includeArchived = req.query.includeArchived === "true";
+      const submissions = await storage.getSubmissions(includeArchived);
       return res.json({ ok: true, data: submissions });
     } catch (err: any) {
       console.error("fetch_submissions_error", err);
@@ -508,6 +509,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (err: any) {
       console.error("delete_submission_error", err);
       return res.status(500).json({ ok: false, error: "failed_to_delete" });
+    }
+  });
+
+  app.patch("/api/admin/submissions/:id/archive", requireAdmin, async (req, res) => {
+    try {
+      const { id } = req.params;
+      await storage.archiveSubmission(id);
+      return res.json({ ok: true });
+    } catch (err: any) {
+      console.error("archive_submission_error", err);
+      return res.status(500).json({ ok: false, error: "failed_to_archive" });
+    }
+  });
+
+  app.patch("/api/admin/submissions/:id/unarchive", requireAdmin, async (req, res) => {
+    try {
+      const { id } = req.params;
+      await storage.unarchiveSubmission(id);
+      return res.json({ ok: true });
+    } catch (err: any) {
+      console.error("unarchive_submission_error", err);
+      return res.status(500).json({ ok: false, error: "failed_to_unarchive" });
     }
   });
 
@@ -1627,6 +1650,34 @@ DubDub22 Minions`;
         // Don't fail the whole request if email fails
       });
 
+      // Insert into submissions table so it appears in the admin panel
+      const orderType = isInfo ? "inquiry" : isDemo ? "demo_order" : "retail_order";
+      const result = await pool.query(`
+        INSERT INTO submissions (type, contact_name, email, phone, quantity, description, ffl_file_name, ffl_file_data, customer_address, customer_city, customer_state, customer_zip, has_ordered_demo)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+        RETURNING *
+      `, [orderType, contactName, email, phone, qty, message || null, fflFileName || null, fflFileData || null, customerAddress || null, customerCity || null, customerState || null, customerZip || null, isDemo ? 'true' : 'false']);
+      const newSub = result.rows[0];
+
+      // Link to dealer via dealer_submissions if this email belongs to a known dealer
+      try {
+        const dealerLookup = await pool.query(
+          `SELECT id FROM dealers WHERE email ILIKE $1 LIMIT 1`,
+          [email]
+        );
+        if (dealerLookup.rows.length > 0) {
+          await pool.query(
+            `INSERT INTO dealer_submissions (dealer_id, submission_id, order_type, quantity)
+             VALUES ($1, $2, $3, $4)
+             ON CONFLICT DO NOTHING`,
+            [dealerLookup.rows[0].id, newSub.id, orderType, qty]
+          );
+        }
+      } catch (linkErr) {
+        console.error("dealer_submissions_link_error", linkErr);
+        // Don't fail the request if linking fails
+      }
+
       // Post Discord webhook
       const webhookUrl = process.env.DISCORD_WEBHOOK_URL;
       if (webhookUrl) {
@@ -1652,7 +1703,7 @@ DubDub22 Minions`;
         }).catch(() => {});
       }
 
-      return res.json({ ok: true });
+      return res.json({ ok: true, submissionId: newSub.id });
     } catch (err: any) {
       console.error("retail_order_error", err);
       return res.status(500).json({ ok: false, error: "server_error" });
@@ -1849,8 +1900,11 @@ DubDub22 Minions`;
       const params: any[] = [];
       let idx = 1;
 
-      // Submissions: dealer leads (type=dealer, has_ordered_demo=false)
-      // Join with dealers on FFL license number to pull doc expiry info
+      // Submissions: dealer leads (type=dealer) that are NOT linked to a dealer_submission
+      // with order_type=retail_order or demo_order — those are actual orders, not inquiries.
+      // We use dealer_submissions.order_type to distinguish: only show rows where there is
+      // no linked dealer_submission, OR the linked order_type is 'inquiry'.
+      // This prevents qty 5 stocking orders from appearing in the Dealer Inquiries tab.
       let query = `SELECT
         'submission' as source,
         s.id::text as id,
@@ -1867,7 +1921,9 @@ DubDub22 Minions`;
         d.ffl_license_number as dealer_ffl_license_number
         FROM submissions s
         LEFT JOIN dealers d ON UPPER(REPLACE(REPLACE(d.ffl_license_number, '-', ''), ' ', '')) = UPPER(REPLACE(REPLACE(s.ffl_license_number, '-', ''), ' ', ''))
-        WHERE s.type = 'dealer' AND s.has_ordered_demo = 'false'`;
+        LEFT JOIN dealer_submissions ds ON ds.submission_id = s.id
+        WHERE s.type = 'dealer'
+          AND (ds.id IS NULL OR ds.order_type = 'inquiry')`;
       if (search) {
         query += ` AND (s.contact_name ILIKE $${idx} OR s.business_name ILIKE $${idx} OR s.email ILIKE $${idx})`;
         params.push(`%${search}%`);
