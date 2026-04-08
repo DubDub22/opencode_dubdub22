@@ -2511,50 +2511,6 @@ function FilesTab() {
     },
   ];
 
-  // Label generator state
-  const [labelStart, setLabelStart] = useState("");
-  const [labelEnd, setLabelEnd] = useState("");
-  const [generating, setGenerating] = useState(false);
-  const [labelError, setLabelError] = useState("");
-  const [labelSuccess, setLabelSuccess] = useState("");
-
-  const handleGenerateLabels = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLabelError("");
-    setLabelSuccess("");
-    const start = parseInt(labelStart, 10);
-    const end = parseInt(labelEnd, 10);
-    if (isNaN(start) || isNaN(end) || start > end || end - start > 1000) {
-      setLabelError("Enter a valid range (max 1000 labels at once).");
-      return;
-    }
-    setGenerating(true);
-    try {
-      const genRes = await fetch("/api/admin/labels/generate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ startSerial: start, endSerial: end }),
-      });
-      const genData = await genRes.json();
-      if (!genRes.ok || !genData.ok) {
-        setLabelError(genData.error || "Generation failed");
-        return;
-      }
-      const filename = genData.filename;
-      const link = document.createElement("a");
-      link.href = `/api/admin/labels/download?path=${encodeURIComponent(filename)}`;
-      link.download = filename;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      setLabelSuccess(`Generated ${end - start + 1} labels (${start}–${end})`);
-    } catch (err: any) {
-      setLabelError(err.message || "Generation failed");
-    } finally {
-      setGenerating(false);
-    }
-  };
-
   const handleDownload = async (key: string) => {
     setDownloading(key);
     try {
@@ -2582,61 +2538,11 @@ function FilesTab() {
   };
 
   return (
-    <div className="space-y-6">
-      {/* Serial Label Generator */}
-      <Card className="border-border bg-card">
-        <CardHeader className="pb-3">
-          <CardTitle className="text-sm font-semibold">Serial Label Generator</CardTitle>
-          <p className="text-xs text-muted-foreground mt-1">
-            Generate a continuous strip of 2"×2" roll labels with sequential serial numbers, QR codes, and the Double T Tactical logo.
-          </p>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleGenerateLabels} className="flex items-end gap-3 flex-wrap">
-            <div className="flex items-center gap-2">
-              <label className="text-xs font-medium whitespace-nowrap">Start S/N</label>
-              <input
-                type="number"
-                min="0"
-                className="border border-input rounded px-2 py-1.5 text-sm w-28 bg-background"
-                placeholder="5000"
-                value={labelStart}
-                onChange={e => setLabelStart(e.target.value)}
-              />
-            </div>
-            <div className="flex items-center gap-2">
-              <label className="text-xs font-medium whitespace-nowrap">End S/N</label>
-              <input
-                type="number"
-                min="0"
-                className="border border-input rounded px-2 py-1.5 text-sm w-28 bg-background"
-                placeholder="5019"
-                value={labelEnd}
-                onChange={e => setLabelEnd(e.target.value)}
-              />
-            </div>
-            <Button
-              type="submit"
-              size="sm"
-              className="gap-1.5"
-              disabled={generating || !labelStart || !labelEnd}
-            >
-              <Download className="w-3.5 h-3.5" />
-              {generating ? "Generating..." : "Generate & Download"}
-            </Button>
-          </form>
-          {labelError && <p className="text-xs text-red-500 mt-2">{labelError}</p>}
-          {labelSuccess && <p className="text-xs text-green-500 mt-2">{labelSuccess}</p>}
-        </CardContent>
-      </Card>
-
-      {/* Data Export */}
-      <div>
+    <div>
         <h2 className="text-lg font-semibold mb-1">Data Export</h2>
         <p className="text-sm text-muted-foreground">
           Download dealer records by source. These are all sources <em>outside</em> the ATF master FFL list.
         </p>
-      </div>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {sources.map(src => (
           <Card key={src.key} className="border-border bg-card">
