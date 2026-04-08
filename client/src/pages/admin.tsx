@@ -305,7 +305,7 @@ function SubmissionsTab({
             <tr>
               <th className="px-3 py-2">Date</th>
               <th className="px-3 py-2">Type</th>
-              <th className="px-3 py-2 min-w-[180px]">Contact</th>
+              <th className="px-3 py-2 min-w-[180px]">Business / Contact</th>
               <th className="px-3 py-2">Details</th>
               <th className="px-3 py-2">Shipping</th>
               <th className="px-3 py-2 w-10"></th>
@@ -357,7 +357,7 @@ function SubmissionCard({ sub, onArchive, onDelete, onShip, onInvoice }: { sub: 
         {sub.businessName && <p className="text-xs px-1.5 py-0.5 bg-secondary rounded inline-block">{sub.businessName}</p>}
       </div>
       <div className="border-t border-border pt-2 space-y-1">
-        {sub.type === "dealer" ? (
+        {sub.type === "dealer" || sub.type === "dealer_order" ? (
           <>
             {sub.quantity && <p className="text-xs text-muted-foreground">Qty: <span className="text-foreground font-medium">{sub.quantity}</span></p>}
             {sub.description && <p className="text-xs text-foreground italic">"{sub.description}"</p>}
@@ -429,7 +429,7 @@ function SubmissionRow({ sub, onArchive, onDelete, onShip, onInvoice }: { sub: S
         )}
       </td>
       <td className="px-3 py-3">
-        {sub.type === "dealer" ? (
+        {sub.type === "dealer" || sub.type === "dealer_order" ? (
           <div className="space-y-1">
             {sub.quantity && <div className="text-xs"><span className="text-muted-foreground">Qty:</span> <span className="font-medium text-foreground">{sub.quantity}</span></div>}
             {sub.description && <div className="text-xs max-w-[200px] text-foreground italic">"{sub.description}"</div>}
