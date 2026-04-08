@@ -238,22 +238,20 @@ export default function OrderConfirmationPage() {
               <strong className="text-foreground">3. Pricing and Payment.</strong> Prices are
               exclusive of all federal, state, and local taxes. Dealer is responsible for all
               applicable taxes unless a valid tax exemption certificate is provided prior to
-              invoicing. Payment terms are NET 30 from invoice date unless otherwise agreed in
-              writing. Seller reserves the right to cancel any order if payment terms are not met.
+              invoicing. Seller reserves the right to cancel any order if payment terms are not met.
             </p>
 
             <p>
               <strong className="text-foreground">4. Shipping and Risk of Loss.</strong> All orders
-              are FOB origin. Risk of loss passes to Dealer upon shipment from Seller's location.
-              Dealer is responsible for all shipping costs and choosing a common carrier suitable
-              for NFA items.
+              are SHIPPED WITH SHIPPING CHARGES INCLUDED AND INSURED BY SHIPPER. SHIPPER CHOICE IS
+              DETERMINED BY SHIPPER.
             </p>
 
             <p>
               <strong className="text-foreground">5. Returns and Cancellations.</strong> Stocking
               orders may be cancelled prior to shipment with written notice. NFA items that have
-              been transferred to Dealer&apos;s chosen transferring dealer (Form 3) may not be returned.
-              Demo units are subject to the terms provided at time of order.
+              been transferred to Dealer may not be returned. THERE IS A 20% RESTOCKING AND
+              CANCELLATION FEE FOR ALL ORDERS CANCELLED PRIOR TO SHIPMENT.
             </p>
 
             <p>
@@ -268,7 +266,9 @@ export default function OrderConfirmationPage() {
               <strong className="text-foreground">7. Limitation of Liability.</strong> Seller&apos;s
               liability for any claim arising out of or related to the Products shall not exceed
               the purchase price paid by Dealer for the Products. In no event shall Seller be
-              liable for any consequential, incidental, or special damages.
+              liable for any consequential, incidental, or special damages. SELLER IS NOT
+              RESPONSIBLE FOR ANY DAMAGES CAUSED BY USE BEYOND WHAT THE SPECIFIED LIMITS OF THE
+              DUBDUB22 SUPPRESSOR ARE.
             </p>
 
             <p>
@@ -293,7 +293,7 @@ export default function OrderConfirmationPage() {
             </p>
 
             <p className="text-muted-foreground italic">
-              Double T Tactical, LLC d/b/a DubDub22 &mdash; Floresville, TX &mdash; dubdub22.com
+              Double T Tactical — Floresville, TX — dubdub22.com
             </p>
           </div>
 
