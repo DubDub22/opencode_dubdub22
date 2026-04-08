@@ -642,7 +642,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           d.*,
           COUNT(ds.id) AS order_count,
           COUNT(*) FILTER (WHERE ds.order_type = 'demo_order') AS demo_count,
-          COUNT(*) FILTER (WHERE ds.order_type = 'retail_order') AS retail_count,
+          COUNT(*) FILTER (WHERE ds.order_type = 'dealer') AS dealer_order_count,
           d.demo_fulfilled_at
         FROM dealers d
         LEFT JOIN dealer_submissions ds ON ds.dealer_id = d.id
@@ -1096,7 +1096,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         );
         if (dealer.rows.length > 0) {
           const isDemo = sub.quantity === "1";
-          const orderType = isDemo ? "demo_order" : (sub.quantity ? "retail_order" : "inquiry");
+          const orderType = isDemo ? "demo_order" : (sub.quantity ? "dealer" : "inquiry");
           await pool.query(
             `INSERT INTO dealer_submissions (dealer_id, submission_id, order_type, quantity) VALUES ($1,$2,$3,$4)`,
             [dealer.rows[0].id, sub.id, orderType, sub.quantity]
@@ -1398,7 +1398,7 @@ DubDub22 Minions`;
       // Link submission to the dealer via dealer_submissions
       const submissionId = dbResult?.id;
       if (submissionId && submissionId !== "unknown") {
-        const orderType = isInquiry ? "inquiry" : isDemoOrder ? "demo_order" : "retail_order";
+        const orderType = isInquiry ? "inquiry" : isDemoOrder ? "demo_order" : "dealer";
         await pool.query(
           `INSERT INTO dealer_submissions (dealer_id, submission_id, order_type, quantity)
            VALUES ($1, $2, $3, $4)
@@ -1572,7 +1572,7 @@ DubDub22 Minions`;
     }
   });
 
-  // ── Public: Unified Retail Order / Inquiry ─────────────────────────────────
+  // ── Public: Dealer Order / Inquiry ──────────────────────────────────────────
   app.post("/api/retail-order", async (req, res) => {
     try {
       const {
@@ -1608,10 +1608,10 @@ DubDub22 Minions`;
       const emailTo = isInfo ? INQUIRY_EMAIL : ORDER_EMAIL;
 
       const subjectLine = isInfo
-        ? "Retail Inquiry"
+        ? "Dealer Inquiry"
         : isDemo
-        ? "Retail Order (Demo Can)"
-        : `Retail Order — ${qty} cans`;
+        ? "Dealer Order (Demo Can)"
+        : `Dealer Order — ${qty} cans`;
 
       const bodyLines = [
         `DubDub22 ${subjectLine}`,
@@ -1651,7 +1651,7 @@ DubDub22 Minions`;
       });
 
       // Insert into submissions table so it appears in the admin panel
-      const orderType = isInfo ? "inquiry" : isDemo ? "demo_order" : "retail_order";
+      const orderType = isInfo ? "inquiry" : isDemo ? "demo_order" : "dealer";
       const result = await pool.query(`
         INSERT INTO submissions (type, contact_name, email, phone, quantity, description, ffl_file_name, ffl_file_data, customer_address, customer_city, customer_state, customer_zip, has_ordered_demo)
         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
@@ -1686,8 +1686,8 @@ DubDub22 Minions`;
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             content: isInfo
-              ? `💬 **New Retail Inquiry — ${contactName}**`
-              : `🛒 **New Retail Order — ${contactName}**`,
+              ? `💬 **New Dealer Inquiry — ${contactName}**`
+              : `🛒 **New Dealer Order — ${contactName}**`,
             embeds: [{
               title: subjectLine,
               color: isInfo ? 0x666666 : 0xFF6600,
@@ -1710,7 +1710,7 @@ DubDub22 Minions`;
     }
   });
 
-  // ── Public: Submit retail inquiry ────────────────────────────────────────────
+  // ── Public: Submit dealer inquiry ────────────────────────────────────────────
   app.post("/api/retail-inquiry", async (req, res) => {
     try {
       const { dealerId, contactName, email, phone, message } = req.body || {};
@@ -1830,7 +1830,7 @@ DubDub22 Minions`;
     }
   });
 
-  // ── Admin: Retail Inquiries ─────────────────────────────────────────
+  // ── Admin: Dealer Inquiries ─────────────────────────────────────────
   app.get("/api/admin/retail-inquiries", requireAdmin, async (req, res) => {
     try {
       const { search, status } = req.query;
@@ -1901,7 +1901,7 @@ DubDub22 Minions`;
       let idx = 1;
 
       // Submissions: dealer leads (type=dealer) that are NOT linked to a dealer_submission
-      // with order_type=retail_order or demo_order — those are actual orders, not inquiries.
+      // with order_type='dealer' or demo_order — those are actual orders, not inquiries.
       // We use dealer_submissions.order_type to distinguish: only show rows where there is
       // no linked dealer_submission, OR the linked order_type is 'inquiry'.
       // This prevents qty 5 stocking orders from appearing in the Dealer Inquiries tab.
@@ -1957,7 +1957,7 @@ DubDub22 Minions`;
     }
   });
 
-  // ── Admin: Update Retail Inquiry Status ───────────────────────────────
+  // ── Admin: Update Dealer Inquiry Status ───────────────────────────────
   app.patch("/api/admin/retail-inquiries/:id", requireAdmin, async (req, res) => {
     try {
       const { status, admin_notes } = req.body;
@@ -2393,7 +2393,8 @@ Please visit https://dubdub22.com/dealers to submit a new, valid FFL/SOT.
       }
 
       // Look up submission if ID provided to determine type & pre-fill missing fields
-      let isRetail = true;
+      // Warranty orders are $129 + tax; all other orders (dealer/demo) are $60/unit with no tax
+      let isWarranty = false;
       let subDealerId: string | null = null;
       if (submissionId) {
         const [subRow] = await pool.query(
@@ -2404,7 +2405,7 @@ Please visit https://dubdub22.com/dealers to submit a new, valid FFL/SOT.
         );
         if (subRow && subRow.rows.length > 0) {
           const sub = subRow.rows[0];
-          isRetail = sub.type === 'retail_order';
+          isWarranty = sub.type === 'warranty';
           subDealerId = sub.dealer_id || null;
           // Pre-fill any missing fields from submission
           customerName = customerName || sub.contact_name || "";
@@ -2422,11 +2423,11 @@ Please visit https://dubdub22.com/dealers to submit a new, valid FFL/SOT.
       }
 
       const qty = Math.max(1, parseInt(String(quantity), 10) || 1);
-      // Dealer orders = $60/unit, no tax; Retail orders = $129/unit with 8.25% tax
-      const unitPrice = overrideUnitPrice != null ? parseFloat(String(overrideUnitPrice)) : (isRetail ? 129.0 : 60.0);
+      // Dealer orders = $60/unit, no tax; Warranty orders = $129/unit with 8.25% tax
+      const unitPrice = overrideUnitPrice != null ? parseFloat(String(overrideUnitPrice)) : (isWarranty ? 129.0 : 60.0);
       const subtotal = qty * unitPrice;
       const taxRate = 0.0825;
-      const taxAmount = isRetail ? parseFloat((subtotal * taxRate).toFixed(2)) : 0.0;
+      const taxAmount = isWarranty ? parseFloat((subtotal * taxRate).toFixed(2)) : 0.0;
       const total = subtotal + taxAmount;
 
       // Get next invoice number from shared counter
@@ -2455,7 +2456,7 @@ Please visit https://dubdub22.com/dealers to submit a new, valid FFL/SOT.
           subtotal,
           taxAmount,
           totalAmount: total,
-          isRetail,
+          isWarranty,
         });
         const pdfOut = execSync(`/home/dubdub/DubDub-Hub/venv/bin/python -c "
 import sys, json, os
@@ -2481,7 +2482,7 @@ print(pdf_path)
             quantity, unit_price, subtotal, tax_rate, tax_amount, total_amount, pdf_path, status, sent_at)
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, 'sent', NOW())
          RETURNING id`,
-        [invoiceNumber, subDealerId || 0, submissionId || null, isRetail,
+        [invoiceNumber, subDealerId || 0, submissionId || null, isWarranty,
          customerName, customerEmail || null, customerPhone || null,
          customerAddress || null, customerCity || null, customerState || null, customerZip || null,
          qty, unitPrice, subtotal, taxRate, taxAmount, total, pdfPath]
@@ -2489,7 +2490,7 @@ print(pdf_path)
       const invoiceId = insertResult.rows[0].id;
 
       // Build email body
-      const lineDesc = isRetail ? "DUBDUB22 SUPPRESSOR" : "DUBDUB22 SUPPRESSOR (Dealer)";
+      const lineDesc = isWarranty ? "DUBDUB22 SUPPRESSOR" : "DUBDUB22 SUPPRESSOR (Dealer)";
       const emailBody = [
         `INVOICE: ${invoiceNumber}`,
         ``,
@@ -2500,7 +2501,7 @@ print(pdf_path)
         [customerCity, customerState, customerZip].filter(Boolean).join(", ") || null,
         ``,
         `${qty} × ${lineDesc} @ $${unitPrice.toFixed(2)} = $${subtotal.toFixed(2)}`,
-        isRetail ? `Sales Tax (8.25%): $${taxAmount.toFixed(2)}` : null,
+        isWarranty ? `Sales Tax (8.25%): $${taxAmount.toFixed(2)}` : null,
         ``,
         `TOTAL: $${total.toFixed(2)}`,
         ``,

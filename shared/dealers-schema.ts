@@ -61,7 +61,7 @@ export const dealerSubmissions = pgTable("dealer_submissions", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   dealerId: text("dealer_id").notNull().references(() => dealers.id, { onDelete: "cascade" }),
   submissionId: text("submission_id").notNull().references(() => submissions.id, { onDelete: "cascade" }),
-  orderType: text("order_type"), // 'inquiry' | 'demo_order' | 'retail_order'
+  orderType: text("order_type"), // 'inquiry' | 'demo_order' | 'dealer'
   quantity: text("quantity"),
   createdAt: text("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
 });

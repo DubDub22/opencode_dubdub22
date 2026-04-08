@@ -21,7 +21,7 @@ export interface IStorage {
   deleteSubmission(id: string): Promise<void>;
   // Dealer operations
   upsertDealer(dealer: Partial<Dealer> & { businessName: string; email: string }): Promise<Dealer>;
-  getDealers(): Promise<(Dealer & { orderCount: number; demoCount: number; retailCount: number })[]>;
+  getDealers(): Promise<(Dealer & { orderCount: number; demoCount: number; dealerOrderCount: number })[]>;
   getDealerById(id: string): Promise<Dealer | undefined>;
   updateDealer(id: string, data: Partial<Dealer>): Promise<Dealer>;
   deleteDealer(id: string): Promise<void>;
@@ -62,7 +62,7 @@ export class DatabaseStorage implements IStorage {
         i.invoice_number
       FROM submissions s
       LEFT JOIN invoices i ON i.submission_id = s.id AND i.status = 'sent'
-      WHERE ${includeArchived ? "1=1" : "s.archived = false"}
+      WHERE ${includeArchived ? sql`1=1` : sql`s.archived = false`}
       ORDER BY s.created_at DESC
     `);
     return result.rows;
@@ -113,7 +113,7 @@ export class DatabaseStorage implements IStorage {
         SELECT
           COUNT(*) AS total,
           COUNT(*) FILTER (WHERE ds.order_type = 'demo_order') AS demos,
-          COUNT(*) FILTER (WHERE ds.order_type = 'retail_order') AS retail
+          COUNT(*) FILTER (WHERE ds.order_type = 'dealer') AS dealer_orders
         FROM dealer_submissions ds
         WHERE ds.dealer_id = ${dealer.id}
       `);
@@ -122,7 +122,7 @@ export class DatabaseStorage implements IStorage {
         ...dealer,
         orderCount: parseInt(counts.total || "0"),
         demoCount: parseInt(counts.demos || "0"),
-        retailCount: parseInt(counts.retail || "0"),
+        dealerOrderCount: parseInt(counts.dealer_orders || "0"),
       };
     }));
 

@@ -8,7 +8,7 @@ import {
   ChevronRight, ArrowLeft, Building2, FileText,
   Upload, Eye, X, Search, Inbox,
   MessageSquare, ShieldCheck, Phone, Files, CheckCircle, XCircle, Send,
-  Hash, RefreshCw, User
+  Hash, RefreshCw
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -99,12 +99,12 @@ type Dealer = {
   updatedAt: string;
   orderCount?: number;
   demoCount?: number;
-  retailCount?: number;
+  dealerOrderCount?: number;
   demoFulfilledAt?: string;
   submissions?: Submission[];
 };
 
-type Tab = "submissions" | "warranty" | "dealer_inquiries" | "retail_inquiries" | "files" | "tax_forms" | "verify_ffl" | "serials";
+type Tab = "submissions" | "warranty" | "dealer_inquiries" | "files" | "tax_forms" | "verify_ffl" | "serials";
 
 // ── Schemas ────────────────────────────────────────────────────────────────────
 
@@ -627,7 +627,7 @@ function DealerCard({ dealer, onClick }: { dealer: Dealer; onClick: () => void }
       </div>
       <div className="flex gap-4 text-xs text-muted-foreground">
         {dealer.demoCount !== undefined && <span>Demo: <strong className="text-foreground">{dealer.demoCount}</strong></span>}
-        {dealer.retailCount !== undefined && <span>Retail: <strong className="text-foreground">{dealer.retailCount}</strong></span>}
+        {dealer.dealerOrderCount !== undefined && <span>Dealer Orders: <strong className="text-foreground">{dealer.dealerOrderCount}</strong></span>}
         {dealer.orderCount !== undefined && <span>Total: <strong className="text-foreground">{dealer.orderCount}</strong></span>}
       </div>
     </div>
@@ -655,7 +655,7 @@ function DealerRow({ dealer, onClick }: { dealer: Dealer; onClick: () => void })
       <td className="px-3 py-3">
         <div className="flex gap-3 text-xs">
           {dealer.demoCount !== undefined && <span title="Demo orders">🎯 <strong>{dealer.demoCount}</strong></span>}
-          {dealer.retailCount !== undefined && <span title="Retail orders">📦 <strong>{dealer.retailCount}</strong></span>}
+          {dealer.dealerOrderCount !== undefined && <span title="Dealer orders">📦 <strong>{dealer.dealerOrderCount}</strong></span>}
         </div>
         {dealer.demoFulfilledAt && <div className="text-xs text-muted-foreground mt-1">Demo: {fmtDate(dealer.demoFulfilledAt)}</div>}
       </td>
@@ -1365,11 +1365,11 @@ function DealerDetail({
                       <div className="flex items-center gap-1.5 flex-wrap">
                         <span className={`px-1.5 py-0.5 rounded text-xs font-bold ${
                           sub.order_type === "demo_order" ? "bg-blue-600 text-white" :
-                          sub.order_type === "retail_order" ? "bg-orange-500 text-white" :
+                          sub.order_type === "dealer" ? "bg-orange-500 text-white" :
                           "bg-gray-500 text-white"
                         }`}>
                           {sub.order_type === "demo_order" ? "DEMO" :
-                           sub.order_type === "retail_order" ? "RETAIL" : "INQUIRY"}
+                           sub.order_type === "dealer" ? "DEALER ORDER" : "INQUIRY"}
                         </span>
                         {sub.quantity && sub.quantity !== "1" && (
                           <span className="text-xs text-muted-foreground">×{sub.quantity}</span>
@@ -1387,7 +1387,7 @@ function DealerDetail({
               )}
               <div className="mt-3 pt-2 border-t border-border text-xs text-muted-foreground flex gap-3">
                 {dealer.demoCount !== undefined && <span>🎯 Demo: {dealer.demoCount}</span>}
-                {dealer.retailCount !== undefined && <span>📦 Retail: {dealer.retailCount}</span>}
+                {dealer.dealerOrderCount !== undefined && <span>📦 Dealer Orders: {dealer.dealerOrderCount}</span>}
               </div>
             </CardContent>
           </Card>
@@ -1449,7 +1449,7 @@ function AddDealerDialog({ open, onClose, onAdd }: { open: boolean; onClose: () 
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
       toast({ title: "Dealer Added!", description: `${values.businessName} has been added.` });
-      onAdd({ ...data.data, orderCount: 0, demoCount: 0, retailCount: 0, submissions: [] });
+      onAdd({ ...data.data, orderCount: 0, demoCount: 0, dealerOrderCount: 0, submissions: [] });
       form.reset();
       onClose();
     } catch (err: any) {
@@ -1547,11 +1547,11 @@ function InvoiceDialog({ sub, open, onClose }: {
   const [quantity, setQuantity] = useState(1);
   const [sending, setSending] = useState(false);
 
-  // Dealer = $60/unit no tax; Retail = $129/unit with 8.25% tax
-  const isRetail = sub?.type !== "dealer";
-  const unitPrice = isRetail ? 129.0 : 60.0;
+  // Dealer = $60/unit no tax; Warranty = $129/unit with 8.25% tax
+  const isWarranty = sub?.type === "warranty";
+  const unitPrice = isWarranty ? 129.0 : 60.0;
   const subtotal = quantity * unitPrice;
-  const taxAmount = isRetail ? parseFloat((subtotal * 0.0825).toFixed(2)) : 0;
+  const taxAmount = isWarranty ? parseFloat((subtotal * 0.0825).toFixed(2)) : 0;
   const total = subtotal + taxAmount;
 
   // Pre-fill from submission when opened (including address)
@@ -1602,15 +1602,15 @@ function InvoiceDialog({ sub, open, onClose }: {
       <DialogContent className="bg-card border-border max-w-lg">
         <DialogHeader>
           <DialogTitle className="text-lg font-bold">
-            {isRetail ? "Send Retail Invoice" : "Send Dealer Invoice"} — {sub.contactName || sub.email}
+            {isWarranty ? "Send Warranty Invoice" : "Send Invoice"} — {sub.contactName || sub.email}
           </DialogTitle>
         </DialogHeader>
         <div className="space-y-4 py-2 max-h-[70vh] overflow-y-auto">
           {/* Pricing summary */}
           <div className="bg-secondary/30 rounded-lg p-3 space-y-1">
             <div className="text-xs text-muted-foreground mb-1">
-              {isRetail ? "Retail" : "Dealer"} — ${unitPrice.toFixed(2)}/unit
-              {!isRetail && <span className="ml-2 text-green-600 font-medium">No tax</span>}
+              {isWarranty ? "Warranty" : "Dealer"} — ${unitPrice.toFixed(2)}/unit
+              {!isWarranty && <span className="ml-2 text-green-600 font-medium">No tax</span>}
             </div>
             <div className="flex items-center gap-3">
               <label className="text-sm font-medium w-24">Quantity:</label>
@@ -1626,7 +1626,7 @@ function InvoiceDialog({ sub, open, onClose }: {
             <div className="flex justify-between text-sm pl-24">
               <span>Subtotal:</span><span>${subtotal.toFixed(2)}</span>
             </div>
-            {isRetail && (
+            {isWarranty && (
               <div className="flex justify-between text-sm pl-24">
                 <span>Tax (8.25%):</span><span>${taxAmount.toFixed(2)}</span>
               </div>
@@ -1772,158 +1772,6 @@ function ShipDialog({ sub, open, onClose }: {
   );
 }
 
-// ── Retail Inquiries Tab ──────────────────────────────────────────────────────
-
-function RetailInquiriesTab({
-  inquiries, search, setSearch, statusFilter, setStatusFilter, onRefresh
-}: {
-  inquiries: any[]; search: string; setSearch: (s: string) => void;
-  statusFilter: string; setStatusFilter: (s: string) => void;
-  onRefresh: () => void;
-}) {
-  const { toast } = useToast();
-  const [updating, setUpdating] = useState<string | null>(null);
-
-  const filtered = inquiries.filter(r => {
-    if (statusFilter !== "all" && r.status !== statusFilter) return false;
-    if (search) {
-      const q = search.toLowerCase();
-      const s = `${r.contact_name || ""} ${r.email || ""} ${r.message || ""} ${r.dealer_name || ""}`.toLowerCase();
-      if (!s.includes(q)) return false;
-    }
-    return true;
-  });
-
-  const handleStatusChange = async (id: number, newStatus: string) => {
-    setUpdating(String(id));
-    try {
-      const res = await fetch(`/api/admin/retail-inquiries/${id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: newStatus }),
-      });
-      if (!res.ok) throw new Error("Update failed");
-      toast({ title: "Status updated", description: newStatus });
-      onRefresh();
-    } catch {
-      toast({ title: "Error", variant: "destructive" });
-    } finally { setUpdating(null); }
-  };
-
-  return (
-    <div className="space-y-4">
-      <div className="flex flex-col sm:flex-row gap-3">
-        <Input
-          placeholder="Search inquiries..."
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-          className="sm:max-w-xs bg-background h-9"
-        />
-        <select
-          value={statusFilter}
-          onChange={e => setStatusFilter(e.target.value)}
-          className="h-9 rounded-md bg-background border border-border px-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
-        >
-          <option value="all">All Status</option>
-          <option value="new">New</option>
-          <option value="contacted">Contacted</option>
-          <option value="qualified">Qualified</option>
-          <option value="closed">Closed</option>
-        </select>
-        <Button variant="ghost" size="sm" onClick={onRefresh} className="h-9 text-xs">Refresh</Button>
-      </div>
-
-      <div className="hidden md:block overflow-x-auto">
-        <table className="w-full text-sm text-left">
-          <thead className="text-xs text-muted-foreground uppercase bg-secondary/30">
-            <tr>
-              <th className="px-3 py-2">Date</th>
-              <th className="px-3 py-2">Status</th>
-              <th className="px-3 py-2">Contact</th>
-              <th className="px-3 py-2">Dealer</th>
-              <th className="px-3 py-2">Message</th>
-              <th className="px-3 py-2">Notes</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filtered.length === 0 ? (
-              <tr><td colSpan={6} className="text-center py-8 text-muted-foreground">No retail inquiries found.</td></tr>
-            ) : filtered.map(r => (
-              <tr key={r.id} className="border-b border-border hover:bg-secondary/10">
-                <td className="px-3 py-3 whitespace-nowrap text-xs text-muted-foreground font-mono">
-                  {r.created_at ? fmtDate(r.created_at) : "—"}
-                </td>
-                <td className="px-3 py-3">
-                  <select
-                    value={r.status || "new"}
-                    disabled={updating === String(r.id)}
-                    onChange={e => handleStatusChange(r.id, e.target.value)}
-                    className={`h-7 rounded border text-xs px-1.5 bg-background focus:outline-none focus:ring-1 focus:ring-primary cursor-pointer ${
-                      r.status === "closed" ? "text-muted-foreground border-border" :
-                      r.status === "qualified" ? "text-green-600 border-green-300" :
-                      r.status === "contacted" ? "text-blue-600 border-blue-300" :
-                      "text-orange-600 border-orange-300"
-                    }`}
-                  >
-                    <option value="new">New</option>
-                    <option value="contacted">Contacted</option>
-                    <option value="qualified">Qualified</option>
-                    <option value="closed">Closed</option>
-                  </select>
-                </td>
-                <td className="px-3 py-3">
-                  <div className="font-semibold text-sm">{r.contact_name || "—"}</div>
-                  <div className="text-xs text-muted-foreground"><CopyableText text={r.email || ""} /></div>
-                  {r.phone && <div className="text-xs text-muted-foreground"><CopyableText text={r.phone} /></div>}
-                </td>
-                <td className="px-3 py-3">
-                  <div className="text-sm">{r.dealer_name || "—"}</div>
-                  <DocCautionBanner dealer={r} />
-                </td>
-                <td className="px-3 py-3">
-                  <div className="text-xs max-w-[250px] truncate">{r.message || "—"}</div>
-                </td>
-                <td className="px-3 py-3">
-                  <div className="text-xs text-muted-foreground max-w-[150px] truncate">{r.admin_notes || "—"}</div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-
-      {/* Mobile cards */}
-      <div className="block md:hidden space-y-3">
-        {filtered.length === 0 ? (
-          <p className="text-center py-8 text-muted-foreground">No retail inquiries found.</p>
-        ) : filtered.map(r => (
-          <div key={r.id} className="border border-border rounded-lg p-3 bg-card hover:bg-secondary/5">
-            <div className="flex items-start justify-between gap-2 mb-2">
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-xs text-muted-foreground font-mono">{r.created_at ? fmtDate(r.created_at) : "—"}</span>
-                <span className={`px-2 py-0.5 rounded text-xs font-bold ${
-                  r.status === "closed" ? "bg-gray-500 text-white" :
-                  r.status === "qualified" ? "bg-green-600 text-white" :
-                  r.status === "contacted" ? "bg-blue-600 text-white" :
-                  "bg-orange-500 text-white"
-                }`}>{r.status?.toUpperCase() || "NEW"}</span>
-              </div>
-            </div>
-            <div className="space-y-1 mb-2">
-              <p className="text-sm font-semibold">{r.contact_name || "—"}</p>
-              <p className="text-xs text-muted-foreground">{r.email}</p>
-              {r.phone && <p className="text-xs text-muted-foreground">{r.phone}</p>}
-              {r.dealer_name && <p className="text-xs px-1.5 py-0.5 bg-secondary rounded inline-block">{r.dealer_name}</p>}
-              <DocCautionBanner dealer={r} />
-            </div>
-            {r.message && <p className="text-xs border-t border-border pt-2 mt-2">{r.message}</p>}
-            {r.admin_notes && <p className="text-xs text-muted-foreground italic mt-1">Note: {r.admin_notes}</p>}
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
 
 // ── Warranty Tab ───────────────────────────────────────────────────────────────
 
@@ -2980,9 +2828,6 @@ export default function AdminPage() {
   const [dealerInquiries, setDealerInquiries] = useState<any[]>([]);
   const [dealerInquiriesSearch, setDealerInquiriesSearch] = useState("");
   const [dealerInquiryDeleteTarget, setDealerInquiryDeleteTarget] = useState<any | null>(null);
-  const [retailInquiries, setRetailInquiries] = useState<any[]>([]);
-  const [retailInquiriesSearch, setRetailInquiriesSearch] = useState("");
-  const [retailInquiriesStatus, setRetailInquiriesStatus] = useState("all");
 
   const pinForm = useForm<z.infer<typeof pinSchema>>({ resolver: zodResolver(pinSchema), defaultValues: { pin: "" } });
 
@@ -3047,20 +2892,6 @@ export default function AdminPage() {
     fetchDealerInquiries();
   }, [fetchDealerInquiries]);
 
-  const fetchRetailInquiries = useCallback(async () => {
-    try {
-      const res = await fetch("/api/admin/retail-inquiries");
-      if (!res.ok) throw new Error("Failed to fetch retail inquiries");
-      const data = await res.json();
-      setRetailInquiries(Array.isArray(data.data) ? data.data : []);
-    } catch (err: any) { toast({ title: "Error", description: err.message, variant: "destructive" }); }
-  }, []);
-
-  // Fetch retail inquiries
-  useEffect(() => {
-    fetchRetailInquiries();
-  }, [fetchRetailInquiries]);
-
   useEffect(() => {
     let cancelled = false;
     fetch("/api/admin/check-auth")
@@ -3071,14 +2902,13 @@ export default function AdminPage() {
           fetchSubmissions();
           fetchWarrantyRequests();
           fetchDealerInquiries();
-          fetchRetailInquiries();
           setAuthStatus("authorized");
         }
         else setAuthStatus("needs_pin");
       })
       .catch(() => { if (!cancelled) setAuthStatus("needs_pin"); });
     return () => { cancelled = true; };
-  }, [fetchSubmissions, fetchWarrantyRequests, fetchDealerInquiries, fetchRetailInquiries]);
+  }, [fetchSubmissions, fetchWarrantyRequests, fetchDealerInquiries]);
 
   const onRequestPin = async () => {
     try {
@@ -3241,15 +3071,6 @@ export default function AdminPage() {
             <Badge variant="secondary" className="ml-2 text-xs">{dealerInquiries.length}</Badge>
           </button>
           <button
-            onClick={() => { setTab("retail_inquiries"); }}
-            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
-              tab === "retail_inquiries" ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            <User className="w-4 h-4 inline mr-1.5" />Retail Inquiries
-            <Badge variant="secondary" className="ml-2 text-xs">{retailInquiries.length}</Badge>
-          </button>
-          <button
             onClick={() => { setTab("files"); }}
             className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
               tab === "files" ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"
@@ -3323,21 +3144,6 @@ export default function AdminPage() {
                 search={dealerInquiriesSearch}
                 setSearch={setDealerInquiriesSearch}
                 onDelete={(sub) => setDealerInquiryDeleteTarget(sub)}
-              />
-            </CardContent>
-          </Card>
-        )}
-
-        {tab === "retail_inquiries" && (
-          <Card className="bg-card/50 border-border">
-            <CardContent className="p-4 md:p-6">
-              <RetailInquiriesTab
-                inquiries={retailInquiries}
-                search={retailInquiriesSearch}
-                setSearch={setRetailInquiriesSearch}
-                statusFilter={retailInquiriesStatus}
-                setStatusFilter={setRetailInquiriesStatus}
-                onRefresh={fetchRetailInquiries}
               />
             </CardContent>
           </Card>
