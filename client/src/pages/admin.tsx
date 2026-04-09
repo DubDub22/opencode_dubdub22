@@ -41,6 +41,12 @@ type Submission = {
   description: string;
   fflFileName: string;
   fflFileData?: string;
+  sotFileName?: string;
+  sotFileData?: string;
+  taxFormName?: string;
+  taxFormData?: string;
+  stateTaxFileName?: string;
+  stateTaxFileData?: string;
   serialPhotoName?: string;
   serialPhotoData?: string;
   damagePhoto1Name?: string;
@@ -191,14 +197,15 @@ function FileDownload({ fileName, fileData }: { fileName?: string; fileData?: st
   );
 }
 
-// Always-visible FFL/SOT/TAX badges — green = has file, red = missing. Badge is clickable to view or upload.
-function DocBadge({ type, fileName, fileData, submissionId }: { type: "ffl" | "sot" | "tax"; fileName?: string; fileData?: string; submissionId: string }) {
+// Always-visible FFL/SOT/TAX/STATE TAX badges — green = has file, red = missing. Badge is clickable to view or upload.
+function DocBadge({ type, fileName, fileData, submissionId }: { type: "ffl" | "sot" | "tax" | "state_tax"; fileName?: string; fileData?: string; submissionId: string }) {
   const hasFile = !!(fileName && fileData);
-  const label = type.toUpperCase();
-  const colors = {
+  const label = type === "state_tax" ? "STATE TAX" : type.toUpperCase();
+  const colors: Record<string, string> = {
     ffl: hasFile ? "bg-green-600 text-white hover:bg-green-700" : "bg-red-500 text-white hover:bg-red-600",
     sot: hasFile ? "bg-green-600 text-white hover:bg-green-700" : "bg-red-500 text-white hover:bg-red-600",
     tax: hasFile ? "bg-green-600 text-white hover:bg-green-700" : "bg-red-500 text-white hover:bg-red-600",
+    state_tax: hasFile ? "bg-purple-600 text-white hover:bg-purple-700" : "bg-pink-500 text-white hover:bg-pink-600",
   };
 
   if (hasFile) {
@@ -236,10 +243,11 @@ function DocBadge({ type, fileName, fileData, submissionId }: { type: "ffl" | "s
             const reader = new FileReader();
             reader.onload = async (ev) => {
               const base64 = (ev.target?.result as string).split(",")[1];
-              const endpoint = type === "ffl" ? "/api/admin/submissions/:id/ffl-file" : type === "sot" ? "/api/admin/submissions/:id/sot-file" : "/api/admin/submissions/:id/tax-form";
+              const endpoint = type === "ffl" ? "/api/admin/submissions/:id/ffl-file" : type === "sot" ? "/api/admin/submissions/:id/sot-file" : type === "state_tax" ? "/api/admin/submissions/:id/state-tax" : "/api/admin/submissions/:id/tax-form";
               const body: Record<string, string> = {};
               if (type === "ffl") { body.fflFileName = file.name; body.fflFileData = base64; }
               else if (type === "sot") { body.sotFileName = file.name; body.sotFileData = base64; }
+              else if (type === "state_tax") { body.stateTaxFileName = file.name; body.stateTaxFileData = base64; }
               else { body.taxFormName = file.name; body.taxFormData = base64; }
               try {
                 const res = await fetch(endpoint.replace(":id", submissionId), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
@@ -453,6 +461,7 @@ function SubmissionCard({ sub, onArchive, onDelete, onShip, onInvoice }: { sub: 
           <DocBadge type="ffl" fileName={sub.fflFileName} fileData={sub.fflFileData} submissionId={sub.id} />
           <DocBadge type="sot" fileName={sub.sotFileName} fileData={sub.sotFileData} submissionId={sub.id} />
           <DocBadge type="tax" fileName={sub.taxFormName} fileData={sub.taxFormData} submissionId={sub.id} />
+          <DocBadge type="state_tax" fileName={sub.stateTaxFileName} fileData={sub.stateTaxFileData} submissionId={sub.id} />
         </div>
       </div>
       {/* Shipping */}
@@ -519,6 +528,7 @@ function SubmissionRow({ sub, onArchive, onDelete, onShip, onInvoice }: { sub: S
           <DocBadge type="ffl" fileName={sub.fflFileName} fileData={sub.fflFileData} submissionId={sub.id} />
           <DocBadge type="sot" fileName={sub.sotFileName} fileData={sub.sotFileData} submissionId={sub.id} />
           <DocBadge type="tax" fileName={sub.taxFormName} fileData={sub.taxFormData} submissionId={sub.id} />
+          <DocBadge type="state_tax" fileName={sub.stateTaxFileName} fileData={sub.stateTaxFileData} submissionId={sub.id} />
         </div>
       </td>
       <td className="px-3 py-3">

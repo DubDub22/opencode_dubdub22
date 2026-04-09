@@ -35,6 +35,8 @@ export const submissions = pgTable("submissions", {
   sotFileData: text("sot_file_data"),
   taxFormName: text("tax_form_name"),
   taxFormData: text("tax_form_data"),
+  stateTaxFileName: text("state_tax_file_name"),
+  stateTaxFileData: text("state_tax_file_data"),
   serialPhotoName: text("serial_photo_name"),
   serialPhotoData: text("serial_photo_data"),
   damagePhoto1Name: text("damage_photo1_name"),

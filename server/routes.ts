@@ -542,6 +542,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         sotFileData: s.sot_file_data,
         taxFormName: s.tax_form_name,
         taxFormData: s.tax_form_data,
+        stateTaxFileName: s.state_tax_file_name,
+        stateTaxFileData: s.state_tax_file_data,
         createdAt: s.created_at,
       }));
       return res.json({ ok: true, data: mapped });
@@ -656,6 +658,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return res.json({ ok: true });
     } catch (err: any) {
       console.error("upload_submission_tax_error", err);
+      return res.status(500).json({ ok: false, error: "upload_failed" });
+    }
+  });
+
+  // Upload / update State Tax Form file for a submission
+  app.post("/api/admin/submissions/:id/state-tax", requireAdmin, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { stateTaxFileName, stateTaxFileData } = req.body || {};
+      if (!stateTaxFileData) return res.status(400).json({ ok: false, error: "no_file" });
+      await pool.query(
+        `UPDATE submissions SET state_tax_file_name = $1, state_tax_file_data = $2, updated_at = CURRENT_TIMESTAMP WHERE id = $3`,
+        [stateTaxFileName || "state-tax-form", stateTaxFileData, id]
+      );
+      return res.json({ ok: true });
+    } catch (err: any) {
+      console.error("upload_submission_state_tax_error", err);
       return res.status(500).json({ ok: false, error: "upload_failed" });
     }
   });
