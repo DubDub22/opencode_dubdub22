@@ -313,13 +313,14 @@ function SubmissionsTab({
               <th className="px-3 py-2">Type</th>
               <th className="px-3 py-2 min-w-[180px]">Business / Contact</th>
               <th className="px-3 py-2">Details</th>
+              <th className="px-3 py-2">Documents</th>
               <th className="px-3 py-2">Shipping</th>
               <th className="px-3 py-2 w-10"></th>
             </tr>
           </thead>
           <tbody>
-            {isLoading ? <tr><td colSpan={6} className="text-center py-8">Loading...</td></tr>
-              : filtered.length === 0 ? <tr><td colSpan={6} className="text-center py-8 text-muted-foreground">No submissions found.</td></tr>
+            {isLoading ? <tr><td colSpan={7} className="text-center py-8">Loading...</td></tr>
+              : filtered.length === 0 ? <tr><td colSpan={7} className="text-center py-8 text-muted-foreground">No submissions found.</td></tr>
               : filtered.map(sub => <SubmissionRow key={sub.id} sub={sub}
                 onArchive={() => setArchiveTarget(sub)}
                 onDelete={() => setDeleteTarget(sub)}
@@ -387,6 +388,19 @@ function SubmissionCard({ sub, onArchive, onDelete, onShip, onInvoice }: { sub: 
           </>
         )}
       </div>
+      {/* Documents — mobile */}
+      <div className="border-t border-border pt-2 mt-2">
+        {(sub.fflFileName || sub.sotFileName || sub.taxFormName) ? (
+          <div className="flex flex-wrap gap-1.5">
+            {sub.fflFileName && <span className="text-xs px-1.5 py-0.5 bg-blue-100 text-blue-700 rounded">FFL</span>}
+            {sub.sotFileName && <span className="text-xs px-1.5 py-0.5 bg-purple-100 text-purple-700 rounded">SOT</span>}
+            {sub.taxFormName && <span className="text-xs px-1.5 py-0.5 bg-green-100 text-green-700 rounded">TAX</span>}
+          </div>
+        ) : (
+          <p className="text-xs text-muted-foreground italic">No documents</p>
+        )}
+      </div>
+      {/* Shipping */}
       <div className="border-t border-border pt-2 mt-2">
         {sub.trackingNumber ? (
           <div className="space-y-1">
@@ -458,6 +472,31 @@ function SubmissionRow({ sub, onArchive, onDelete, onShip, onInvoice }: { sub: S
             <div className="text-xs text-foreground max-w-[250px]">{sub.description}</div>
           </div>
         )}
+      </td>
+      <td className="px-3 py-3">
+        <div className="flex flex-col gap-1">
+          {sub.fflFileName && (
+            <div className="flex items-center gap-1" title={`FFL: ${sub.fflFileName}`}>
+              <span className="text-xs px-1.5 py-0.5 bg-blue-100 text-blue-700 rounded font-medium">FFL</span>
+              {sub.fflFileData && <FilePreview fileName={sub.fflFileName} fileData={sub.fflFileData} />}
+            </div>
+          )}
+          {sub.sotFileName && (
+            <div className="flex items-center gap-1" title={`SOT: ${sub.sotFileName}`}>
+              <span className="text-xs px-1.5 py-0.5 bg-purple-100 text-purple-700 rounded font-medium">SOT</span>
+              {sub.sotFileData && <FilePreview fileName={sub.sotFileName} fileData={sub.sotFileData} />}
+            </div>
+          )}
+          {sub.taxFormName && (
+            <div className="flex items-center gap-1" title={`Tax Form: ${sub.taxFormName}`}>
+              <span className="text-xs px-1.5 py-0.5 bg-green-100 text-green-700 rounded font-medium">TAX</span>
+              {sub.taxFormData && <FilePreview fileName={sub.taxFormName} fileData={sub.taxFormData} />}
+            </div>
+          )}
+          {!sub.fflFileName && !sub.sotFileName && !sub.taxFormName && (
+            <span className="text-xs text-muted-foreground italic">None</span>
+          )}
+        </div>
       </td>
       <td className="px-3 py-3">
         {sub.trackingNumber ? (
