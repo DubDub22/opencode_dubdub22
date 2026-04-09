@@ -37,6 +37,21 @@ function PendingUpload(props: { fflNumber: string }) {
   const [submitted, setSubmitted] = useState(false);
   const [fflSegs, setFflSegs] = useState(["", "", "", "", "", ""]);
   const [fflError, setFflError] = useState("");
+  const [fflFile, setFflFile] = useState<{ name: string; data: string } | null>(null);
+  const [sotFile, setSotFile] = useState<{ name: string; data: string } | null>(null);
+  const [taxFormFile, setTaxFormFile] = useState<{ name: string; data: string } | null>(null);
+  const [uploading, setUploading] = useState(false);
+
+  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>, setter: (f: { name: string; data: string } | null) => void) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const base64 = (reader.result as string).split(",")[1];
+      setter({ name: file.name, data: base64 });
+    };
+    reader.readAsDataURL(file);
+  }
 
   type PendingValues = {
     dealerName: string;
@@ -100,6 +115,12 @@ function PendingUpload(props: { fflNumber: string }) {
           state: values.state,
           zipCode: values.zipCode,
           message: values.message || null,
+          fflFileName: fflFile?.name || null,
+          fflFileData: fflFile?.data || null,
+          sotFileName: sotFile?.name || null,
+          sotFileData: sotFile?.data || null,
+          taxFormName: taxFormFile?.name || null,
+          taxFormData: taxFormFile?.data || null,
         }),
       });
       const data = await resp.json();
@@ -351,6 +372,89 @@ function PendingUpload(props: { fflNumber: string }) {
             </FormItem>
           )}
         />
+
+        {/* ── Document uploads ── */}
+        <div className="space-y-4">
+          <p className="text-sm font-medium text-muted-foreground">Upload Documents <span className="font-normal text-xs">(optional)</span></p>
+
+          {/* FFL Upload */}
+          <div className="space-y-1">
+            <label className="text-xs font-medium flex items-center gap-1">
+              FFL License
+              {fflFile && <span className="text-green-500">✓</span>}
+            </label>
+            <label className={`flex items-center gap-2 px-3 py-2 rounded-md border cursor-pointer text-sm transition-colors ${fflFile ? "border-green-500/50 bg-green-500/5" : "border-border hover:border-primary/50"}`}>
+              <input
+                type="file"
+                accept=".pdf,.jpg,.jpeg,.png"
+                className="hidden"
+                onChange={e => handleFileChange(e, setFflFile)}
+              />
+              <span className="text-muted-foreground">{fflFile ? fflFile.name : "Choose file..."}</span>
+              {fflFile && (
+                <button
+                  type="button"
+                  onClick={e => { e.preventDefault(); setFflFile(null); }}
+                  className="ml-auto text-xs text-red-400 hover:text-red-300"
+                >
+                  Remove
+                </button>
+              )}
+            </label>
+          </div>
+
+          {/* SOT Upload */}
+          <div className="space-y-1">
+            <label className="text-xs font-medium flex items-center gap-1">
+              SOT (Special Occupational Tax)
+              {sotFile && <span className="text-green-500">✓</span>}
+            </label>
+            <label className={`flex items-center gap-2 px-3 py-2 rounded-md border cursor-pointer text-sm transition-colors ${sotFile ? "border-green-500/50 bg-green-500/5" : "border-border hover:border-primary/50"}`}>
+              <input
+                type="file"
+                accept=".pdf,.jpg,.jpeg,.png"
+                className="hidden"
+                onChange={e => handleFileChange(e, setSotFile)}
+              />
+              <span className="text-muted-foreground">{sotFile ? sotFile.name : "Choose file..."}</span>
+              {sotFile && (
+                <button
+                  type="button"
+                  onClick={e => { e.preventDefault(); setSotFile(null); }}
+                  className="ml-auto text-xs text-red-400 hover:text-red-300"
+                >
+                  Remove
+                </button>
+              )}
+            </label>
+          </div>
+
+          {/* Tax Form Upload */}
+          <div className="space-y-1">
+            <label className="text-xs font-medium flex items-center gap-1">
+              Tax Exemption Form
+              {taxFormFile && <span className="text-green-500">✓</span>}
+            </label>
+            <label className={`flex items-center gap-2 px-3 py-2 rounded-md border cursor-pointer text-sm transition-colors ${taxFormFile ? "border-green-500/50 bg-green-500/5" : "border-border hover:border-primary/50"}`}>
+              <input
+                type="file"
+                accept=".pdf,.jpg,.jpeg,.png"
+                className="hidden"
+                onChange={e => handleFileChange(e, setTaxFormFile)}
+              />
+              <span className="text-muted-foreground">{taxFormFile ? taxFormFile.name : "Choose file..."}</span>
+              {taxFormFile && (
+                <button
+                  type="button"
+                  onClick={e => { e.preventDefault(); setTaxFormFile(null); }}
+                  className="ml-auto text-xs text-red-400 hover:text-red-300"
+                >
+                  Remove
+                </button>
+              )}
+            </label>
+          </div>
+        </div>
 
         <Button
           type="submit"

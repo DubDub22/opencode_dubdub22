@@ -1212,8 +1212,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // ── FFL Upload (pending dealer — text only, no file) ─────────────────────────
   app.post("/api/ffl/upload", async (req, res) => {
     try {
-      const { fflNumber, dealerName, contactName, email, phone, address, city, state, zipCode, message } = req.body;
+      const {
+        fflNumber, dealerName, contactName, email, phone, address, city, state, zipCode, message,
+        fflFileName, fflFileData,
+        sotFileName, sotFileData,
+        taxFormName, taxFormData,
+      } = req.body;
       if (!fflNumber) return res.status(400).json({ ok: false, error: "missing_ffl" });
+
+      // Parse combined FFL+SOT PDFs — run both parsers on every uploaded file
+      // so a single combined form gets split into correct DB columns
+      let parsedFfl: Record<string, string> = {};
+      let parsedSot: Record<string, string> = {};
+      try {
+        if (fflFileData) {
+          const fflResult = await parseFflFile(fflFileData, fflFileName || "ffl-file");
+          parsedFfl = fflResult.parsed || {};
+          // FFL file might also contain SOT data (combined form) — try parsing it as SOT too
+          const sotResult = await parseSotFile(fflFileData, fflFileName || "sot-file");
+          if (Object.keys(sotResult.parsed || {}).length > Object.keys(parsedSot).length) {
+            parsedSot = sotResult.parsed || {};
+          }
+        }
+        if (sotFileData && sotFileData !== fflFileData) {
+          const sotResult = await parseSotFile(sotFileData, sotFileName || "sot-file");
+          parsedSot = { ...parsedSot, ...(sotResult.parsed || {}) };
+          // SOT file might also contain FFL data — try parsing it as FFL too
+          const fflResult = await parseFflFile(sotFileData, sotFileName || "ffl-file");
+          if (Object.keys(fflResult.parsed || {}).length > Object.keys(parsedFfl).length) {
+            parsedFfl = fflResult.parsed || {};
+          }
+        }
+      } catch (e) {
+        console.error("ffl_upload_parse_warning", e);
+        // Non-fatal — continue without parsed data
+      }
 
       const normalized = fflNumber.replace(/[^0-9A-Za-z]/gi, "").toUpperCase();
 
@@ -1246,10 +1279,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Also create a submissions entry so this appears in the Dealer Inquiries tab
       const subIns = await pool.query(
-        `INSERT INTO submissions (type, contact_name, business_name, email, phone, ffl_license_number, description, customer_address, customer_city, customer_state, customer_zip)
-         VALUES ('dealer', $1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+        `INSERT INTO submissions (type, contact_name, business_name, email, phone, ffl_license_number, description, customer_address, customer_city, customer_state, customer_zip, ffl_file_name, ffl_file_data, sot_file_name, sot_file_data, tax_form_name, tax_form_data)
+         VALUES ('dealer', $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
          RETURNING id`,
-        [contactName || null, dealerName || null, email || null, phone || null, fflNumber, message || null, address || null, city || null, state || null, zipCode || null]
+        [contactName || null, dealerName || null, email || null, phone || null, fflNumber, message || null, address || null, city || null, state || null, zipCode || null, fflFileName || null, fflFileData || null, sotFileName || null, sotFileData || null, taxFormName || null, taxFormData || null]
       );
       // Link it to the dealer
       await pool.query(
@@ -1278,13 +1311,12 @@ State: ${state || "N/A"}
 Zip: ${zipCode || "N/A"}
 Notes: ${message || "N/A"}
 
-=== TO COMPLETE YOUR DEALER PROFILE ===
-Please email us the following:
-- A copy of your FFL
-- A copy of your SOT
-- The completed multi-state tax form (attached to this email)
+=== FILES YOU UPLOADED ===
+${fflFileName ? `✓ FFL: ${fflFileName}` : "✗ FFL: not provided"}
+${sotFileName ? `✓ SOT: ${sotFileName}` : "✗ SOT: not provided"}
+${taxFormName ? `✓ Tax Form: ${taxFormName}` : "✗ Tax Form: not provided"}
 
-We'll review your application and be in touch shortly.
+${!fflFileName || !sotFileName || !taxFormName ? "=== STILL NEEDED ===\nPlease email us any missing documents from the list above." : "=== NEXT STEPS ===\nWe'll review your application and be in touch shortly."}
 
 DubDub22 Minions`;
 
