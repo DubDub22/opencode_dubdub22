@@ -544,6 +544,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         taxFormData: s.tax_form_data,
         stateTaxFileName: s.state_tax_file_name,
         stateTaxFileData: s.state_tax_file_data,
+        // Dealer doc fields — badge shows green if either submission OR dealer has the file
+        dealerFflFileName: s.dealer_ffl_file_name,
+        dealerFflFileData: s.dealer_ffl_file_data,
+        dealerSotFileName: s.dealer_sot_file_name,
+        dealerSotFileData: s.dealer_sot_file_data,
+        dealerTaxFormName: s.dealer_tax_form_name,
+        dealerTaxFormData: s.dealer_tax_form_data,
+        dealerStateTaxFileName: s.dealer_state_tax_file_name,
+        dealerStateTaxFileData: s.dealer_state_tax_file_data,
         createdAt: s.created_at,
       }));
       return res.json({ ok: true, data: mapped });
@@ -621,6 +630,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         `UPDATE submissions SET ffl_file_name = $1, ffl_file_data = $2, updated_at = CURRENT_TIMESTAMP WHERE id = $3`,
         [fflFileName || "ffl-file", fflFileData, id]
       );
+      // Also sync to dealer record by FFL license number
+      const sub = await pool.query(`SELECT ffl_license_number FROM submissions WHERE id = $1`, [id]);
+      if (sub.rows[0]?.ffl_license_number) {
+        await pool.query(
+          `UPDATE dealers SET ffl_file_name = $1, ffl_file_data = $2, updated_at = CURRENT_TIMESTAMP WHERE ffl_license_number = $3`,
+          [fflFileName || "ffl-file", fflFileData, sub.rows[0].ffl_license_number]
+        );
+      }
       return res.json({ ok: true });
     } catch (err: any) {
       console.error("upload_submission_ffl_error", err);
@@ -638,6 +655,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         `UPDATE submissions SET sot_file_name = $1, sot_file_data = $2, updated_at = CURRENT_TIMESTAMP WHERE id = $3`,
         [sotFileName || "sot-file", sotFileData, id]
       );
+      // Also sync to dealer record by FFL license number
+      const sub = await pool.query(`SELECT ffl_license_number FROM submissions WHERE id = $1`, [id]);
+      if (sub.rows[0]?.ffl_license_number) {
+        await pool.query(
+          `UPDATE dealers SET sot_file_name = $1, sot_file_data = $2, updated_at = CURRENT_TIMESTAMP WHERE ffl_license_number = $3`,
+          [sotFileName || "sot-file", sotFileData, sub.rows[0].ffl_license_number]
+        );
+      }
       return res.json({ ok: true });
     } catch (err: any) {
       console.error("upload_submission_sot_error", err);
@@ -655,6 +680,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         `UPDATE submissions SET tax_form_name = $1, tax_form_data = $2, updated_at = CURRENT_TIMESTAMP WHERE id = $3`,
         [taxFormName || "tax-form", taxFormData, id]
       );
+      // Also sync to dealer record by FFL license number
+      const sub = await pool.query(`SELECT ffl_license_number FROM submissions WHERE id = $1`, [id]);
+      if (sub.rows[0]?.ffl_license_number) {
+        await pool.query(
+          `UPDATE dealers SET sales_tax_form_name = $1, sales_tax_form_data = $2, updated_at = CURRENT_TIMESTAMP WHERE ffl_license_number = $3`,
+          [taxFormName || "tax-form", taxFormData, sub.rows[0].ffl_license_number]
+        );
+      }
       return res.json({ ok: true });
     } catch (err: any) {
       console.error("upload_submission_tax_error", err);
@@ -672,6 +705,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         `UPDATE submissions SET state_tax_file_name = $1, state_tax_file_data = $2, updated_at = CURRENT_TIMESTAMP WHERE id = $3`,
         [stateTaxFileName || "state-tax-form", stateTaxFileData, id]
       );
+      // Also sync to dealer record by FFL license number
+      const sub = await pool.query(`SELECT ffl_license_number FROM submissions WHERE id = $1`, [id]);
+      if (sub.rows[0]?.ffl_license_number) {
+        await pool.query(
+          `UPDATE dealers SET state_tax_file_name = $1, state_tax_file_data = $2, updated_at = CURRENT_TIMESTAMP WHERE ffl_license_number = $3`,
+          [stateTaxFileName || "state-tax-form", stateTaxFileData, sub.rows[0].ffl_license_number]
+        );
+      }
       return res.json({ ok: true });
     } catch (err: any) {
       console.error("upload_submission_state_tax_error", err);

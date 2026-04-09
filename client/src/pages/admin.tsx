@@ -47,6 +47,15 @@ type Submission = {
   taxFormData?: string;
   stateTaxFileName?: string;
   stateTaxFileData?: string;
+  // Dealer-level docs (joined by FFL license number)
+  dealerFflFileName?: string;
+  dealerFflFileData?: string;
+  dealerSotFileName?: string;
+  dealerSotFileData?: string;
+  dealerTaxFormName?: string;
+  dealerTaxFormData?: string;
+  dealerStateTaxFileName?: string;
+  dealerStateTaxFileData?: string;
   serialPhotoName?: string;
   serialPhotoData?: string;
   damagePhoto1Name?: string;
@@ -198,8 +207,8 @@ function FileDownload({ fileName, fileData }: { fileName?: string; fileData?: st
 }
 
 // Always-visible FFL/SOT/TAX/STATE TAX badges — green = has file, red = missing. Badge is clickable to view or upload.
-function DocBadge({ type, fileName, fileData, submissionId }: { type: "ffl" | "sot" | "tax" | "state_tax"; fileName?: string; fileData?: string; submissionId: string }) {
-  const hasFile = !!(fileName && fileData);
+function DocBadge({ type, fileName, fileData, orDealerFileData, submissionId }: { type: "ffl" | "sot" | "tax" | "state_tax"; fileName?: string; fileData?: string; orDealerFileData?: string; submissionId: string }) {
+  const hasFile = !!(fileName && fileData) || !!(orDealerFileData);
   const label = type === "state_tax" ? "STATE TAX" : type.toUpperCase();
   const colors: Record<string, string> = {
     ffl: hasFile ? "bg-green-600 text-white hover:bg-green-700" : "bg-red-500 text-white hover:bg-red-600",
@@ -209,9 +218,11 @@ function DocBadge({ type, fileName, fileData, submissionId }: { type: "ffl" | "s
   };
 
   if (hasFile) {
-    // Has file — show preview popover
-    const isPdf = fileName!.toLowerCase().endsWith(".pdf");
-    const src = isPdf ? `data:application/pdf;base64,${fileData}` : `data:image;base64,${fileData}`;
+    // Has file — show preview (prefer submission's own file, fall back to dealer's file)
+    const previewData = fileData || orDealerFileData;
+    const previewName = fileName || (type === "ffl" ? "FFL.pdf" : type === "sot" ? "SOT.pdf" : type === "state_tax" ? "state-tax.pdf" : "tax-form.pdf");
+    const isPdf = previewName.toLowerCase().endsWith(".pdf");
+    const src = isPdf ? `data:application/pdf;base64,${previewData}` : `data:image;base64,${previewData}`;
     return (
       <Popover>
         <PopoverTrigger asChild>
@@ -219,9 +230,9 @@ function DocBadge({ type, fileName, fileData, submissionId }: { type: "ffl" | "s
         </PopoverTrigger>
         <PopoverContent className="w-[480px] max-h-[520px] p-0 border-border bg-card overflow-auto">
           {isPdf ? (
-            <iframe src={src} className="w-full rounded" style={{ height: "500px" }} title={fileName} />
+            <iframe src={src} className="w-full rounded" style={{ height: "500px" }} title={previewName} />
           ) : (
-            <img src={src} alt={fileName} className="w-full h-auto rounded" />
+            <img src={src} alt={previewName} className="w-full h-auto rounded" />
           )}
         </PopoverContent>
       </Popover>
@@ -458,10 +469,10 @@ function SubmissionCard({ sub, onArchive, onDelete, onShip, onInvoice }: { sub: 
       {/* Documents — mobile */}
       <div className="border-t border-border pt-2 mt-2">
         <div className="flex flex-wrap gap-1.5">
-          <DocBadge type="ffl" fileName={sub.fflFileName} fileData={sub.fflFileData} submissionId={sub.id} />
-          <DocBadge type="sot" fileName={sub.sotFileName} fileData={sub.sotFileData} submissionId={sub.id} />
-          <DocBadge type="tax" fileName={sub.taxFormName} fileData={sub.taxFormData} submissionId={sub.id} />
-          <DocBadge type="state_tax" fileName={sub.stateTaxFileName} fileData={sub.stateTaxFileData} submissionId={sub.id} />
+          <DocBadge type="ffl" fileName={sub.fflFileName} fileData={sub.fflFileData} orDealerFileData={sub.dealerFflFileData} submissionId={sub.id} />
+          <DocBadge type="sot" fileName={sub.sotFileName} fileData={sub.sotFileData} orDealerFileData={sub.dealerSotFileData} submissionId={sub.id} />
+          <DocBadge type="tax" fileName={sub.taxFormName} fileData={sub.taxFormData} orDealerFileData={sub.dealerTaxFormData} submissionId={sub.id} />
+          <DocBadge type="state_tax" fileName={sub.stateTaxFileName} fileData={sub.stateTaxFileData} orDealerFileData={sub.dealerStateTaxFileData} submissionId={sub.id} />
         </div>
       </div>
       {/* Shipping */}
@@ -525,10 +536,10 @@ function SubmissionRow({ sub, onArchive, onDelete, onShip, onInvoice }: { sub: S
       </td>
       <td className="px-3 py-3">
         <div className="flex flex-col gap-1">
-          <DocBadge type="ffl" fileName={sub.fflFileName} fileData={sub.fflFileData} submissionId={sub.id} />
-          <DocBadge type="sot" fileName={sub.sotFileName} fileData={sub.sotFileData} submissionId={sub.id} />
-          <DocBadge type="tax" fileName={sub.taxFormName} fileData={sub.taxFormData} submissionId={sub.id} />
-          <DocBadge type="state_tax" fileName={sub.stateTaxFileName} fileData={sub.stateTaxFileData} submissionId={sub.id} />
+          <DocBadge type="ffl" fileName={sub.fflFileName} fileData={sub.fflFileData} orDealerFileData={sub.dealerFflFileData} submissionId={sub.id} />
+          <DocBadge type="sot" fileName={sub.sotFileName} fileData={sub.sotFileData} orDealerFileData={sub.dealerSotFileData} submissionId={sub.id} />
+          <DocBadge type="tax" fileName={sub.taxFormName} fileData={sub.taxFormData} orDealerFileData={sub.dealerTaxFormData} submissionId={sub.id} />
+          <DocBadge type="state_tax" fileName={sub.stateTaxFileName} fileData={sub.stateTaxFileData} orDealerFileData={sub.dealerStateTaxFileData} submissionId={sub.id} />
         </div>
       </td>
       <td className="px-3 py-3">

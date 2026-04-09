@@ -56,12 +56,22 @@ export class DatabaseStorage implements IStorage {
 
   async getSubmissions(includeArchived = false): Promise<any[]> {
     // Get submissions with their invoice status (hasInvoice = true if invoice sent)
+    // Also join dealer docs so badges show green if dealer has docs on file
     const result = await db.execute(sql`
       SELECT s.*,
         CASE WHEN i.id IS NOT NULL THEN true ELSE false END AS has_invoice,
-        i.invoice_number
+        i.invoice_number,
+        d.ffl_file_name AS dealer_ffl_file_name,
+        d.ffl_file_data AS dealer_ffl_file_data,
+        d.sot_file_name AS dealer_sot_file_name,
+        d.sot_file_data AS dealer_sot_file_data,
+        d.sales_tax_form_name AS dealer_tax_form_name,
+        d.sales_tax_form_data AS dealer_tax_form_data,
+        d.state_tax_file_name AS dealer_state_tax_file_name,
+        d.state_tax_file_data AS dealer_state_tax_file_data
       FROM submissions s
       LEFT JOIN invoices i ON i.submission_id = s.id AND i.status = 'sent'
+      LEFT JOIN dealers d ON d.ffl_license_number = s.ffl_license_number AND d.ffl_license_number IS NOT NULL AND d.ffl_license_number != ''
       WHERE ${includeArchived ? sql`1=1` : sql`s.archived = false`}
       ORDER BY s.created_at DESC
     `);
