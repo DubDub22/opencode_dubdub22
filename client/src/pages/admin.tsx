@@ -475,22 +475,22 @@ function SubmissionRow({ sub, onArchive, onDelete, onShip, onInvoice }: { sub: S
       </td>
       <td className="px-3 py-3">
         <div className="flex flex-col gap-1">
-          {sub.fflFileName && (
+          {sub.fflFileName && sub.fflFileData && (
             <div className="flex items-center gap-1" title={`FFL: ${sub.fflFileName}`}>
               <span className="text-xs px-1.5 py-0.5 bg-blue-100 text-blue-700 rounded font-medium">FFL</span>
-              {sub.fflFileData && <FilePreview fileName={sub.fflFileName} fileData={sub.fflFileData} />}
+              <FilePreview fileName={sub.fflFileName} fileData={sub.fflFileData} />
             </div>
           )}
-          {sub.sotFileName && (
+          {sub.sotFileName && sub.sotFileData && (
             <div className="flex items-center gap-1" title={`SOT: ${sub.sotFileName}`}>
               <span className="text-xs px-1.5 py-0.5 bg-purple-100 text-purple-700 rounded font-medium">SOT</span>
-              {sub.sotFileData && <FilePreview fileName={sub.sotFileName} fileData={sub.sotFileData} />}
+              <FilePreview fileName={sub.sotFileName} fileData={sub.sotFileData} />
             </div>
           )}
-          {sub.taxFormName && (
+          {sub.taxFormName && sub.taxFormData && (
             <div className="flex items-center gap-1" title={`Tax Form: ${sub.taxFormName}`}>
               <span className="text-xs px-1.5 py-0.5 bg-green-100 text-green-700 rounded font-medium">TAX</span>
-              {sub.taxFormData && <FilePreview fileName={sub.taxFormName} fileData={sub.taxFormData} />}
+              <FilePreview fileName={sub.taxFormName} fileData={sub.taxFormData} />
             </div>
           )}
           {!sub.fflFileName && !sub.sotFileName && !sub.taxFormName && (
