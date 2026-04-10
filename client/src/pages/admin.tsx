@@ -239,9 +239,21 @@ function DocBadge({ type, fileName, fileData, orDealerFileData, submissionId, ff
         </PopoverTrigger>
         <PopoverContent className="w-[480px] max-h-[520px] p-0 border-border bg-card overflow-auto">
           {isPdf ? (
-            <iframe src={apiUrl || `data:application/pdf;base64,${orDealerFileData}`} className="w-full rounded" style={{ height: "500px" }} title={previewName} />
+            apiUrl ? (
+              <iframe src={apiUrl} className="w-full rounded" style={{ height: "500px" }} title={previewName} />
+            ) : (
+              <div className="w-full rounded flex items-center justify-center bg-muted" style={{ height: "500px" }}>
+                <p className="text-muted-foreground text-sm">Preview unavailable — file stored on secure server</p>
+              </div>
+            )
           ) : (
-            <img src={apiUrl || `data:image;base64,${orDealerFileData}`} alt={previewName} className="w-full h-auto rounded" />
+            apiUrl ? (
+              <img src={apiUrl} alt={previewName} className="w-full h-auto rounded" />
+            ) : (
+              <div className="w-full rounded flex items-center justify-center bg-muted" style={{ height: "200px" }}>
+                <p className="text-muted-foreground text-sm">Preview unavailable — file stored on secure server</p>
+              </div>
+            )
           )}
         </PopoverContent>
       </Popover>
@@ -560,10 +572,11 @@ function SubmissionRow({ sub, onArchive, onDelete, onShip, onInvoice, onRequestD
       </td>
       <td className="px-3 py-3">
         <div className="flex flex-col gap-1">
-          <DocBadge type="ffl" fileName={sub.fflFileName} fileData={sub.fflFileData} orDealerFileData={sub.dealerFflFileData} submissionId={sub.id} fflLicenseNumber={sub.fflLicenseNumber} createdAt={sub.createdAt} />
-          <DocBadge type="sot" fileName={sub.sotFileName} fileData={sub.sotFileData} orDealerFileData={sub.dealerSotFileData} submissionId={sub.id} fflLicenseNumber={sub.fflLicenseNumber} createdAt={sub.createdAt} />
-          <DocBadge type="tax" fileName={sub.taxFormName} fileData={sub.taxFormData} orDealerFileData={sub.dealerTaxFormData} submissionId={sub.id} fflLicenseNumber={sub.fflLicenseNumber} createdAt={sub.createdAt} />
-          <DocBadge type="state_tax" fileName={sub.stateTaxFileName} fileData={sub.stateTaxFileData} orDealerFileData={sub.dealerStateTaxFileData} submissionId={sub.id} fflLicenseNumber={sub.fflLicenseNumber} createdAt={sub.createdAt} />
+          {/* Dealer order page receives raw DB columns (snake_case) — use snake_case props */}
+          <DocBadge type="ffl" fileName={sub.ffl_file_name} fileData={sub.ffl_file_data} orDealerFileData={sub.dealer_ffl_file_data} submissionId={sub.id} fflLicenseNumber={sub.ffl_license_number} createdAt={sub.created_at} />
+          <DocBadge type="sot" fileName={sub.sot_file_name} fileData={sub.sot_file_data} orDealerFileData={sub.dealer_sot_file_data} submissionId={sub.id} fflLicenseNumber={sub.ffl_license_number} createdAt={sub.created_at} />
+          <DocBadge type="tax" fileName={sub.tax_form_name} fileData={sub.tax_form_data} orDealerFileData={sub.dealer_tax_form_data} submissionId={sub.id} fflLicenseNumber={sub.ffl_license_number} createdAt={sub.created_at} />
+          <DocBadge type="state_tax" fileName={sub.state_tax_file_name} fileData={sub.state_tax_file_data} orDealerFileData={sub.dealer_state_tax_file_data} submissionId={sub.id} fflLicenseNumber={sub.ffl_license_number} createdAt={sub.created_at} />
         </div>
       </td>
       <td className="px-3 py-3">
