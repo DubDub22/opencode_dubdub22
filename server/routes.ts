@@ -563,7 +563,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/admin/submissions/:id/file/:type", requireAdmin, async (req, res) => {
     try {
       const { id, type } = req.params;
-      const { ffl, created } = req.query as { ffl?: string; created?: string };
+      let { ffl, created } = req.query as { ffl?: string; created?: string };
+
+      // If ffl or created missing, look up from DB
+      if (!ffl || !created) {
+        const rows = await pool.query(
+          `SELECT ffl_license_number, created_at FROM submissions WHERE id = $1 LIMIT 1`,
+          [id]
+        );
+        if (rows.rows.length === 0) {
+          return res.status(404).json({ ok: false, error: "submission_not_found" });
+        }
+        const row = rows.rows[0];
+        ffl = ffl || row.ffl_license_number;
+        created = created || row.created_at;
+      }
 
       if (!ffl || !created) {
         return res.status(400).json({ ok: false, error: "missing_ffl_or_created" });
