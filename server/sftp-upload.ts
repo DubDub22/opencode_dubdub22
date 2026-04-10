@@ -1,6 +1,30 @@
 import { Client } from "ssh2";
 import { readFileSync } from "fs";
 
+/**
+ * Read a file from the remote SFTP server as a Buffer.
+ */
+export function sftpRead(remotePath: string): Promise<Buffer> {
+  return new Promise((resolve, reject) => {
+    const conn = new Client();
+    conn.on("ready", () => {
+      conn.sftp((err, sftp) => {
+        if (err) { conn.end(); return reject(err); }
+        sftp.readFile(remotePath, (readErr, data) => {
+          conn.end();
+          if (readErr) reject(readErr);
+          else resolve(Buffer.from(data));
+        });
+      });
+    });
+    conn.on("error", (e) => { conn.end(); reject(e); });
+    conn.connect({
+      host: SFTP_HOST, port: SFTP_PORT, username: SFTP_USER,
+      privateKey: readFileSync(SFTP_KEY_PATH),
+    });
+  });
+}
+
 // Remote server config
 const SFTP_HOST = "100.99.180.68";
 const SFTP_PORT = 22;
@@ -89,9 +113,10 @@ export async function uploadDealerDocuments(
   fflNumber: string,
   files: DealerDocumentFiles
 ): Promise<void> {
-  const folder = fflToFolderName(fflNumber);
+  const safeFflNumber = fflNumber.replace(/[^a-zA-Z0-9\-]/g, '');
+  const folder = fflToFolderName(safeFflNumber);
   const basePath = `/home/dealer-uploader/dealer-docs/${folder}`;
-  const fflDigits = fflNumber.replace(/-/g, "");
+  const fflDigits = safeFflNumber.replace(/-/g, "");
 
   const uploads: Promise<void>[] = [];
 

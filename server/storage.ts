@@ -57,20 +57,24 @@ export class DatabaseStorage implements IStorage {
   async getSubmissions(includeArchived = false): Promise<any[]> {
     // Get submissions with their invoice status (hasInvoice = true if invoice sent)
     // Also join dealer docs so badges show green if dealer has docs on file
+    // Note: file_data columns excluded — files are stored on 3dprintmanager, served via SFTP endpoints
     const result = await db.execute(sql`
-      SELECT s.*,
-        CASE WHEN i.id IS NOT NULL THEN true ELSE false END AS has_invoice,
-        i.invoice_number,
-        ds.order_type,
-        ds.quantity AS dealer_order_quantity,
-        d.ffl_file_name AS dealer_ffl_file_name,
-        d.ffl_file_data AS dealer_ffl_file_data,
-        d.sot_file_name AS dealer_sot_file_name,
-        d.sot_file_data AS dealer_sot_file_data,
-        d.sales_tax_form_name AS dealer_tax_form_name,
-        d.sales_tax_form_data AS dealer_tax_form_data,
-        d.state_tax_file_name AS dealer_state_tax_file_name,
-        d.state_tax_file_data AS dealer_state_tax_file_data
+      SELECT s.id, s.type, s.contact_name, s.business_name, s.email, s.phone,
+             s.quantity, s.description, s.serial_number, s.tracking_number,
+             s.shipped_at, s.archived, s.archived_from, s.created_at,
+             s.ffl_license_number,
+             s.ffl_file_name,
+             s.sot_file_name,
+             s.tax_form_name,
+             s.state_tax_file_name,
+             CASE WHEN i.id IS NOT NULL THEN true ELSE false END AS has_invoice,
+             i.invoice_number,
+             ds.order_type,
+             ds.quantity AS dealer_order_quantity,
+             d.ffl_file_name AS dealer_ffl_file_name,
+             d.sot_file_name AS dealer_sot_file_name,
+             d.sales_tax_form_name AS dealer_tax_form_name,
+             d.state_tax_file_name AS dealer_state_tax_file_name
       FROM submissions s
       LEFT JOIN invoices i ON i.submission_id = s.id AND i.status = 'sent'
       LEFT JOIN dealers d ON d.ffl_license_number = s.ffl_license_number AND d.ffl_license_number IS NOT NULL AND d.ffl_license_number != ''

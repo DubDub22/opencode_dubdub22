@@ -14,7 +14,7 @@ import { registerWildRoutes } from "./routes/wild.js";
 import session from "express-session";
 import rateLimit from "express-rate-limit";
 import { storage } from "./storage";
-import { uploadDealerDocuments } from "./sftp-upload";
+import { uploadDealerDocuments, sftpRead, fflToFolderName } from "./sftp-upload";
 import { pool } from "./db";
 import { loadFFLMaster, validateFFL } from "./ffl-master";
 
@@ -537,28 +537,78 @@ export async function registerRoutes(app: Express): Promise<Server> {
         hasInvoice: s.has_invoice,
         invoiceNumber: s.invoice_number,
         fflFileName: s.ffl_file_name,
-        fflFileData: s.ffl_file_data,
+        // fflFileData no longer returned — served via /api/admin/submissions/:id/file/:type
         sotFileName: s.sot_file_name,
-        sotFileData: s.sot_file_data,
         taxFormName: s.tax_form_name,
-        taxFormData: s.tax_form_data,
         stateTaxFileName: s.state_tax_file_name,
-        stateTaxFileData: s.state_tax_file_data,
-        // Dealer doc fields — badge shows green if either submission OR dealer has the file
+        // Dealer doc fields — badges show green if dealer has file (file_data not needed for badges, just the name for display)
         dealerFflFileName: s.dealer_ffl_file_name,
-        dealerFflFileData: s.dealer_ffl_file_data,
         dealerSotFileName: s.dealer_sot_file_name,
-        dealerSotFileData: s.dealer_sot_file_data,
         dealerTaxFormName: s.dealer_tax_form_name,
-        dealerTaxFormData: s.dealer_tax_form_data,
         dealerStateTaxFileName: s.dealer_state_tax_file_name,
-        dealerStateTaxFileData: s.dealer_state_tax_file_data,
+        // Track which dealer this submission links to so the frontend can request the right file path
+        fflLicenseNumber: s.ffl_license_number,
         createdAt: s.created_at,
       }));
       return res.json({ ok: true, data: mapped });
     } catch (err: any) {
       console.error("fetch_submissions_error", err);
       return res.status(500).json({ ok: false, error: "failed_to_fetch" });
+    }
+  });
+
+  // Stream a document for a submission from 3dprintmanager SFTP
+  // GET /api/admin/submissions/:id/file/:type?ffl=&created=
+  // type = ffl | sot | tax | state_tax
+  app.get("/api/admin/submissions/:id/file/:type", requireAdmin, async (req, res) => {
+    try {
+      const { id, type } = req.params;
+      const { ffl, created } = req.query as { ffl?: string; created?: string };
+
+      if (!ffl || !created) {
+        return res.status(400).json({ ok: false, error: "missing_ffl_or_created" });
+      }
+
+      const suffixMap: Record<string, string> = {
+        ffl: "ffl",
+        sot: "sot",
+        tax: "tax_form",
+        state_tax: "state_tax",
+      };
+      const suffix = suffixMap[type];
+      if (!suffix) return res.status(400).json({ ok: false, error: "invalid_type" });
+
+      const folder = fflToFolderName(ffl);
+      const dateStr = (created as string).split("T")[0].replace(/-/g, "");
+      // Try both .pdf and .png extensions
+      const remotePath = `/home/dealer-uploader/dealer-docs/${folder}/${suffix}_${dateStr}.pdf`;
+
+      try {
+        const buf = await sftpRead(remotePath);
+        const contentType = type === "state_tax" && remotePath.endsWith(".png")
+          ? "image/png"
+          : "application/pdf";
+        res.setHeader("Content-Type", contentType);
+        res.setHeader("Content-Disposition", `inline; filename=\"${type}_${id}.pdf\"`);
+        res.setHeader("Content-Length", buf.length);
+        res.end(buf);
+      } catch (err: any) {
+        // Try .png fallback
+        const pngPath = `/home/dealer-uploader/dealer-docs/${folder}/${suffix}_${dateStr}.png`;
+        try {
+          const buf = await sftpRead(pngPath);
+          res.setHeader("Content-Type", "image/png");
+          res.setHeader("Content-Disposition", `inline; filename=\"${type}_${id}.png\"`);
+          res.setHeader("Content-Length", buf.length);
+          res.end(buf);
+        } catch {
+          console.error(`sftp_read_error ${type}`, err.message, remotePath);
+          return res.status(404).json({ ok: false, error: "file_not_found" });
+        }
+      }
+    } catch (err: any) {
+      console.error("file_download_error", err);
+      return res.status(500).json({ ok: false, error: "download_failed" });
     }
   });
 
