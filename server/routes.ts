@@ -2353,7 +2353,7 @@ DubDub22 Minions`;
         s.business_name,
         s.email,
         s.phone,
-        NULL::text as message,
+        s.description as message,
         s.created_at::timestamp as created_at,
         d.ffl_on_file as dealer_ffl_on_file,
         d.ffl_expiry_date as dealer_ffl_expiry,
