@@ -2154,7 +2154,7 @@ function DealerInquiriesTab({
                     <div className="font-medium">{sub.businessName || <span className="text-muted-foreground">No business name</span>}</div>
                     {sub.contactName && <div className="text-xs text-muted-foreground">{sub.contactName}</div>}
                     {sub.phone && <div className="text-xs text-muted-foreground">{sub.phone}</div>}
-                    {sub.email && <div className="text-xs text-muted-foreground">{sub.email}</div>}
+                    {sub.email && <div className="text-xs text-muted-foreground"><CopyableText text={sub.email} /></div>}
                     <DocCautionBanner dealer={sub} />
                   </td>
                   <td className="px-3 py-2">
