@@ -2140,24 +2140,21 @@ function DealerInquiriesTab({
             <tr>
               <th className="px-3 py-2">Date</th>
               <th className="px-3 py-2">Business</th>
-              <th className="px-3 py-2">Contact</th>
-              <th className="px-3 py-2">Email</th>
-              <th className="px-3 py-2">Phone</th>
               <th className="px-3 py-2 w-10"></th>
             </tr>
           </thead>
           <tbody>
-            {filtered.length === 0 ? <tr><td colSpan={6} className="text-center py-8 text-muted-foreground">No dealer inquiries found.</td></tr>
+            {filtered.length === 0 ? <tr><td colSpan={3} className="text-center py-8 text-muted-foreground">No dealer inquiries found.</td></tr>
               : filtered.map(sub => (
                 <tr key={sub.id} className="border-b border-border hover:bg-secondary/10">
                   <td className="px-3 py-2 text-muted-foreground font-mono text-xs">{fmtDate(sub.createdAt)}</td>
                   <td className="px-3 py-2">
-                    <div className="font-medium">{sub.businessName || "—"}</div>
+                    <div className="font-medium">{sub.businessName || <span className="text-muted-foreground">No business name</span>}</div>
+                    {sub.contactName && <div className="text-xs text-muted-foreground">{sub.contactName}</div>}
+                    {sub.phone && <div className="text-xs text-muted-foreground">{sub.phone}</div>}
+                    {sub.email && <div className="text-xs text-muted-foreground">{sub.email}</div>}
                     <DocCautionBanner dealer={sub} />
                   </td>
-                  <td className="px-3 py-2">{sub.contactName || "—"}</td>
-                  <td className="px-3 py-2">{sub.email || "—"}</td>
-                  <td className="px-3 py-2 text-muted-foreground">{sub.phone || "—"}</td>
                   <td className="px-3 py-2">
                     <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-red-500" onClick={() => onDelete(sub)}>
                       <Trash2 className="h-3.5 w-3.5" />
