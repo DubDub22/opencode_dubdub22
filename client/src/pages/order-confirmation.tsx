@@ -71,6 +71,7 @@ export default function OrderConfirmationPage() {
         body: JSON.stringify({
           intent: isStocking ? "order" : "demo",
           contactName: dealerContact,
+          businessName: dealerName,
           email: dealerEmail,
           phone: dealerPhone || null,
           message: null,
