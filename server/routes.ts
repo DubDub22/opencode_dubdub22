@@ -1891,11 +1891,22 @@ Phone: ${phone || "N/A"}
 ${ein ? `EIN: ${ein}` : ''}
 ${message ? `Notes: ${message}` : ''}
 
+=== TAX FORM INSTRUCTIONS ===
+The multi-state tax form is attached to this email. Please follow these steps carefully:
+
+1. DOWNLOAD the attached PDF before filling it out — do NOT fill it out in your browser or email viewer
+2. OPEN the downloaded PDF in Adobe Acrobat Reader (free) or similar PDF editor
+3. FILL IN all fields: your dealer/business name, address, and EIN
+4. SIGN the form — use the signature tool in your PDF editor, or print, sign by hand, and scan
+5. SAVE the completed PDF — confirm the information and signature are visible and saved properly before attaching it to your reply
+
+NOTE: This process can vary by platform and PDF reader. Some browser-based PDF viewers do NOT save filled-in fields or signatures. If you email the form back blank or unsigned, it means the viewer didn't save your changes. Please use a desktop PDF editor like Adobe Acrobat Reader for best results.
+
 === TO COMPLETE YOUR DEALER PROFILE ===
 Please email us the following:
 - A copy of your FFL
 - A copy of your SOT
-- The completed multi-state tax form (attached to this email)
+- The completed multi-state tax form (filled out per the instructions above)
 
 We'll review your application and be in touch shortly.
 
