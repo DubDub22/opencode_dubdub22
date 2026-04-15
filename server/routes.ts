@@ -2004,8 +2004,12 @@ DubDub22 Minions`;
       if (!dealerFormStatus.sotOnFile) missingForms.push("a current SOT");
       const taxFormInstruction = !dealerFormStatus.taxFormOnFile
         ? (multiStateTaxFormBase64
-            ? "Please use the attached tax form for your resale tax exemption. If available, please also attach a copy of your state-issued sales and use tax permit."
-            : "a completed multi-state tax form")
+            ? `Please use the attached tax form for your resale tax exemption. If available, please also attach a copy of your state-issued sales and use tax permit.
+
+IMPORTANT — Tax Form Note: Download the PDF before filling it out. Do NOT fill it out in your browser or email viewer — many browsers do not save filled fields or signatures. Open the file in Adobe Acrobat Reader (or similar desktop PDF editor), fill in all fields, sign it, save it, and then attach the completed file to your reply.`
+            : `a completed multi-state tax form.
+
+IMPORTANT — Tax Form Note: Download the PDF before filling it out. Do NOT fill it out in your browser or email viewer — many browsers do not save filled fields or signatures. Open the file in Adobe Acrobat Reader (or similar desktop PDF editor), fill in all fields, sign it, save it, and then attach the completed file to your reply.`)
         : "";
       const formsParagraph = formsStatus.length > 0
         ? (missingForms.length > 0 || taxFormInstruction
@@ -2763,6 +2767,8 @@ DubDub22 Minions`;
           `Hi ${dealer.contact_name || dealer.business_name},`,
           ``,
           `We're ready to process your DubDub22 order and need a copy of your Multi-State Tax Form (or your Certificate of Resale).`,
+          ``,
+          `IMPORTANT — Tax Form Note: Download the PDF before filling it out. Do NOT fill it out in your browser or email viewer — many browsers do not save filled fields or signatures. Open the file in Adobe Acrobat Reader (or similar desktop PDF editor), fill in all fields, sign it, and save before uploading.`,
           ``,
           `Please upload your completed form using the link below:`,
           ``,
