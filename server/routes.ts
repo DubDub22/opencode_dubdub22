@@ -3229,6 +3229,10 @@ print(pdf_path)
       }
 
       const subject = `Action Required: Additional Documents Needed - DubDub22 Order`;
+      const taxFormWarning = !hasStateTax ? (
+        `\n\nIMPORTANT — Tax Form Note: Download the PDF before filling it out. Do NOT fill it out in your browser or email viewer — many browsers do not save filled fields or signatures. Open the file in Adobe Acrobat Reader (or similar desktop PDF editor), fill in all fields, sign it, and save before attaching to your reply.`
+      ) : "";
+
       const text = [
         `Hi ${contactName}${businessName ? ` (${businessName})` : ""},`,
         "",
@@ -3237,6 +3241,7 @@ print(pdf_path)
         ...missing.map(m => `  • ${m}`),
         "",
         "Please reply to this email with the requested documents at your earliest convenience. You can also email them directly to docs@dubdub22.com.",
+        taxFormWarning,
         "",
         "If you have any questions, don't hesitate to reach out.",
         "",
