@@ -512,8 +512,16 @@ function SubmissionCard({ sub, onArchive, onDelete, onShip, onInvoice }: { sub: 
           </div>
         ) : (
           <div className="space-y-1">
-            <Button variant="outline" size="sm" className="w-full h-8 text-xs border-primary text-primary hover:bg-primary/10" onClick={onShip}>
-              Mark as Shipped
+            <Button
+              variant="outline"
+              size="sm"
+              className={`w-full h-8 text-xs ${sub.trackingNumber
+                ? "border-green-600 text-green-600 hover:bg-green-50"
+                : "border-primary text-primary hover:bg-primary/10"
+              }`}
+              onClick={sub.trackingNumber ? undefined : onShip}
+            >
+              {sub.trackingNumber ? "✓ Shipped" : "Mark as Shipped"}
             </Button>
             <Button
               variant="outline"
@@ -617,8 +625,16 @@ function SubmissionRow({ sub, onArchive, onDelete, onShip, onInvoice, onRequestD
             >
               {(sub as any).hasInvoice ? `✓ Invoice Sent` : "Send Invoice"}
             </Button>
-            <Button variant="outline" size="sm" className="h-7 text-xs whitespace-nowrap border-primary text-primary hover:bg-primary/10" onClick={onShip}>
-              Mark Shipped
+            <Button
+              variant="outline"
+              size="sm"
+              className={`h-7 text-xs whitespace-nowrap ${sub.trackingNumber
+                ? "border-green-600 text-green-600 hover:bg-green-50"
+                : "border-primary text-primary hover:bg-primary/10"
+              }`}
+              onClick={sub.trackingNumber ? undefined : onShip}
+            >
+              {sub.trackingNumber ? "✓ Shipped" : "Mark Shipped"}
             </Button>
           </div>
         )}
