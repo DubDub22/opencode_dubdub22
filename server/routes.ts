@@ -3526,10 +3526,11 @@ print(pdf_path)
 
       // Save invoice record
       await pool.query(
-        `INSERT INTO invoices (dealer_id, invoice_number, is_retail, retail_customer_name, retail_customer_email, retail_customer_phone, quantity, unit_price, subtotal, tax_rate, tax_amount, total_amount, pdf_path, status, sent_at)
-         VALUES (NULL, $1, true, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, 'sent', NOW())`,
-        [invoiceNumber, order.retail_customer_name, order.retail_customer_email || null, order.retail_customer_phone || null,
-         order.quantity, order.unit_price, order.subtotal, order.tax_rate, order.tax_amount, order.total_amount, pdfPath, 'sent']
+        `INSERT INTO invoices (invoice_number, dealer_id, subtotal, total_amount, status, sent_at, pdf_path, is_retail, retail_customer_name, retail_customer_email, retail_customer_phone, quantity, unit_price, tax_rate, tax_amount)
+         VALUES ($1, NULL, $2, $3, 'sent', NOW(), $4, true, $5, $6, $7, $8, $9, $10, $11)`,
+        [invoiceNumber, order.subtotal, order.total_amount, pdfPath,
+         order.retail_customer_name, order.retail_customer_email || null, order.retail_customer_phone || null,
+         order.quantity, order.unit_price, order.tax_rate, order.tax_amount]
       );
 
       // Email customer
