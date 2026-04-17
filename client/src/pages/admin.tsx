@@ -356,6 +356,11 @@ function SubmissionsTab({
     }
     return true;
   }).sort((a, b) => {
+    // Shipped orders (with trackingNumber) sink to the bottom
+    const aShipped = !!a.trackingNumber;
+    const bShipped = !!b.trackingNumber;
+    if (aShipped !== bShipped) return aShipped ? 1 : -1;
+
     const t = sortDir === "desc" ? -1 : 1;
     if (sortBy === "quantity") {
       const qA = parseInt(String(a.quantity || 0));
