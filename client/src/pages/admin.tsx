@@ -3015,7 +3015,9 @@ export default function AdminPage() {
   const fetchSubmissions = useCallback(async () => {
     try {
       setIsLoading(true);
-      const res = await fetch(`/api/admin/submissions?includeArchived=${showArchived}`);
+      // Archives tab always needs archived submissions; submissions tab respects showArchived toggle
+      const includeArchived = tab === "archives" ? true : showArchived;
+      const res = await fetch(`/api/admin/submissions?includeArchived=${includeArchived}`);
       if (res.status === 403) { setAuthStatus("needs_pin"); setIsLoading(false); return; }
       if (!res.ok) throw new Error("Failed to fetch");
       const data = await res.json();
