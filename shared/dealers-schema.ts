@@ -2,6 +2,7 @@ import { sql } from "drizzle-orm";
 import { pgTable, text, varchar, boolean, timestamp, jsonb } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
+import { submissions } from "./schema";
 
 // ── Dealers (canonical dealer profiles) ─────────────────────────────────────
 export const dealers = pgTable("dealers", {
@@ -72,8 +73,7 @@ export const dealerSubmissions = pgTable("dealer_submissions", {
   createdAt: text("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
 });
 
-// submissions table is defined in schema.ts — import it there if needed
-// (this file only defines dealers and dealer_submissions)
+// submissions table is defined in schema.ts — imported above
 
 // ── Zod schemas ───────────────────────────────────────────────────────────────
 export const insertDealerSchema = createInsertSchema(dealers).omit({ id: true });

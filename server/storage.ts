@@ -1,7 +1,7 @@
 import {
   type User, type InsertUser,
   type Submission, type InsertSubmission,
-  submissions,
+  submissions, users,
 } from "@shared/schema";
 
 import {
@@ -17,7 +17,7 @@ export interface IStorage {
   getUserByUsername(username: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
   createSubmission(submission: InsertSubmission): Promise<Submission>;
-  getSubmissions(): Promise<Submission[]>;
+  getSubmissions(includeArchived?: boolean): Promise<any[]>;
   deleteSubmission(id: string): Promise<void>;
   // Dealer operations
   upsertDealer(dealer: Partial<Dealer> & { businessName: string; email: string }): Promise<Dealer>;
