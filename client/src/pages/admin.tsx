@@ -74,6 +74,9 @@ type Submission = {
   dealer_order_quantity?: string;
   archived?: boolean;
   archived_from?: string;
+  hasInvoice?: boolean;
+  invoiceNumber?: string;
+  form3SubmittedAt?: string;
   customerAddress?: string;
   customerCity?: string;
   customerState?: string;
@@ -501,10 +504,10 @@ function SubmissionCard({ sub, onArchive, onDelete, onShip, onInvoice }: { sub: 
         <div className="flex flex-wrap gap-1.5">
           {/* Admin API returns camelCase (routes.ts maps DB columns to camelCase) */}
           {/* Note: API returns dealerFflFileName (filename) not base64 — use filename as orDealerFileData since truthy string = green badge */}
-          <DocBadge type="ffl" fileName={sub.fflFileName} fileData={sub.fflFileData} orDealerFileData={sub.dealerFflFileName as any} submissionId={sub.id} fflLicenseNumber={sub.fflLicenseNumber} createdAt={sub.createdAt} />
-          <DocBadge type="sot" fileName={sub.sotFileName} fileData={sub.sotFileData} orDealerFileData={sub.dealerSotFileName as any} submissionId={sub.id} fflLicenseNumber={sub.fflLicenseNumber} createdAt={sub.createdAt} />
-          <DocBadge type="tax" fileName={sub.taxFormName} fileData={sub.taxFormData} orDealerFileData={sub.dealerTaxFormName as any} submissionId={sub.id} fflLicenseNumber={sub.fflLicenseNumber} createdAt={sub.createdAt} />
-          <DocBadge type="state_tax" fileName={sub.stateTaxFileName} fileData={sub.stateTaxFileData} orDealerFileData={sub.dealerStateTaxFileName as any} submissionId={sub.id} fflLicenseNumber={sub.fflLicenseNumber} createdAt={sub.createdAt} />
+          <DocBadge type="ffl" fileName={sub.fflFileName} fileData={sub.fflFileData} orDealerFileData={sub.dealerFflFileName} submissionId={sub.id} fflLicenseNumber={sub.fflLicenseNumber} createdAt={sub.createdAt} />
+          <DocBadge type="sot" fileName={sub.sotFileName} fileData={sub.sotFileData} orDealerFileData={sub.dealerSotFileName} submissionId={sub.id} fflLicenseNumber={sub.fflLicenseNumber} createdAt={sub.createdAt} />
+          <DocBadge type="tax" fileName={sub.taxFormName} fileData={sub.taxFormData} orDealerFileData={sub.dealerTaxFormName} submissionId={sub.id} fflLicenseNumber={sub.fflLicenseNumber} createdAt={sub.createdAt} />
+          <DocBadge type="state_tax" fileName={sub.stateTaxFileName} fileData={sub.stateTaxFileData} orDealerFileData={sub.dealerStateTaxFileName} submissionId={sub.id} fflLicenseNumber={sub.fflLicenseNumber} createdAt={sub.createdAt} />
         </div>
       </div>
       {/* Shipping */}
@@ -531,13 +534,13 @@ function SubmissionCard({ sub, onArchive, onDelete, onShip, onInvoice }: { sub: 
             <Button
               variant="outline"
               size="sm"
-              className={`w-full h-8 text-xs ${(sub as any).hasInvoice
+              className={`w-full h-8 text-xs ${sub.hasInvoice
                 ? "border-green-600 text-green-600 hover:bg-green-50"
                 : "border-red-600 text-red-600 hover:bg-red-50"
               }`}
               onClick={onInvoice}
             >
-              {(sub as any).hasInvoice ? `✓ Invoice Sent` : "Send Invoice"}
+              {sub.hasInvoice ? `✓ Invoice Sent` : "Send Invoice"}
             </Button>
           </div>
         )}
@@ -584,10 +587,10 @@ function SubmissionRow({ sub, onArchive, onDelete, onShip, onInvoice, onRequestD
         <div className="flex flex-col gap-1">
           {/* Admin API returns camelCase (routes.ts maps DB columns to camelCase) */}
           {/* Note: API returns dealerFflFileName (filename) not base64 — use filename as orDealerFileData since truthy string = green badge */}
-          <DocBadge type="ffl" fileName={sub.fflFileName} fileData={sub.fflFileData} orDealerFileData={sub.dealerFflFileName as any} submissionId={sub.id} fflLicenseNumber={sub.fflLicenseNumber} createdAt={sub.createdAt} />
-          <DocBadge type="sot" fileName={sub.sotFileName} fileData={sub.sotFileData} orDealerFileData={sub.dealerSotFileName as any} submissionId={sub.id} fflLicenseNumber={sub.fflLicenseNumber} createdAt={sub.createdAt} />
-          <DocBadge type="tax" fileName={sub.taxFormName} fileData={sub.taxFormData} orDealerFileData={sub.dealerTaxFormName as any} submissionId={sub.id} fflLicenseNumber={sub.fflLicenseNumber} createdAt={sub.createdAt} />
-          <DocBadge type="state_tax" fileName={sub.stateTaxFileName} fileData={sub.stateTaxFileData} orDealerFileData={sub.dealerStateTaxFileName as any} submissionId={sub.id} fflLicenseNumber={sub.fflLicenseNumber} createdAt={sub.createdAt} />
+          <DocBadge type="ffl" fileName={sub.fflFileName} fileData={sub.fflFileData} orDealerFileData={sub.dealerFflFileName} submissionId={sub.id} fflLicenseNumber={sub.fflLicenseNumber} createdAt={sub.createdAt} />
+          <DocBadge type="sot" fileName={sub.sotFileName} fileData={sub.sotFileData} orDealerFileData={sub.dealerSotFileName} submissionId={sub.id} fflLicenseNumber={sub.fflLicenseNumber} createdAt={sub.createdAt} />
+          <DocBadge type="tax" fileName={sub.taxFormName} fileData={sub.taxFormData} orDealerFileData={sub.dealerTaxFormName} submissionId={sub.id} fflLicenseNumber={sub.fflLicenseNumber} createdAt={sub.createdAt} />
+          <DocBadge type="state_tax" fileName={sub.stateTaxFileName} fileData={sub.stateTaxFileData} orDealerFileData={sub.dealerStateTaxFileName} submissionId={sub.id} fflLicenseNumber={sub.fflLicenseNumber} createdAt={sub.createdAt} />
         </div>
       </td>
       <td className="px-3 py-3">
@@ -610,25 +613,25 @@ function SubmissionRow({ sub, onArchive, onDelete, onShip, onInvoice, onRequestD
             <Button
               variant="outline"
               size="sm"
-              className={`h-7 text-xs whitespace-nowrap ${(sub as any).form3SubmittedAt
+              className={`h-7 text-xs whitespace-nowrap ${sub.form3SubmittedAt
                 ? "border-green-600 text-green-600 hover:bg-green-50"
                 : "border-purple-600 text-purple-600 hover:bg-purple-50"
               }`}
-              onClick={(sub as any).form3SubmittedAt ? undefined : onForm3Submitted}
-              title={(sub as any).form3SubmittedAt ? "Form 3 already submitted" : "Send Form 3 Submitted email"}
+              onClick={sub.form3SubmittedAt ? undefined : onForm3Submitted}
+              title={sub.form3SubmittedAt ? "Form 3 already submitted" : "Send Form 3 Submitted email"}
             >
-              {(sub as any).form3SubmittedAt ? "✓ Form 3 Sent" : "Form 3 Submitted"}
+              {sub.form3SubmittedAt ? "✓ Form 3 Sent" : "Form 3 Submitted"}
             </Button>
             <Button
               variant="outline"
               size="sm"
-              className={`h-7 text-xs whitespace-nowrap ${(sub as any).hasInvoice
+              className={`h-7 text-xs whitespace-nowrap ${sub.hasInvoice
                 ? "border-green-600 text-green-600 hover:bg-green-50"
                 : "border-red-600 text-red-600 hover:bg-red-50"
               }`}
               onClick={onInvoice}
             >
-              {(sub as any).hasInvoice ? `✓ Invoice Sent` : "Send Invoice"}
+              {sub.hasInvoice ? `✓ Invoice Sent` : "Send Invoice"}
             </Button>
             <Button
               variant="outline"
