@@ -930,6 +930,74 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // GET /api/dealer/profile?ffl=XXXXX
+  // Returns full dealer profile for auto-fill on /apply and /order
+  // Only returns FFLs that are in the dealers table (not pending/new)
+  app.get("/api/dealer/profile", async (req, res) => {
+    try {
+      const ffl = (req.query.ffl as string || "").trim();
+      if (!ffl) return res.status(400).json({ ok: false, error: "ffl_required" });
+
+      const result = await pool.query(
+        `SELECT
+           d.id, d.business_name, d.contact_name, d.email, d.phone,
+           d.business_address, d.city, d.state, d.zip,
+           d.ein,
+           d.sot_license_type, d.sot_tax_year, d.sot_period_start, d.sot_period_end,
+           d.sot_expiry_date, d.ffl_expiry_date,
+           d.tax_exempt, d.notes,
+           d.has_demo_unit_shipped,
+           d.source,
+           d.created_at,
+           (d.ffl_file_name IS NOT NULL AND d.ffl_file_name != '') AS has_ffl_on_file,
+           (d.sot_file_name IS NOT NULL AND d.sot_file_name != '') AS has_sot_on_file,
+           (d.sales_tax_form_name IS NOT NULL AND d.sales_tax_form_name != '') AS has_tax_form_on_file
+         FROM dealers d
+         WHERE d.ffl_license_number = $1
+         LIMIT 1`,
+        [ffl]
+      );
+
+      if (!result.rows.length) {
+        return res.status(404).json({ ok: false, error: "dealer_not_found" });
+      }
+
+      const d = result.rows[0];
+      return res.json({
+        ok: true,
+        data: {
+          id: d.id,
+          businessName: d.business_name,
+          contactName: d.contact_name,
+          email: d.email,
+          phone: d.phone,
+          address: d.business_address,
+          city: d.city,
+          state: d.state,
+          zip: d.zip,
+          ein: d.ein,
+          sotLicenseType: d.sot_license_type,
+          sotTaxYear: d.sot_tax_year,
+          sotPeriodStart: d.sot_period_start,
+          sotPeriodEnd: d.sot_period_end,
+          sotExpiryDate: d.sot_expiry_date,
+          fflExpiryDate: d.ffl_expiry_date,
+          taxExempt: d.tax_exempt,
+          notes: d.notes,
+          hasDemoUnitShipped: d.has_demo_unit_shipped,
+          source: d.source,
+          createdAt: d.created_at,
+          hasFflOnFile: d.has_ffl_on_file,
+          hasSotOnFile: d.has_sot_on_file,
+          hasTaxFormOnFile: d.has_tax_form_on_file,
+        }
+      });
+    } catch (err: any) {
+      console.error("dealer_profile_error", err);
+      return res.status(500).json({ ok: false, error: "failed_to_fetch" });
+    }
+  });
+
   // Public: Dealers near a zip code (lazy-load - only fetched on zip search)
   // GET /api/dealers/nearby?zip=XXXXX
   // Returns nearest 20 FFLs total, plus the nearest Preferred dealer separately

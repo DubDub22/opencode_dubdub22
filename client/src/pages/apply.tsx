@@ -561,6 +561,32 @@ function DealerForm(props: { fflNumber: string; dealerName?: string; email?: str
     }
   }
 
+  // Auto-fill from dealer profile when returning
+  React.useEffect(() => {
+    if (!props.fflNumber) return;
+    fetch(`/api/dealer/profile?ffl=${encodeURIComponent(props.fflNumber)}`)
+      .then(r => r.json())
+      .then(data => {
+        if (!data.ok || !data.data) return;
+        const d = data.data;
+        form.reset({
+          ...form.getValues(),
+          dealerName: form.getValues("dealerName") || d.businessName || "",
+          contactName: form.getValues("contactName") || d.contactName || "",
+          email: form.getValues("email") || d.email || "",
+          confirmEmail: form.getValues("confirmEmail") || d.email || "",
+          contactPhone: form.getValues("contactPhone") || d.phone || "",
+          address: form.getValues("address") || d.address || "",
+          city: form.getValues("city") || d.city || "",
+          state: form.getValues("state") || d.state || "",
+          zipCode: form.getValues("zipCode") || d.zip || "",
+          ein: form.getValues("ein") || d.ein || "",
+          fflExpiry: form.getValues("fflExpiry") || d.fflExpiryDate || "",
+        });
+      })
+      .catch(() => {});
+  }, [props.fflNumber]);
+
   const form = useForm<DealerApplyValues>({
     defaultValues: {
       dealerName: props.dealerName || "",
@@ -831,11 +857,6 @@ function DealerForm(props: { fflNumber: string; dealerName?: string; email?: str
             <FormItem><FormLabel>Contact Phone</FormLabel><FormControl><Input {...field} type="tel" className="bg-card border-border" /></FormControl><FormMessage /></FormItem>
           )} />
         </div>
-
-        {/* ── EIN ── */}
-        <FormField control={form.control} name="ein" render={({ field }) => (
-          <FormItem><FormLabel>EIN <span className="text-xs text-destructive font-normal">*</span></FormLabel><FormControl><Input {...field} placeholder="XX-XXXXXXX" className="bg-card border-border" /></FormControl><FormMessage /></FormItem>
-        )} />
 
         {/* ── FFL Expiry / EIN ── */}
         <div className="grid md:grid-cols-2 gap-4">

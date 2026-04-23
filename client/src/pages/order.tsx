@@ -60,6 +60,31 @@ export default function OrderPage() {
   const [submitted, setSubmitted] = useState(false);
   const [selectedFileName, setSelectedFileName] = useState<string>("");
 
+  // Auto-fill from dealer profile when URL has ?ffl= param
+  React.useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const ffl = params.get("ffl");
+    if (!ffl) return;
+    fetch(`/api/dealer/profile?ffl=${encodeURIComponent(ffl)}`)
+      .then(r => r.json())
+      .then(data => {
+        if (!data.ok || !data.data) return;
+        const d = data.data;
+        form.reset({
+          ...form.getValues(),
+          contactName: form.getValues("contactName") || d.contactName || d.businessName || "",
+          email: form.getValues("email") || d.email || "",
+          confirmEmail: form.getValues("confirmEmail") || d.email || "",
+          phone: form.getValues("phone") || d.phone || "",
+          customerAddress: form.getValues("customerAddress") || d.address || "",
+          customerCity: form.getValues("customerCity") || d.city || "",
+          customerState: form.getValues("customerState") || d.state || "",
+          customerZip: form.getValues("customerZip") || d.zip || "",
+        });
+      })
+      .catch(() => {});
+  }, []);
+
   const form = useForm<z.infer<typeof orderFormSchema>>({
     resolver: zodResolver(orderFormSchema),
     defaultValues: {
