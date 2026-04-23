@@ -723,11 +723,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.patch("/api/admin/submissions/:id/ship", requireAdmin, async (req, res) => {
     try {
       const { id } = req.params;
-      const { trackingNumber, atfFormName, atfFormData } = req.body || {};
+      const { trackingNumber, atfFormName, atfFormData, form3Data } = req.body || {};
       if (!trackingNumber?.trim()) {
         return res.status(400).json({ ok: false, error: "tracking_number_required" });
       }
-      // Look up full submission to check form3SubmittedAt and for Form 3 PDF generation
+      // Look up full submission to check form3SubmittedAt and for Form 3 PDF SFTP upload
       const rows = await pool.query(`
         SELECT ds.dealer_id, s.type, s.quantity, s.ffl_license_number, s.business_name,
           s.contact_name, s.customer_address, s.customer_city, s.customer_state, s.customer_zip,
@@ -744,51 +744,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       const dealerId = s.dealer_id;
 
-      // Update shipped status
+      // Update shipped status + store Form 3 PDF data
       await pool.query(
-        `UPDATE submissions SET tracking_number = $1, atf_form_name = $2, atf_form_data = $3, shipped_at = NOW()::text WHERE id = $4`,
-        [trackingNumber.trim(), atfFormName || null, atfFormData || null, id]
+        `UPDATE submissions SET tracking_number = $1, atf_form_name = $2, atf_form_data = $3, form3_pdf_name = $4, form3_pdf_data = $5, shipped_at = NOW()::text WHERE id = $6`,
+        [trackingNumber.trim(), atfFormName || null, atfFormData || null, form3Data ? `Form3_${new Date().toISOString().split('T')[0].replace(/-/g,'')}.pdf` : null, form3Data || null, id]
       );
       if (dealerId) {
         await pool.query(`UPDATE dealers SET has_demo_unit_shipped = true WHERE id = $1`, [dealerId]);
       }
 
-      // ── Generate Form 3 PDF and upload to SFTP ──────────────────────────────
-      if (s.ffl_license_number) {
+      // ── Upload Form 3 PDF to SFTP ────────────────────────────────────────────
+      if (s.ffl_license_number && req.body?.form3Data) {
         try {
-          const form3Date = new Date().toISOString().split("T")[0];
-          const form3Args = JSON.stringify({
-            ffl_number: s.ffl_license_number || "",
-            business_name: s.business_name || "",
-            contact_name: s.contact_name || "",
-            address: s.customer_address || "",
-            city: s.customer_city || "",
-            state: s.customer_state || "",
-            zip: s.customer_zip || "",
-          });
-          let form3Path: string | null = null;
-          try {
-            const form3Out = execSync(`/home/dubdub/DubDub-Hub/venv/bin/python -c "
-import sys, json
-sys.path.insert(0, '/home/dubdub/DubDub-Hub')
-from bot.services.form3_generator import generate_form3_pdf
-params = json.loads(sys.argv[1])
-path = generate_form3_pdf(**params)
-print(path)" '${form3Args}'`, { encoding: "utf8" }).trim();
-            if (form3Out && fs.existsSync(form3Out.trim())) {
-              form3Path = form3Out.trim();
-            }
-          } catch (e: any) {
-            console.warn("Form3 PDF generation failed:", e.message);
-          }
-          if (form3Path) {
-            const dateTag = form3Date.replace(/-/g, "");
-            const folder = fflToFolderName(s.ffl_license_number);
-            const sftpDest = `/home/dealer-uploader/dealer-docs/${folder}/${folder}Form3_${dateTag}.pdf`;
-            const { sftpUpload } = await import("./sftp-upload");
-            await sftpUpload(fs.readFileSync(form3Path), sftpDest);
-            console.log(`[form3] uploaded to SFTP: ${sftpDest}`);
-          }
+          const dateTag = new Date().toISOString().split("T")[0].replace(/-/g, "");
+          const folder = fflToFolderName(s.ffl_license_number);
+          const sftpDest = `/home/dealer-uploader/dealer-docs/${folder}/${folder}Form3_${dateTag}.pdf`;
+          const { sftpUpload } = await import("./sftp-upload");
+          await sftpUpload(Buffer.from(req.body.form3Data, "base64"), sftpDest);
+          console.log(`[form3] uploaded to SFTP: ${sftpDest}`);
         } catch (e: any) {
           console.error("form3 sftp upload failed:", e.message);
         }

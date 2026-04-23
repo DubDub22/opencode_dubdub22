@@ -1917,19 +1917,19 @@ function ShipDialog({ sub, open, onClose }: {
 }) {
   const { toast } = useToast();
   const [tracking, setTracking] = useState("");
-  const [atfFile, setAtfFile] = useState<File | null>(null);
-  const [atfPreview, setAtfPreview] = useState<string | null>(null);
+  const [form3File, setForm3File] = useState<File | null>(null);
+  const [form3Preview, setForm3Preview] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
-  useEffect(() => { if (!open) { setTracking(""); setAtfFile(null); setAtfPreview(null); } }, [open]);
+  useEffect(() => { if (!open) { setTracking(""); setForm3File(null); setForm3Preview(null); } }, [open]);
 
-  const handleAtfChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleForm3Change = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     const reader = new FileReader();
-    reader.onload = (ev) => setAtfPreview(ev.target?.result as string);
+    reader.onload = (ev) => setForm3Preview(ev.target?.result as string);
     reader.readAsDataURL(file);
-    setAtfFile(file);
+    setForm3File(file);
   };
 
   const handleShip = async () => {
@@ -1937,18 +1937,18 @@ function ShipDialog({ sub, open, onClose }: {
     setSaving(true);
     try {
       let atfData: string | undefined;
-      if (atfFile) {
+      if (form3File) {
         atfData = await new Promise<string>((res, rej) => {
           const reader = new FileReader();
           reader.onload = () => res((reader.result as string).split(",")[1]);
           reader.onerror = rej;
-          reader.readAsDataURL(atfFile);
+          reader.readAsDataURL(form3File);
         });
       }
       const res = await fetch(`/api/admin/submissions/${sub.id}/ship`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ trackingNumber: tracking.trim(), atfFormName: atfFile?.name || null, atfFormData: atfData || null }),
+        body: JSON.stringify({ trackingNumber: tracking.trim(), atfFormName: form3File?.name || null, atfFormData: atfData || null, form3Data: atfData || null }),
       });
       if (!res.ok) throw new Error("Ship failed");
       toast({ title: "Order Shipped!", description: `Tracking: ${tracking.trim()}` });
@@ -1970,20 +1970,20 @@ function ShipDialog({ sub, open, onClose }: {
             <Input placeholder="1Z999AA10123456784" value={tracking} onChange={e => setTracking(e.target.value)} className="bg-background" />
           </div>
           <div>
-            <label className="text-sm font-medium block mb-1.5">ATF Form 5320.3 <span className="text-xs text-muted-foreground font-normal">(optional)</span></label>
+            <label className="text-sm font-medium block mb-1.5">Form 3 PDF (required) <span className="text-xs text-muted-foreground font-normal">(optional)</span></label>
             <div className="border-2 border-dashed border-border rounded-lg p-4 text-center hover:border-primary/50 transition-colors cursor-pointer"
               onClick={() => document.getElementById("atf-file-input")?.click()}>
-              <input id="atf-file-input" type="file" accept=".pdf,.png,.jpg,.jpeg" className="hidden" onChange={handleAtfChange} />
-              {atfPreview ? (
+              <input id="form3-file-input" type="file" accept=".pdf,.png,.jpg,.jpeg" className="hidden" onChange={handleForm3Change} />
+              {form3Preview ? (
                 <div className="space-y-2">
-                  <img src={atfPreview} alt="ATF preview" className="max-h-32 mx-auto rounded object-contain" />
-                  <p className="text-xs text-muted-foreground">{atfFile?.name}</p>
+                  <img src={form3Preview} alt="ATF preview" className="max-h-32 mx-auto rounded object-contain" />
+                  <p className="text-xs text-muted-foreground">{form3File?.name}</p>
                 </div>
               ) : (
                 <div className="space-y-1">
                   <Package className="h-8 w-8 mx-auto text-muted-foreground" />
-                  <p className="text-sm text-muted-foreground">Click to upload ATF Form 5320.3</p>
-                  <p className="text-xs text-muted-foreground">PDF, PNG, JPG accepted</p>
+                  <p className="text-sm text-muted-foreground">Click to upload Form 3 PDF</p>
+                  <p className="text-xs text-muted-foreground">PDF recommended</p>
                 </div>
               )}
             </div>

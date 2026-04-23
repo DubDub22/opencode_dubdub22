@@ -47,6 +47,8 @@ export const submissions = pgTable("submissions", {
   // Shipping fields
   atfFormName: text("atf_form_name"),
   atfFormData: text("atf_form_data"),
+  form3PdfName: text("form3_pdf_name"),
+  form3PdfData: text("form3_pdf_data"),
   trackingNumber: text("tracking_number"),
   shippedAt: text("shipped_at"),
   // Customer address (populated from /order form)
