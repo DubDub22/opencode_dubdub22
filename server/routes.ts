@@ -619,24 +619,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/admin/submissions/:id/file/:type", requireAdmin, async (req, res) => {
     try {
       const { id, type } = req.params;
-      let { ffl, created } = req.query as { ffl?: string; created?: string };
+      let { ffl } = req.query as { ffl?: string };
 
-      // If ffl or created missing, look up from DB
-      if (!ffl || !created) {
+      // If ffl missing, look up from DB
+      if (!ffl) {
         const rows = await pool.query(
-          `SELECT ffl_license_number, created_at FROM submissions WHERE id = $1 LIMIT 1`,
+          `SELECT ffl_license_number FROM submissions WHERE id = $1 LIMIT 1`,
           [id]
         );
         if (rows.rows.length === 0) {
           return res.status(404).json({ ok: false, error: "submission_not_found" });
         }
-        const row = rows.rows[0];
-        ffl = ffl || row.ffl_license_number;
-        created = created || row.created_at;
-      }
-
-      if (!ffl || !created) {
-        return res.status(400).json({ ok: false, error: "missing_ffl_or_created" });
+        ffl = rows.rows[0].ffl_license_number || undefined;
       }
 
       // File naming matches uploadDealerDocuments: {folder}{TYPE}.{ext}
@@ -651,7 +645,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!fileType) return res.status(400).json({ ok: false, error: "invalid_type" });
 
       // Use sub-{id} folder if ffl is empty/NOFFL, otherwise use FFL-based folder
-      const rawFolder = fflToFolderName(ffl);
+      const rawFolder = ffl ? fflToFolderName(ffl) : "NOFFL";
       const folder = (rawFolder === "NOFFL" || !ffl) ? `sub-${id}` : rawFolder;
       // Try .pdf and .png extensions (state_tax may be image)
       const remotePath = `/home/dealer-uploader/dealer-docs/${folder}/${folder}${fileType}.pdf`;
