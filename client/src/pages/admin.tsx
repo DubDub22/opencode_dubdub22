@@ -66,6 +66,8 @@ type Submission = {
   damagePhoto2Data?: string;
   atfFormName?: string;
   atfFormData?: string;
+  form3PdfName?: string;
+  form3PdfData?: string;
   trackingNumber?: string;
   shippedAt?: string;
   hasOrderedDemo?: string;
