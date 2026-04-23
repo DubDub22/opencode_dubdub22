@@ -619,7 +619,7 @@ function SubmissionRow({ sub, onArchive, onDelete, onShip, onInvoice, onRequestD
               onClick={sub.form3SubmittedAt ? undefined : onForm3Submitted}
               title={sub.form3SubmittedAt ? "Form 3 already submitted" : "Send Form 3 Submitted email"}
             >
-              {sub.form3SubmittedAt ? "✓ Form 3 Sent" : "Form 3 Submitted"}
+              {sub.form3SubmittedAt ? "✓ Form 3 Submitted" : "Form 3 Pending"}
             </Button>
             <Button
               variant="outline"
