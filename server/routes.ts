@@ -3185,6 +3185,27 @@ print(pdf_path)
         console.warn("PDF generation failed, continuing without PDF:", e.message);
       }
 
+      // ── Also upload invoice PDF to SFTP ─────────────────────────────────────
+      if (pdfPath && submissionId) {
+        try {
+          const subRows = await pool.query(
+            `SELECT ffl_license_number FROM submissions WHERE id = $1 LIMIT 1`,
+            [submissionId]
+          );
+          const ffl = subRows.rows[0]?.ffl_license_number;
+          if (ffl) {
+            const dateTag = new Date().toISOString().split("T")[0].replace(/-/g, "");
+            const folder = fflToFolderName(ffl);
+            const sftpDest = `/home/dealer-uploader/dealer-docs/${folder}/${folder}Invoice_${dateTag}.pdf`;
+            const { sftpUpload } = await import("./sftp-upload");
+            await sftpUpload(fs.readFileSync(pdfPath), sftpDest);
+            console.log(`[invoice] uploaded to SFTP: ${sftpDest}`);
+          }
+        } catch (e: any) {
+          console.warn("invoice sftp upload failed:", e.message);
+        }
+      }
+
       // Save invoice record
       const insertResult = await pool.query(
         `INSERT INTO invoices
@@ -3394,6 +3415,45 @@ print(pdf_path)
 
       // Record that Form 3 was submitted
       await pool.query(`UPDATE submissions SET form3_submitted_at = $1 WHERE id = $2`, [new Date().toISOString(), id]);
+
+      // ── Upload Form 3 PDF to SFTP ──────────────────────────────────────────
+      try {
+        const form3Date = new Date().toISOString().split("T")[0]; // YYYY-MM-DD
+        const form3Args = JSON.stringify({
+          ffl_number: s.ffl_license_number || "",
+          business_name: businessName || "",
+          contact_name: contactName || "",
+          address: s.customer_address || s.business_address || "",
+          city: s.customer_city || "",
+          state: s.customer_state || "",
+          zip: s.customer_zip || "",
+        });
+        let form3Path: string | null = null;
+        try {
+          const form3Out = execSync(`/home/dubdub/DubDub-Hub/venv/bin/python -c "
+import sys, json
+sys.path.insert(0, '/home/dubdub/DubDub-Hub')
+from bot.services.form3_generator import generate_form3_pdf
+params = json.loads(sys.argv[1])
+path = generate_form3_pdf(**params)
+print(path)" '${form3Args}'`, { encoding: "utf8" }).trim();
+          if (form3Out && fs.existsSync(form3Out.trim())) {
+            form3Path = form3Out.trim();
+          }
+        } catch (e: any) {
+          console.warn("Form3 PDF generation failed:", e.message);
+        }
+        if (form3Path && s.ffl_license_number) {
+          const dateTag = form3Date.replace(/-/g, "");
+          const folder = fflToFolderName(s.ffl_license_number);
+          const sftpDest = `/home/dealer-uploader/dealer-docs/${folder}/${folder}Form3_${dateTag}.pdf`;
+          const { sftpUpload } = await import("./sftp-upload");
+          await sftpUpload(fs.readFileSync(form3Path), sftpDest);
+          console.log(`[form3] uploaded to SFTP: ${sftpDest}`);
+        }
+      } catch (e: any) {
+        console.error("form3 sftp upload failed:", e.message);
+      }
 
       return res.json({ ok: true, missing: missing.length });
     } catch (err: any) {
