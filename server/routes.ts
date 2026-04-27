@@ -534,6 +534,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         serialNumber: s.serial_number,
         trackingNumber: s.tracking_number,
         shippedAt: s.shipped_at,
+        paidAt: s.paid_at,
+        paidNotes: s.paid_notes,
         archived: s.archived,
         archived_from: s.archived_from,
         hasInvoice: s.has_invoice,
@@ -770,6 +772,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return res.json({ ok: true });
     } catch (err: any) {
       console.error("ship_submission_error", err);
+      return res.status(500).json({ ok: false, error: "failed_to_update" });
+    }
+  });
+
+  // Mark a submission as paid with optional notes
+  app.patch("/api/admin/submissions/:id/paid", requireAdmin, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { paidNotes } = req.body || {};
+      await pool.query(
+        `UPDATE submissions SET paid_at = NOW()::text, paid_notes = $1 WHERE id = $2`,
+        [paidNotes || null, id]
+      );
+      return res.json({ ok: true });
+    } catch (err: any) {
+      console.error("mark_paid_error", err);
       return res.status(500).json({ ok: false, error: "failed_to_update" });
     }
   });
@@ -2128,7 +2146,7 @@ DubDub22 Minions`;
       // Upload documents to 3dprintmanager via SFTP (non-blocking)
       const hasFflFile = !!(fflFileData && fflFileName);
       const hasSotFile = !!(sotFileData && sotFileName);
-      const hasTaxFile = !!(taxFormData && taxFormName);
+      const hasTaxFile = !!(taxFormFileData && taxFormFileName);
       const hasAnyFile = hasFflFile || hasSotFile || hasTaxFile;
 
       if (fflNumber && hasAnyFile) {
@@ -2139,7 +2157,7 @@ DubDub22 Minions`;
           sotFileName: sotFileName || undefined,
           resaleFileData: resaleFileData || undefined,
           resaleFileName: resaleFileName || undefined,
-          taxFormFileData: taxFormData || undefined,
+          taxFormFileData: taxFormFileData || undefined,
           taxFormName: taxFormFileName || undefined,
         }).catch(err => console.error("sftp_upload_dealer_docs_error", err));
         if (existingDealer?.id) {

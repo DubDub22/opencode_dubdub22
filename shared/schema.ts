@@ -51,6 +51,8 @@ export const submissions = pgTable("submissions", {
   form3PdfData: text("form3_pdf_data"),
   trackingNumber: text("tracking_number"),
   shippedAt: text("shipped_at"),
+  paidAt: text("paid_at"),
+  paidNotes: text("paid_notes"),
   // Customer address (populated from /order form)
   customerAddress: text("customer_address"),
   customerCity: text("customer_city"),
