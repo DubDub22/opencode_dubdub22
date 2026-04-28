@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -22,6 +23,7 @@ interface DealerApplyValues {
   confirmEmail: string;
   fflExpiry: string;
   ein: string;
+  einType: string;
   contactPhone: string;
   address: string;
   city: string;
@@ -581,6 +583,7 @@ function DealerForm(props: { fflNumber: string; dealerName?: string; email?: str
           state: form.getValues("state") || d.state || "",
           zipCode: form.getValues("zipCode") || d.zip || "",
           ein: form.getValues("ein") || d.ein || "",
+          einType: form.getValues("einType") || d.einType || "",
           fflExpiry: form.getValues("fflExpiry") || d.fflExpiryDate || "",
         });
       })
@@ -595,6 +598,7 @@ function DealerForm(props: { fflNumber: string; dealerName?: string; email?: str
       confirmEmail: "",
       fflExpiry: "",
       ein: "",
+      einType: "",
       contactPhone: props.phone || "",
       address: props.address || "",
       city: props.city || "",
@@ -614,6 +618,7 @@ function DealerForm(props: { fflNumber: string; dealerName?: string; email?: str
     if (!values.city || values.city.trim().length < 2) { toast({ title: "Validation", description: "City is required", variant: "destructive" }); return; }
     if (!values.state || values.state.trim().length < 2) { toast({ title: "Validation", description: "State is required", variant: "destructive" }); return; }
     if (!values.zipCode || values.zipCode.trim().length < 5) { toast({ title: "Validation", description: "ZIP code is required", variant: "destructive" }); return; }
+    if (!values.einType) { toast({ title: "Validation", description: "EIN type is required (Dealer or Manufacturer)", variant: "destructive" }); return; }
     if (!values.ein || values.ein.trim().length < 2) { toast({ title: "Validation", description: "EIN is required", variant: "destructive" }); return; }
     if (orderKind === "inquiry" && (!values.message || values.message.trim().length < 1)) { toast({ title: "Validation", description: "Message is required", variant: "destructive" }); return; }
 
@@ -669,11 +674,7 @@ function DealerForm(props: { fflNumber: string; dealerName?: string; email?: str
 
       // Demo / stocking orders → redirect to order confirmation to accept terms
       if (orderKind !== "inquiry") {
-        // Store file data for the confirmation page to include in the final order POST
-        sessionStorage.setItem("pendingFflFileName", fflFile.name);
-        sessionStorage.setItem("pendingFflFileData", fflBase64);
-        sessionStorage.setItem("pendingSotFileName", sotFile ? sotFile.name : "");
-        sessionStorage.setItem("pendingSotFileData", sotBase64 || "");
+        // File data already uploaded to SFTP via /api/dealer-request — no sessionStorage relay needed
         const qty = quantityCans ? String(quantityCans) : "1";
         const params = new URLSearchParams({
           type: orderKind === "demo" ? "demo" : "stocking",
@@ -858,10 +859,27 @@ function DealerForm(props: { fflNumber: string; dealerName?: string; email?: str
           )} />
         </div>
 
-        {/* ── FFL Expiry / EIN ── */}
-        <div className="grid md:grid-cols-2 gap-4">
+        {/* ── FFL Expiry / EIN Type / EIN ── */}
+        <div className="grid md:grid-cols-3 gap-4">
           <FormField control={form.control} name="fflExpiry" render={({ field }) => (
             <FormItem><FormLabel>FFL Expiration <span className="text-xs text-muted-foreground font-normal">(optional)</span></FormLabel><FormControl><Input {...field} placeholder="MM/DD/YYYY" className="bg-card border-border" /></FormControl><FormMessage /></FormItem>
+          )} />
+          <FormField control={form.control} name="einType" render={({ field }) => (
+            <FormItem>
+              <FormLabel>EIN Type <span className="text-xs text-destructive font-normal">*</span></FormLabel>
+              <FormControl>
+                <Select onValueChange={field.onChange} value={field.value}>
+                  <SelectTrigger className="bg-card border-border">
+                    <SelectValue placeholder="Select type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="dealer">Dealer</SelectItem>
+                    <SelectItem value="manufacturer">Manufacturer</SelectItem>
+                  </SelectContent>
+                </Select>
+              </FormControl>
+              <FormMessage />
+            </FormItem>
           )} />
           <FormField control={form.control} name="ein" render={({ field }) => (
             <FormItem><FormLabel>EIN <span className="text-xs text-destructive font-normal">*</span></FormLabel><FormControl><Input {...field} placeholder="XX-XXXXXXX" className="bg-card border-border" /></FormControl><FormMessage /></FormItem>

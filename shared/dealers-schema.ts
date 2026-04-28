@@ -43,6 +43,7 @@ export const dealers = pgTable("dealers", {
   fflExpiryDate: text("ffl_expiry_date"),     // ISO date string (YYYY-MM-DD)
 
   // Tax status
+  einType: text("ein_type"),                 // 'manufacturer' or 'dealer' — for eForms/Form 3
   taxExempt: boolean("tax_exempt").default(false),
   taxExemptNotes: text("tax_exempt_notes"),  // e.g. "Texas — no state sales tax on NFA items"
   salesTaxId: text("sales_tax_id"),           // state sales tax exemption ID

@@ -960,7 +960,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         `SELECT
            d.id, d.business_name, d.contact_name, d.email, d.phone,
            d.business_address, d.city, d.state, d.zip,
-           d.ein,
+           d.ein, d.ein_type,
            d.sot_license_type, d.sot_tax_year, d.sot_period_start, d.sot_period_end,
            d.sot_expiry_date, d.ffl_expiry_date,
            d.tax_exempt, d.notes,
@@ -994,6 +994,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           state: d.state,
           zip: d.zip,
           ein: d.ein,
+          einType: d.ein_type,
           sotLicenseType: d.sot_license_type,
           sotTaxYear: d.sot_tax_year,
           sotPeriodStart: d.sot_period_start,
@@ -1922,7 +1923,7 @@ DubDub22 Minions`;
 
   app.post("/api/dealer-request", publicFormLimiter, async (req, res) => {
     try {
-      const { requestType, dealerName, contactName, businessName, email, phone, quantityCans, fflFileName, fflFileData, sotFileName, sotFileData, message, orderKind, fflNumber, ein, resaleFileName, resaleFileData, taxFormFileName, taxFormFileData, termsAccepted } = req.body || {};
+      const { requestType, dealerName, contactName, businessName, email, phone, quantityCans, fflFileName, fflFileData, sotFileName, sotFileData, message, orderKind, fflNumber, ein, einType, resaleFileName, resaleFileData, taxFormFileName, taxFormFileData, termsAccepted } = req.body || {};
 
       // Support new field names from dealer portal (dealerName/fflNumber) and legacy (businessName/fflType)
       const bizName = dealerName || businessName || "";
@@ -2011,12 +2012,19 @@ DubDub22 Minions`;
           `UPDATE dealers SET email = $1, tier = 'Preferred', updated_at = CURRENT_TIMESTAMP WHERE id = $2 AND tier = 'Standard'`,
           [email.toLowerCase(), dealerId]
         );
+        // Also update ein_type if provided
+        if (einType) {
+          await pool.query(
+            `UPDATE dealers SET ein_type = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2`,
+            [einType, dealerId]
+          );
+        }
       } else {
         const newDealer = await pool.query(
-          `INSERT INTO dealers (business_name, contact_name, email, phone, ein, source, tier)
-           VALUES ($1, $2, $3, $4, $5, 'web_form', 'Preferred')
+          `INSERT INTO dealers (business_name, contact_name, email, phone, ein, ein_type, source, tier)
+           VALUES ($1, $2, $3, $4, $5, $6, 'web_form', 'Preferred')
            RETURNING id`,
-          [bizName, contactName, email.toLowerCase(), phone || null, ein || null]
+          [bizName, contactName, email.toLowerCase(), phone || null, ein || null, einType || null]
         );
         dealerId = newDealer.rows[0].id;
       }
