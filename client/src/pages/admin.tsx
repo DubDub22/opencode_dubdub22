@@ -5,7 +5,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { format, parseISO } from "date-fns";
 import {
   Copy, Image as ImageIcon, Download, Trash2, Package, Archive,
-  ChevronRight, ArrowLeft, Building2, FileText,
+  ChevronRight, ArrowLeft, ArrowUpDown, Building2, FileText,
   Upload, Eye, X, Search, Inbox,
   MessageSquare, ShieldCheck, Phone, Files, CheckCircle, XCircle, Send,
   RefreshCw, Store, ShoppingCart
@@ -2241,11 +2241,12 @@ function WarrantyTab({
               <th className="px-3 py-2">Customer</th>
               <th className="px-3 py-2">Description</th>
               <th className="px-3 py-2">Notes</th>
+              <th className="px-3 py-2">Actions</th>
             </tr>
           </thead>
           <tbody>
             {filtered.length === 0 ? (
-              <tr><td colSpan={7} className="text-center py-8 text-muted-foreground">No warranty claims found.</td></tr>
+              <tr><td colSpan={8} className="text-center py-8 text-muted-foreground">No warranty claims found.</td></tr>
             ) : filtered.map(r => (
               <tr key={r.id} className="border-b border-border hover:bg-secondary/10">
                 <td className="px-3 py-3 whitespace-nowrap text-xs text-muted-foreground font-mono">
@@ -2282,6 +2283,55 @@ function WarrantyTab({
                 <td className="px-3 py-3">
                   <div className="text-xs text-muted-foreground max-w-[120px] truncate">{r.admin_notes || "—"}</div>
                 </td>
+                <td className="px-3 py-3">
+                  <div className="flex items-center gap-1">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7 text-orange-500 hover:text-orange-400"
+                      title={r.archived ? "Unarchive" : "Archive"}
+                      onClick={async () => {
+                        setUpdating(String(r.id));
+                        try {
+                          const url = r.archived
+                            ? `/api/admin/warranty-requests/${r.id}/unarchive`
+                            : `/api/admin/warranty-requests/${r.id}/archive`;
+                          const res = await fetch(url, { method: "PATCH" });
+                          if (!res.ok) throw new Error();
+                          toast({ title: r.archived ? "Unarchived" : "Archived" });
+                          onRefresh();
+                        } catch {
+                          toast({ title: "Error", variant: "destructive" });
+                        } finally { setUpdating(null); }
+                      }}
+                    >
+                      {r.archived ? <ArrowUpDown className="h-3.5 w-3.5" /> : <Archive className="h-3.5 w-3.5" />}
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7 text-red-500 hover:text-red-400"
+                      title="Delete"
+                      onClick={() => {
+                        if (confirm(`Delete warranty claim for ${r.customer_name || r.contact_name || r.id}? This cannot be undone.`)) {
+                          (async () => {
+                            setUpdating(String(r.id));
+                            try {
+                              const res = await fetch(`/api/admin/warranty-requests/${r.id}`, { method: "DELETE" });
+                              if (!res.ok) throw new Error();
+                              toast({ title: "Deleted" });
+                              onRefresh();
+                            } catch {
+                              toast({ title: "Error deleting", variant: "destructive" });
+                            } finally { setUpdating(null); }
+                          })();
+                        }
+                      }}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                </td>
               </tr>
             ))}
           </tbody>
@@ -2308,6 +2358,51 @@ function WarrantyTab({
               <p className="text-xs text-muted-foreground">{r.customer_name || "—"} {r.customer_email && `(${r.customer_email})`}</p>
               {r.description && <p className="text-xs border-t border-border pt-1 mt-1">{r.description}</p>}
               {r.admin_notes && <p className="text-xs text-muted-foreground italic">Note: {r.admin_notes}</p>}
+            </div>
+            <div className="flex items-center gap-2 mt-2 pt-2 border-t border-border">
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 text-xs text-orange-600 border-orange-300 hover:bg-orange-50"
+                onClick={async () => {
+                  setUpdating(String(r.id));
+                  try {
+                    const url = r.archived
+                      ? `/api/admin/warranty-requests/${r.id}/unarchive`
+                      : `/api/admin/warranty-requests/${r.id}/archive`;
+                    const res = await fetch(url, { method: "PATCH" });
+                    if (!res.ok) throw new Error();
+                    toast({ title: r.archived ? "Unarchived" : "Archived" });
+                    onRefresh();
+                  } catch {
+                    toast({ title: "Error", variant: "destructive" });
+                  } finally { setUpdating(null); }
+                }}
+              >
+                {r.archived ? "Unarchive" : "Archive"}
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 text-xs text-red-600 border-red-300 hover:bg-red-50"
+                onClick={() => {
+                  if (confirm(`Delete warranty claim for ${r.customer_name || r.contact_name || r.id}? This cannot be undone.`)) {
+                    (async () => {
+                      setUpdating(String(r.id));
+                      try {
+                        const res = await fetch(`/api/admin/warranty-requests/${r.id}`, { method: "DELETE" });
+                        if (!res.ok) throw new Error();
+                        toast({ title: "Deleted" });
+                        onRefresh();
+                      } catch {
+                        toast({ title: "Error deleting", variant: "destructive" });
+                      } finally { setUpdating(null); }
+                    })();
+                  }
+                }}
+              >
+                Delete
+              </Button>
             </div>
           </div>
         ))}

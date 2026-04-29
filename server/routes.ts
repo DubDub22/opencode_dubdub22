@@ -2976,6 +2976,51 @@ IMPORTANT — Tax Form Note: Download the PDF before filling it out. Do NOT fill
     }
   });
 
+  // Archive a warranty claim
+  app.patch("/api/admin/warranty-requests/:id/archive", requireAdmin, async (req, res) => {
+    try {
+      const result = await pool.query(
+        `UPDATE submissions SET archived = true, archived_from = 'Warranty Claims', updated_at = CURRENT_TIMESTAMP WHERE id = $1 AND type = 'warranty' RETURNING *`,
+        [req.params.id]
+      );
+      if (result.rows.length === 0) return res.status(404).json({ ok: false, error: "not_found" });
+      return res.json({ ok: true });
+    } catch (err: any) {
+      console.error("warranty_archive_error", err);
+      return res.status(500).json({ ok: false, error: "server_error" });
+    }
+  });
+
+  // Unarchive a warranty claim
+  app.patch("/api/admin/warranty-requests/:id/unarchive", requireAdmin, async (req, res) => {
+    try {
+      const result = await pool.query(
+        `UPDATE submissions SET archived = false, archived_from = NULL, updated_at = CURRENT_TIMESTAMP WHERE id = $1 AND type = 'warranty' RETURNING *`,
+        [req.params.id]
+      );
+      if (result.rows.length === 0) return res.status(404).json({ ok: false, error: "not_found" });
+      return res.json({ ok: true });
+    } catch (err: any) {
+      console.error("warranty_unarchive_error", err);
+      return res.status(500).json({ ok: false, error: "server_error" });
+    }
+  });
+
+  // Delete a warranty claim
+  app.delete("/api/admin/warranty-requests/:id", requireAdmin, async (req, res) => {
+    try {
+      const result = await pool.query(
+        `DELETE FROM submissions WHERE id = $1 AND type = 'warranty' RETURNING id`,
+        [req.params.id]
+      );
+      if (result.rows.length === 0) return res.status(404).json({ ok: false, error: "not_found" });
+      return res.json({ ok: true });
+    } catch (err: any) {
+      console.error("warranty_delete_error", err);
+      return res.status(500).json({ ok: false, error: "server_error" });
+    }
+  });
+
   // ═══════════════════════════════════════════════════════════════════
   // TAX FORM UPLOAD & REVIEW
   // ═══════════════════════════════════════════════════════════════════
