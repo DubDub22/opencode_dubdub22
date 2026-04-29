@@ -167,11 +167,13 @@ export async function createPendingDisposition(
   const contactId = await createOrUpdateContact(dealer);
 
   // 2. Create empty pending disposition
+  // For NFA items (suppressors), use "NFA Disposition" type
+  // This ensures proper ATF compliance tracking in FastBound
   const disp: any = await fbFetch("/dispositions", {
     method: "POST",
     body: JSON.stringify({
       disposeDate: new Date().toISOString().slice(0, 10), // YYYY-MM-DD
-      disposeType: "Sold",
+      disposeType: "NFA Disposition",
     }),
   });
 
