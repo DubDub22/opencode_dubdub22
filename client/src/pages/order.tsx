@@ -165,9 +165,29 @@ export default function OrderPage() {
         title: isInfo ? "Request Received" : "Order Received",
         description: isInfo
           ? "We've received your inquiry and will follow up shortly."
-          : "We've received your order and will send an invoice by email shortly.",
+          : "Please complete the tax form to continue.",
         className: "bg-orange-500 text-black border-orange-600",
       });
+
+      if (!isInfo) {
+        // Redirect to tax form page with order details
+        const params = new URLSearchParams({
+          type: intent === "order" ? "stocking" : "demo",
+          qty: quantity,
+          dealer: values.contactName,
+          contact: values.contactName,
+          email: values.email,
+          phone: values.phone || "",
+          address: values.customerAddress || "",
+          city: values.customerCity || "",
+          state: values.customerState || "",
+          zip: values.customerZip || "",
+          ffl: "", // Will be populated if FFL was uploaded
+        });
+        window.location.href = `/tax-form?${params.toString()}`;
+        return;
+      }
+
       setSubmitted(true);
       form.reset();
       setIntent("info");

@@ -2154,6 +2154,77 @@ IMPORTANT — Tax Form Note: Download the PDF before filling it out. Do NOT fill
     }
   });
 
+  // Dealer uploads tax form with State Tax ID + digital signature + resale certificate
+  app.post("/api/dealer/upload-tax-form", async (req, res) => {
+    try {
+      const { ffl, taxFormData, taxFormName, stateTaxId, resaleCertData, resaleCertName } = req.body || {};
+      if (!ffl || !taxFormData) {
+        return res.status(400).json({ ok: false, error: "missing_required_fields" });
+      }
+
+      // Find dealer by FFL number
+      const dealerResult = await pool.query(
+        `SELECT id, ffl_license_number FROM dealers WHERE ffl_license_number = $1 LIMIT 1`,
+        [ffl]
+      );
+      if (dealerResult.rows.length === 0) {
+        return res.status(404).json({ ok: false, error: "dealer_not_found" });
+      }
+      const dealerId = dealerResult.rows[0].id;
+
+      // Update dealer record with tax form + state tax ID
+      await pool.query(
+        `UPDATE dealers
+           SET sales_tax_form_data = $1,
+               sales_tax_form_name = $2,
+               state_tax_id = $3,
+               tax_form_on_file = true,
+               updated_at = CURRENT_TIMESTAMP
+         WHERE id = $4`,
+        [taxFormData, taxFormName || "tax-form.pdf", stateTaxId || null, dealerId]
+      );
+
+      // Upload resale certificate if provided
+      if (resaleCertData && resaleCertName) {
+        await pool.query(
+          `UPDATE dealers
+             SET state_tax_file_data = $1,
+                 state_tax_file_name = $2,
+                 updated_at = CURRENT_TIMESTAMP
+           WHERE id = $3`,
+          [resaleCertData, resaleCertName, dealerId]
+        );
+      }
+
+      // Upload both to FastBound contact
+      try {
+        const contact = await findContactByFFL(ffl);
+        if (contact?.id) {
+          // Upload tax form (generated PDF with signature)
+          await uploadDealerDocumentsToFastBound(contact.id, {
+            taxFormData,
+            taxFormFileName: taxFormName || "tax-form.pdf",
+          });
+          // Upload state resale certificate if provided
+          if (resaleCertData && resaleCertName) {
+            await uploadDealerDocumentsToFastBound(contact.id, {
+              taxFormData: resaleCertData,
+              taxFormFileName: resaleCertName,
+            });
+          }
+        }
+      } catch (fbErr) {
+        console.error("fastbound_upload_tax_form_error", fbErr);
+        // Don't fail the request if FastBound upload fails
+      }
+
+      return res.json({ ok: true });
+    } catch (err: any) {
+      console.error("dealer_upload_tax_form_error", err);
+      return res.status(500).json({ ok: false, error: err?.message });
+    }
+  });
+
   app.post("/api/warranty-request", publicFormLimiter, async (req, res) => {
     try {
       const { name, email, serialNumber, description, serialPhotoName, serialPhotoData, damagePhoto1Name, damagePhoto1Data, damagePhoto2Name, damagePhoto2Data } = req.body || {};
