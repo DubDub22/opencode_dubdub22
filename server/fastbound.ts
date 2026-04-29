@@ -1,15 +1,15 @@
-/**
+﻿/**
  * FastBound API client for DubDub22 suppressor dispositions.
  *
  * Docs: https://www.fastbound.com/faq/open-api/
- * Auth: HTTP Basic — API Key as username or password
+ * Auth: HTTP Basic â€” API Key as username or password
  * Rate limit: 60 requests/min per API key
  *
  * Env vars:
- *   FASTBOUND_ACCOUNT  – FastBound account number
- *   FASTBOUND_API_KEY  – FastBound API key
- *   FASTBOUND_AUDIT_USER – email of FastBound user for X-AuditUser header
- *   FASTBOUND_BASE_URL – defaults to https://api.fastbound.com/api/v1
+ *   FASTBOUND_ACCOUNT  â€“ FastBound account number
+ *   FASTBOUND_API_KEY  â€“ FastBound API key
+ *   FASTBOUND_AUDIT_USER â€“ email of FastBound user for X-AuditUser header
+ *   FASTBOUND_BASE_URL â€“ defaults to https://api.fastbound.com/api/v1
  */
 
 import { pool } from "./db";
@@ -42,12 +42,12 @@ async function fbFetch(path: string, init?: RequestInit) {
   });
   if (!res.ok) {
     const body = await res.text().catch(() => "");
-    throw new Error(`FastBound ${res.status} ${path} – ${body}`);
+    throw new Error(`FastBound ${res.status} ${path} â€“ ${body}`);
   }
   return res.json();
 }
 
-// ── Types ────────────────────────────────────────────────────────────────────
+// â”€â”€ Types â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export type FastBoundItem = {
   serialNumber: string;
@@ -75,7 +75,7 @@ export type FastBoundContact = {
   ein?: string; // EIN (not auto-populated)
   einType?: string; // "1 - Importer", "2 - Manufacturer", "3 - Dealer" (not auto-populated)
   email?: string; // stored in notes (FastBound FFL contacts don't have email field)
-  // These are REJECTED for FFL contact type — do NOT send
+  // These are REJECTED for FFL contact type â€” do NOT send
   // firstName?: string;
   // lastName?: string;
   // organizationName?: string;
@@ -86,7 +86,7 @@ export type CreateDispositionResult = {
   status: string;
 };
 
-// ── API Methods ──────────────────────────────────────────────────────────────
+// â”€â”€ API Methods â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 /**
  * Create or update a FastBound FFL contact.
@@ -121,7 +121,7 @@ export async function createOrUpdateContact(
     // premiseZipCode: dealer.premiseZipCode,
     // premiseCountry: dealer.premiseCountry || "US",
     // phone: dealer.phone || undefined,
-    // Fields NOT auto-populated by FastBound — must send explicitly:
+    // Fields NOT auto-populated by FastBound â€” must send explicitly:
     ein: dealer.ein || undefined,
     ...(dealer.einType ? { einType: dealer.einType } : {}),
     ...(dealer.email ? { notes: `Email: ${dealer.email}` } : {}),
@@ -145,9 +145,9 @@ export async function createOrUpdateContact(
  *
  * FastBound flow:
  *   1. Create/get FFL contact
- *   2. Create pending disposition  →  POST /dispositions
- *   3. Attach contact                 →  POST /dispositions/{id}/contact
- *   4. Add items                   →  POST /dispositions/{id}/items
+ *   2. Create pending disposition  â†’  POST /dispositions
+ *   3. Attach contact                 â†’  POST /dispositions/{id}/contact
+ *   4. Add items                   â†’  POST /dispositions/{id}/items
  */
 export async function createPendingDisposition(
   dealer: FastBoundContact,
@@ -232,21 +232,47 @@ export async function uploadContactDocument(
 ): Promise<string> {
   // Convert base64 to Buffer if needed
   const buf = Buffer.isBuffer(fileData) ? fileData : Buffer.from(fileData, "base64");
-  const blob = new Blob([buf], { type: "application/octet-stream" });
 
-  const formData = new FormData();
-  formData.append("file", blob, fileName);
-  if (description) formData.append("description", description);
-  if (isPublic) formData.append("public", "true");
+  // Create multipart/form-data manually for Node.js
+  const boundary = `----FormBoundary${Math.random().toString(16).slice(2)}`;
+  const CRLF = "\r\n";
+  const parts: Buffer[] = [];
 
-  // Override content-type for multipart/form-data
-  const headers: Record<string, string> = { ...authHeaders() };
-  delete headers["Content-Type"]; // Let browser/Node set it with boundary
+  // File part
+  parts.push(Buffer.from(`--${boundary}${CRLF}`));
+  parts.push(Buffer.from(`Content-Disposition: form-data; name="file"; filename="${fileName}"${CRLF}`));
+  parts.push(Buffer.from(`Content-Type: application/octet-stream${CRLF}${CRLF}`));
+  parts.push(buf);
+  parts.push(Buffer.from(CRLF));
 
+  // Description part
+  if (description) {
+    parts.push(Buffer.from(`--${boundary}${CRLF}`));
+    parts.push(Buffer.from(`Content-Disposition: form-data; name="description"${CRLF}${CRLF}`));
+    parts.push(Buffer.from(`${description}${CRLF}`));
+  }
+
+  // Public part
+  if (isPublic) {
+    parts.push(Buffer.from(`--${boundary}${CRLF}`));
+    parts.push(Buffer.from(`Content-Disposition: form-data; name="public"${CRLF}${CRLF}`));
+    parts.push(Buffer.from(`true${CRLF}`));
+  }
+
+  // Close boundary
+  parts.push(Buffer.from(`--${boundary}--${CRLF}`));
+
+  const body = Buffer.concat(parts);
+
+  // Make request
+  const headers = authHeaders();
   const res: any = await fbFetch(`/contacts/${contactId}/attachments`, {
     method: "POST",
-    body: formData,
-    headers,
+    body: body,
+    headers: {
+      ...headers,
+      "Content-Type": `multipart/form-data; boundary=${boundary}`,
+    },
   });
 
   return res.id;
@@ -254,7 +280,7 @@ export async function uploadContactDocument(
 
 /**
  * Upload dealer documents to FastBound contact.
- * Replaces SFTP uploads — documents stored per contact in FastBound.
+ * Replaces SFTP uploads â€” documents stored per contact in FastBound.
  * Creates/gets FFL contact first, then uploads documents.
  */
 export async function uploadDealerDocumentsToFastBound(
@@ -426,7 +452,7 @@ export async function downloadContactAttachment(contactId: string, attachmentId:
   });
   if (!res.ok) {
     const body = await res.text().catch(() => "");
-    throw new Error(`FastBound ${res.status} download attachment – ${body}`);
+    throw new Error(`FastBound ${res.status} download attachment â€“ ${body}`);
   }
 
   const arrayBuffer = await res.arrayBuffer();
