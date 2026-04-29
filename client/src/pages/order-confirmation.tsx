@@ -113,7 +113,6 @@ export default function OrderConfirmationPage() {
     window.location.href = "/order";
   }
 
-  const stepsComplete = accepted && signatureName.trim() && taxFormDone;
   const step1Done = accepted;
   const step2Done = !!signatureName.trim();
   const [taxFormDone, setTaxFormDone] = useState(false);
@@ -124,6 +123,7 @@ export default function OrderConfirmationPage() {
   const [taxZip, setTaxZip] = useState(customerZip);
   const [taxEin, setTaxEin] = useState("");
   const [generatingPdf, setGeneratingPdf] = useState(false);
+  const stepsComplete = accepted && signatureName.trim() && taxFormDone;
 
   return (
     <div className="min-h-screen bg-background text-foreground">
