@@ -3779,6 +3779,22 @@ print(pdf_path)
     }
   });
 
+  // ── FastBound: Get inventory items (DubDub22 suppressors)
+  app.get("/api/admin/fastbound/inventory", requireAdmin, async (req, res) => {
+    try {
+      const limit = req.query.limit ? parseInt(req.query.limit as string) : 100;
+      const items = await searchInventoryItems({
+        manufacturer: "DOUBLE TACTICAL",
+        model: "DubDub22",
+        limit,
+      });
+      return res.json({ ok: true, items });
+    } catch (err: any) {
+      console.error("fastbound_inventory_error", err);
+      return res.status(500).json({ ok: false, error: err.message });
+    }
+  });
+
   // ── FastBound: Assign serials & create pending disposition ─────────────
   app.post("/api/admin/submissions/:id/fastbound-pending", requireAdmin, async (req, res) => {
     try {
@@ -3802,14 +3818,18 @@ print(pdf_path)
       if (!sub) return res.status(404).json({ ok: false, error: "Submission not found" });
 
       const dealer = {
-        name: sub.business_name || sub.contact_name || "Unknown Dealer",
-        addressLine1: sub.business_address || sub.customer_address || "",
-        city: sub.city || sub.customer_city || "",
-        state: sub.state || sub.customer_state || "",
-        postalCode: sub.zip || sub.customer_zip || "",
+        fflNumber: sub.ffl_license_number || "",
+        fflExpires: sub.ffl_expiry_date || undefined,
+        licenseName: sub.business_name || sub.contact_name || undefined,
+        premiseAddress1: sub.business_address || sub.customer_address || "",
+        premiseCity: sub.city || sub.customer_city || "",
+        premiseState: sub.state || sub.customer_state || "",
+        premiseZipCode: sub.zip || sub.customer_zip || "",
+        premiseCountry: "US",
+        ein: sub.ein || undefined,
+        einType: sub.ein_type || undefined,
         email: sub.email || "",
         phone: sub.phone || "",
-        fflNumber: sub.ffl_license_number || "",
       };
 
       const items = serialNumbers.map((sn: string) => ({ serialNumber: String(sn) }));

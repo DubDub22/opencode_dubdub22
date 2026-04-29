@@ -3204,6 +3204,7 @@ export default function AdminPage() {
   const [fastBoundTarget, setFastBoundTarget] = useState<Submission | null>(null);
   const [form3Target, setForm3Target] = useState<Submission | null>(null);
   const [serialInput, setSerialInput] = useState("");
+  const [availableSerials, setAvailableSerials] = useState<any[]>([]);
   const [fastBoundLoading, setFastBoundLoading] = useState(false);
   const [form3Loading, setForm3Loading] = useState(false);
 
@@ -3867,28 +3868,53 @@ export default function AdminPage() {
       </Dialog>
 
       {/* FastBound: Assign Serials & Create Pending Disposition */}
-      <Dialog open={!!fastBoundTarget} onOpenChange={(o) => { if (!o) { setFastBoundTarget(null); setSerialInput(""); } }}>
+      <Dialog open={!!fastBoundTarget} onOpenChange={(o) => { if (!o) { setFastBoundTarget(null); setSerialInput(""); setAvailableSerials([]); } }}>
         <DialogContent className="bg-card border-border max-w-md">
           <DialogHeader>
             <DialogTitle>FastBound: Assign Serials</DialogTitle>
             <DialogDescription className="text-sm text-muted-foreground">
-              Enter serial numbers for {fastBoundTarget?.contactName} (Qty: {fastBoundTarget?.quantity || "1"}).
-              Separate multiple serials with commas.
+              Select serial numbers for {fastBoundTarget?.contactName} (Qty: {fastBoundTarget?.quantity || "1"}).
+              Only DubDub22 suppressors in FastBound inventory shown.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3 py-2">
-            <Input
-              placeholder="e.g. DD22001, DD22002"
-              value={serialInput}
-              onChange={(e) => setSerialInput(e.target.value)}
-              className="bg-background"
-            />
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={async () => {
+                try {
+                  const res = await fetch(`/api/admin/fastbound/inventory?limit=${fastBoundTarget?.quantity || 10}`);
+                  const data = await res.json();
+                  setAvailableSerials(data.items || []);
+                } catch (e) { console.error("Failed to fetch inventory", e); }
+              }}
+              className="mb-2"
+            >
+              Load Available Serials
+            </Button>
+            {availableSerials.length > 0 && (
+              <select
+                multiple
+                value={serialInput.split(",").filter(Boolean)}
+                onChange={(e) => {
+                  const selected = Array.from(e.target.selectedOptions, (opt) => opt.value);
+                  setSerialInput(selected.join(","));
+                }}
+                className="w-full h-32 bg-background border rounded p-2 text-sm"
+              >
+                {availableSerials.map((item: any) => (
+                  <option key={item.serialNumber} value={item.serialNumber}>
+                    {item.serialNumber} {item.model ? `(${item.model})` : ""}
+                  </option>
+                ))}
+              </select>
+            )}
             <p className="text-xs text-muted-foreground">
-              This creates a pending disposition in FastBound with the dealer contact and serials.
+              Hold Ctrl/Cmd to select multiple. This creates a pending disposition in FastBound.
             </p>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => { setFastBoundTarget(null); setSerialInput(""); }}>Cancel</Button>
+            <Button variant="outline" onClick={() => { setFastBoundTarget(null); setSerialInput(""); setAvailableSerials([]); }}>Cancel</Button>
             <Button
               onClick={handleFastBoundPending}
               disabled={fastBoundLoading || !serialInput.trim()}
