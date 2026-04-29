@@ -2817,22 +2817,28 @@ IMPORTANT — Tax Form Note: Download the PDF before filling it out. Do NOT fill
   app.get("/api/admin/warranty-requests", requireAdmin, async (req, res) => {
     try {
       const { search, status } = req.query;
-      let query = `SELECT * FROM submissions WHERE type = 'warranty'`;
-      const params: any[] = [];
-      let idx = 1;
-
-      if (status && status !== "all") {
-        query += ` AND status = $${idx++}`;
-        params.push(status);
-      }
-      if (search) {
-        query += ` AND (contact_name ILIKE $${idx} OR email ILIKE $${idx} OR serial_number ILIKE $${idx} OR description ILIKE $${idx})`;
-        params.push(`%${search}%`);
-        idx++;
-      }
-      query += ` ORDER BY created_at DESC`;
-
-      const result = await pool.query(query, params);
+      const query = `
+        SELECT
+          wr.id,
+          wr.request_type,
+          wr.description,
+          wr.photo_path,
+          wr.status,
+          wr.admin_notes,
+          wr.replacement_serial_id,
+          wr.created_at,
+          wr.updated_at,
+          wr.reviewed_at,
+          wr.reviewed_by,
+          wr.archived,
+          c.name  AS customer_name,
+          c.email AS customer_email,
+          sn.serial_number
+        FROM warranty_requests wr
+        LEFT JOIN customers     c  ON c.id  = wr.customer_id
+        LEFT JOIN serial_numbers sn ON sn.id = wr.serial_number_id
+        ORDER BY wr.created_at DESC`;
+      const result = await pool.query(query);
       return res.json({ ok: true, data: result.rows });
     } catch (err: any) {
       console.error("admin_warranty_requests_error", err);
@@ -2964,7 +2970,7 @@ IMPORTANT — Tax Form Note: Download the PDF before filling it out. Do NOT fill
     try {
       const { status, admin_notes } = req.body;
       const result = await pool.query(
-        `UPDATE submissions SET status = COALESCE($1, status), admin_notes = COALESCE($2, admin_notes), updated_at = CURRENT_TIMESTAMP WHERE id = $3 AND type = 'warranty' RETURNING *`,
+        `UPDATE warranty_requests SET status = COALESCE($1, status), admin_notes = COALESCE($2, admin_notes), updated_at = CURRENT_TIMESTAMP WHERE id = $3 RETURNING *`,
         [status, admin_notes, req.params.id]
       );
       if (result.rows.length === 0) return res.status(404).json({ ok: false, error: "not_found" });
@@ -2979,7 +2985,7 @@ IMPORTANT — Tax Form Note: Download the PDF before filling it out. Do NOT fill
   app.patch("/api/admin/warranty-requests/:id/archive", requireAdmin, async (req, res) => {
     try {
       const result = await pool.query(
-        `UPDATE submissions SET archived = true, archived_from = 'Warranty Claims', updated_at = CURRENT_TIMESTAMP WHERE id = $1 AND type = 'warranty' RETURNING *`,
+        `UPDATE warranty_requests SET archived = true, updated_at = CURRENT_TIMESTAMP WHERE id = $1 RETURNING *`,
         [req.params.id]
       );
       if (result.rows.length === 0) return res.status(404).json({ ok: false, error: "not_found" });
@@ -2994,7 +3000,7 @@ IMPORTANT — Tax Form Note: Download the PDF before filling it out. Do NOT fill
   app.patch("/api/admin/warranty-requests/:id/unarchive", requireAdmin, async (req, res) => {
     try {
       const result = await pool.query(
-        `UPDATE submissions SET archived = false, archived_from = NULL, updated_at = CURRENT_TIMESTAMP WHERE id = $1 AND type = 'warranty' RETURNING *`,
+        `UPDATE warranty_requests SET archived = false, updated_at = CURRENT_TIMESTAMP WHERE id = $1 RETURNING *`,
         [req.params.id]
       );
       if (result.rows.length === 0) return res.status(404).json({ ok: false, error: "not_found" });
@@ -3009,7 +3015,7 @@ IMPORTANT — Tax Form Note: Download the PDF before filling it out. Do NOT fill
   app.delete("/api/admin/warranty-requests/:id", requireAdmin, async (req, res) => {
     try {
       const result = await pool.query(
-        `DELETE FROM submissions WHERE id = $1 AND type = 'warranty' RETURNING id`,
+        `DELETE FROM warranty_requests WHERE id = $1 RETURNING id`,
         [req.params.id]
       );
       if (result.rows.length === 0) return res.status(404).json({ ok: false, error: "not_found" });
