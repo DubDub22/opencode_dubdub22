@@ -100,28 +100,41 @@ export async function createOrUpdateContact(
   }
 
   // Create new FFL contact
-  // Split contactName into firstName/lastName (FastBound FFL contacts don't allow full name)
-  const nameParts = (dealer.contactName || "").split(" ");
-  const firstName = nameParts[0] || "";
-  const lastName = nameParts.slice(1).join(" ") || firstName;
+  // Parse licenseName "LAST, FIRST" → firstName, lastName
+  // Also handle contactName as fallback
+  let firstName = "", lastName = "";
+  if (dealer.licenseName && dealer.licenseName.includes(",")) {
+    // Format: "TREVINO, THOMAS" → lastName="TREVINO", firstName="THOMAS"
+    const parts = dealer.licenseName.split(",").map(s => s.trim());
+    lastName = parts[0] || "";
+    firstName = parts[1] || "";
+  } else if (dealer.contactName) {
+    const nameParts = dealer.contactName.split(" ");
+    firstName = nameParts[0] || "";
+    lastName = nameParts.slice(1).join(" ") || "";
+  }
 
   const contact: any = {
     fflNumber: dealer.fflNumber,
+    // FastBound auto-populates licenseName, premise address from FFL database
+    // but we send them anyway to ensure consistency
+    licenseName: dealer.licenseName || undefined,
     fflExpires: dealer.fflExpires || undefined,
-    licenseName: dealer.licenseName || dealer.premiseAddress1,
     premiseAddress1: dealer.premiseAddress1,
     premiseCity: dealer.premiseCity,
     premiseState: dealer.premiseState,
     premiseZipCode: dealer.premiseZipCode,
     premiseCountry: dealer.premiseCountry || "US",
     phone: dealer.phone,
+    // These are NOT auto-populated by FastBound — must send explicitly
     firstName: firstName || undefined,
     lastName: lastName || undefined,
     // EIN (FastBound stores as separate field on contact)
     ein: dealer.ein || undefined,
-    // SOT License Type maps to FastBound's EIN Type field (1-Importer, 2-Manufacturer, 3-Dealer)
+    // SOT License Type maps to FastBound's EIN Type field
+    // Values: "1 - Importer", "2 - Manufacturer", "3 - Dealer"
     ...(dealer.einType ? { einType: dealer.einType } : {}),
-    // Email stored in notes (FastBound contacts don't have email field)
+    // Email stored in notes (FastBound FFL contacts don't have email field)
     ...(dealer.email ? { notes: `Email: ${dealer.email}` } : {}),
   };
 
