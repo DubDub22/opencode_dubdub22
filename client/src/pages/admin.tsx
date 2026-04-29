@@ -366,7 +366,7 @@ function SubmissionsTab({
     }
     return true;
   }).sort((a, b) => {
-    // Three-tier sort: Open → Shipped → Paid
+    // Five-tier sort: New Orders (top) → Form 3 Pending → Form 3 Submitted → Shipped → Paid (bottom)
     const aPaid = !!a.paidAt;
     const bPaid = !!b.paidAt;
     if (aPaid !== bPaid) return aPaid ? 1 : -1;
@@ -374,6 +374,10 @@ function SubmissionsTab({
     const aShipped = !!a.trackingNumber;
     const bShipped = !!b.trackingNumber;
     if (aShipped !== bShipped) return aShipped ? 1 : -1;
+
+    const aForm3 = !!a.form3SubmittedAt;
+    const bForm3 = !!b.form3SubmittedAt;
+    if (aForm3 !== bForm3) return aForm3 ? 1 : -1;
 
     // Within paid: newest first
     if (aPaid && bPaid) {
@@ -383,6 +387,11 @@ function SubmissionsTab({
     // Within shipped: newest shipped first
     if (aShipped && bShipped) {
       return new Date(b.shippedAt!).getTime() - new Date(a.shippedAt!).getTime();
+    }
+
+    // Within form3 submitted: newest first
+    if (aForm3 && bForm3) {
+      return new Date(b.form3SubmittedAt!).getTime() - new Date(a.form3SubmittedAt!).getTime();
     }
 
     const t = sortDir === "desc" ? -1 : 1;
