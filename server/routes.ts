@@ -1052,7 +1052,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
            d.sot_expiry_date, d.ffl_expiry_date,
            d.tax_exempt, d.notes,
            d.has_demo_unit_shipped,
-           d.source,\r\n           d.state_tax_id,\r\n           d.created_at,
+           d.source,\r\n           d.source,
+           d.created_at,
            (d.ffl_file_name IS NOT NULL AND d.ffl_file_name != '') AS has_ffl_on_file,
            (d.sot_file_name IS NOT NULL AND d.sot_file_name != '') AS has_sot_on_file,
            (d.sales_tax_form_name IS NOT NULL AND d.sales_tax_form_name != '') AS has_tax_form_on_file
@@ -2171,16 +2172,15 @@ IMPORTANT — Tax Form Note: Download the PDF before filling it out. Do NOT fill
       }
       const dealerId = dealerResult.rows[0].id;
 
-      // Update dealer record with tax form + state tax ID
+      // Update dealer record with tax form
       await pool.query(
         `UPDATE dealers
            SET sales_tax_form_data = $1,
                sales_tax_form_name = $2,
-               state_tax_id = $3,
                tax_form_on_file = true,
                updated_at = CURRENT_TIMESTAMP
-         WHERE id = $4`,
-        [taxFormData, taxFormName || "tax-form.pdf", stateTaxId || null, dealerId]
+         WHERE id = $3`,
+        [taxFormData, taxFormName || "tax-form.pdf", dealerId]
       );
 
       // Upload resale certificate if provided
