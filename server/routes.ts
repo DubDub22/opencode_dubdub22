@@ -2142,6 +2142,314 @@ IMPORTANT — Tax Form Note: Download the PDF before filling it out. Do NOT fill
     }
   });
 
+  // ── Dealer Request / Portal Form ───────────────────────────────────────────
+  app.get("/api/dealer-request/demo-status", async (req, res) => {
+    const { email } = req.query;
+    if (!email || typeof email !== "string") {
+      return res.json({ hasShippedDemo: false, demoFulfilledAt: null });
+    }
+    try {
+      const dealer = await pool.query(
+        `SELECT demo_fulfilled_at FROM dealers WHERE LOWER(email) = LOWER($1) LIMIT 1`,
+        [email]
+      );
+      if (dealer.rows.length > 0 && dealer.rows[0].demo_fulfilled_at) {
+        return res.json({ hasShippedDemo: true, demoFulfilledAt: dealer.rows[0].demo_fulfilled_at });
+      }
+      return res.json({ hasShippedDemo: false, demoFulfilledAt: null });
+    } catch {
+      return res.json({ hasShippedDemo: false, demoFulfilledAt: null });
+    }
+  });
+
+  app.post("/api/dealer-request", publicFormLimiter, async (req, res) => {
+    try {
+      const { requestType, dealerName, contactName, businessName, email, phone, quantityCans, fflFileName, fflFileData, sotFileName, sotFileData, message, orderKind, fflNumber, ein, einType, resaleFileName, resaleFileData, taxFormFileName, taxFormFileData, termsAccepted } = req.body || {};
+
+      const bizName = dealerName || businessName || "";
+      const isInquiry = orderKind === "inquiry" || requestType === 'Dealer Inquiry';
+
+      if (!contactName || !bizName || !email) {
+        return res.status(400).json({ ok: false, error: "missing_required_fields" });
+      }
+      if (!isInquiry && !quantityCans) {
+        return res.status(400).json({ ok: false, error: "missing_required_fields" });
+      }
+
+      if (fflNumber) {
+        const fflDigits = fflNumber.replace(/-/g, '');
+        if (!/^\d-\d{2}-\d{3}-[A-Za-z0-9]{2}-[A-Za-z0-9]{2}-\d{5}$/.test(fflNumber) || fflDigits.length !== 15) {
+          return res.status(400).json({ ok: false, error: "invalid_ffl_format", message: "FFL must be in format X-XX-XXX-XX-XX-XXXXX (15 chars, dashes only)." });
+        }
+      }
+
+      if (fflFileName && fflFileData) {
+        const fflErr = validateFileUpload(fflFileName, fflFileData);
+        if (fflErr) return res.status(400).json({ ok: false, error: fflErr });
+      }
+      if (sotFileName && sotFileData) {
+        const sotErr = validateFileUpload(sotFileName, sotFileData);
+        if (sotErr) return res.status(400).json({ ok: false, error: sotErr });
+      }
+      if (resaleFileName && resaleFileData) {
+        const resaleErr = validateFileUpload(resaleFileName, resaleFileData);
+        if (resaleErr) return res.status(400).json({ ok: false, error: resaleErr });
+      }
+      if (taxFormFileName && taxFormFileData) {
+        const taxErr = validateFileUpload(taxFormFileName, taxFormFileData);
+        if (taxErr) return res.status(400).json({ ok: false, error: taxErr });
+      }
+
+      const isDemoOrder = orderKind === "demo" || (!isInquiry && quantityCans === '1');
+
+      if (!isInquiry && quantityCans && quantityCans !== '1' && Number(quantityCans) % 5 !== 0) {
+        return res.status(400).json({
+          ok: false,
+          error: "invalid_quantity",
+          message: "Dealer orders must be 1 (demo can) or a multiple of 5 (5, 10, 15, etc.).",
+        });
+      }
+
+      let dealerId: string;
+      let dealerFormStatus = { fflOnFile: false, sotOnFile: false, taxFormOnFile: false };
+      let existingDealer: any = null;
+
+      if (fflNumber) {
+        const byFfl = await pool.query(
+          `SELECT id, ffl_on_file, sot_on_file, tax_form_on_file FROM dealers WHERE ffl_license_number = $1 LIMIT 1`,
+          [fflNumber]
+        );
+        if (byFfl.rows.length > 0) existingDealer = byFfl.rows[0];
+      }
+
+      if (!existingDealer) {
+        const byEmail = await pool.query(
+          `SELECT id, ffl_on_file, sot_on_file, tax_form_on_file FROM dealers WHERE email = $1 LIMIT 1`,
+          [email.toLowerCase()]
+        );
+        if (byEmail.rows.length > 0) existingDealer = byEmail.rows[0];
+      }
+
+      if (existingDealer) {
+        dealerId = existingDealer.id;
+        dealerFormStatus = {
+          fflOnFile: !!existingDealer.ffl_on_file,
+          sotOnFile: !!existingDealer.sot_on_file,
+          taxFormOnFile: !!existingDealer.tax_form_on_file,
+        };
+        await pool.query(
+          `UPDATE dealers SET email = $1, tier = 'Preferred', updated_at = CURRENT_TIMESTAMP WHERE id = $2 AND tier = 'Standard'`,
+          [email.toLowerCase(), dealerId]
+        );
+        if (einType) {
+          await pool.query(
+            `UPDATE dealers SET ein_type = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2`,
+            [einType, dealerId]
+          );
+        }
+      } else {
+        const newDealer = await pool.query(
+          `INSERT INTO dealers (business_name, contact_name, email, phone, ein, ein_type, source, tier)
+           VALUES ($1, $2, $3, $4, $5, $6, 'web_form', 'Preferred')
+           RETURNING id`,
+          [bizName, contactName, email.toLowerCase(), phone || null, ein || null, einType || null]
+        );
+        dealerId = newDealer.rows[0].id;
+      }
+
+      // For inquiries: send dealer a confirmation email
+      if (isInquiry && email) {
+        const taxFormBase64 = _getTaxFormBase64();
+
+        const inquiryEmailText = `Thanks for submitting your dealer application to DubDub22. Here is what we received:
+
+=== YOUR SUBMISSION ===
+${fflNumber ? `FFL Number: ${fflNumber}` : 'FFL: Not provided'}
+Business Name: ${bizName || "N/A"}
+Contact Name: ${contactName || "N/A"}
+Email: ${email}
+Phone: ${phone || "N/A"}
+${ein ? `EIN: ${ein}` : ''}
+${message ? `Notes: ${message}` : ''}
+
+=== TAX FORM INSTRUCTIONS ===
+The multi-state tax form is attached to this email. Please follow these steps carefully:
+
+1. DOWNLOAD the attached PDF before filling it out — do NOT fill it out in your browser or email viewer
+2. OPEN the downloaded PDF in Adobe Acrobat Reader (free) or similar PDF editor
+3. FILL IN all fields: your dealer/business name, address, and EIN
+4. SIGN the form — use the signature tool in your PDF editor, or print, sign by hand, and scan
+5. SAVE the completed PDF — confirm the information and signature are visible and saved properly before attaching it to your reply
+
+NOTE: This process can vary by platform and PDF reader. Some browser-based PDF viewers do NOT save filled-in fields or signatures. If you email the form back blank or unsigned, it means the viewer didn't save your changes. Please use a desktop PDF editor like Adobe Acrobat Reader for best results.
+
+=== TO COMPLETE YOUR DEALER PROFILE ===
+Please email us the following:
+- A copy of your FFL
+- A copy of your SOT
+- The completed multi-state tax form (filled out per the instructions above)
+
+We'll review your application and be in touch shortly.
+
+DubDub22 Minions`;
+
+        const emailOpts: {
+          to: string;
+          bcc: string;
+          subject: string;
+          text: string;
+          attachment?: { filename: string; base64Data: string; contentType: string };
+        } = {
+          to: email,
+          bcc: BCC_EMAIL,
+          subject: "Your DubDub22 Dealer Application",
+          text: inquiryEmailText,
+        };
+        if (taxFormBase64) {
+          emailOpts.attachment = { filename: "multi_state_tax_form.pdf", base64Data: taxFormBase64, contentType: "application/pdf" };
+        }
+        try { await sendViaGmail(emailOpts); } catch (e) { console.error("dealer_inquiry_email_error", e); }
+      }
+
+      // For orders: send Tom the order details
+      const orderBody = [
+        `DubDub22 ${isDemoOrder ? 'Dealer Order (DEMO CAN)' : 'Dealer Order'}`,
+        "",
+        `Contact: ${contactName}`,
+        `Business: ${bizName}`,
+        `Email: ${email}`,
+        `Phone: ${phone || "N/A"}`,
+        fflNumber ? `FFL: ${fflNumber}` : null,
+        ein ? `EIN: ${ein}` : null,
+        `Quantity: ${quantityCans}${isDemoOrder ? ' (DEMO CAN)' : ' (STOCKING ORDER)'}`,
+        `FFL on File: ${fflFileName || "Not provided"}`,
+        `SOT: ${sotFileName || "Not provided"}`,
+        `Resale Certificate: ${resaleFileName || "Not provided"}`,
+        `Multi-State Tax Form: ${taxFormFileName || "Not provided"}`,
+        message ? `\nMessage:\n${message}` : "",
+      ].filter(Boolean).join("\n");
+
+      // Only create a submission for inquiries
+      let submissionId: string | null = null;
+      if (isInquiry) {
+        const dbResult = await storage.createSubmission({
+          type: "dealer",
+          contactName,
+          businessName: bizName,
+          email,
+          phone,
+          fflType: null,
+          quantity: quantityCans ? String(quantityCans) : null,
+          description: message || null,
+          fflFileName: null,
+          fflFileData: null,
+        }).catch(err => {
+          console.error("db_save_failed", err);
+          return null;
+        });
+        submissionId = dbResult?.id || null;
+      }
+      if (submissionId && submissionId !== "unknown") {
+        const orderType = isInquiry ? "inquiry" : "dealer_order";
+        await pool.query(
+          `INSERT INTO dealer_submissions (dealer_id, submission_id, order_type, quantity)
+           VALUES ($1, $2, $3, $4)
+           ON CONFLICT DO NOTHING`,
+          [dealerId, submissionId, orderType, quantityCans ? String(quantityCans) : null]
+        ).catch(err => console.error("dealer_submission_link_failed", err));
+      }
+
+      // Upload documents to FastBound contact (non-blocking)
+      const hasFflFile = !!(fflFileData && fflFileName);
+      const hasSotFile = !!(sotFileData && sotFileName);
+      const hasTaxFile = !!(taxFormFileData && taxFormFileName);
+      const hasAnyFile = hasFflFile || hasSotFile || hasTaxFile;
+
+      if (fflNumber && hasAnyFile) {
+        uploadDealerDocumentsToFastBound(fflNumber, {
+          fflFileData: fflFileData || undefined,
+          fflFileName: fflFileName || undefined,
+          sotFileData: sotFileData || undefined,
+          sotFileName: sotFileName || undefined,
+          resaleFileData: resaleFileData || undefined,
+          resaleFileName: resaleFileName || undefined,
+          taxFormFileData: taxFormFileData || undefined,
+          taxFormFileName: taxFormFileName || undefined,
+        }).catch(err => console.error("fastbound_upload_dealer_docs_error", err));
+        if (existingDealer?.id) {
+          await pool.query(
+            `UPDATE dealers SET ffl_on_file = COALESCE($1, ffl_on_file), sot_on_file = COALESCE($2, sot_on_file), tax_form_on_file = COALESCE($3, tax_form_on_file), updated_at = CURRENT_TIMESTAMP WHERE id = $4`,
+            [hasFflFile, hasSotFile, hasTaxFile, existingDealer.id]
+          );
+        }
+      }
+
+      // Build forms status paragraph for auto-reply
+      const formsStatus: string[] = [];
+      if (dealerFormStatus.fflOnFile) formsStatus.push("FFL on file ✓");
+      if (dealerFormStatus.sotOnFile) formsStatus.push("SOT on file ✓");
+      if (dealerFormStatus.taxFormOnFile) formsStatus.push("Tax form on file ✓");
+      const missingForms: string[] = [];
+      if (!dealerFormStatus.fflOnFile) missingForms.push("a current FFL");
+      if (!dealerFormStatus.sotOnFile) missingForms.push("a current SOT");
+      const taxFormInstruction = !dealerFormStatus.taxFormOnFile
+        ? (_getTaxFormBase64()
+            ? `Please use the attached tax form for your resale tax exemption. If available, please also attach a copy of your state-issued sales and use tax permit.
+
+IMPORTANT — Tax Form Note: Download the PDF before filling it out. Do NOT fill it out in your browser or email viewer — many browsers do not save filled fields or signatures. Open the file in Adobe Acrobat Reader (or similar desktop PDF editor), fill in all fields, sign it, save it, and then attach the completed file to your reply.`
+            : `a completed multi-state tax form.
+
+IMPORTANT — Tax Form Note: Download the PDF before filling it out. Do NOT fill it out in your browser or email viewer — many browsers do not save filled fields or signatures. Open the file in Adobe Acrobat Reader (or similar desktop PDF editor), fill in all fields, sign it, save it, and then attach the completed file to your reply.`)
+        : "";
+      const formsParagraph = formsStatus.length > 0
+        ? (missingForms.length > 0 || taxFormInstruction
+            ? `We have your current ${formsStatus.join(", ")} on file.${missingForms.length > 0 ? ` Please send us ${missingForms.join(" and ")}.` : ""}${taxFormInstruction ? ` ${taxFormInstruction}` : ""}`
+            : `We have all your current forms on file. Thank you!`)
+        : (missingForms.length > 0 || taxFormInstruction
+            ? `To complete your dealer profile, please send us ${missingForms.join(" and ")}.${taxFormInstruction ? ` ${taxFormInstruction}` : ""}`
+            : "");
+
+      // Send auto-reply to the dealer (orders only - inquiries get the Path 1-style email above)
+      if (email && !isInquiry && !isDemoOrder && termsAccepted) {
+        try {
+          const autoReplyLines = [
+            `Thank you for ${isInquiry ? 'submitting a dealer inquiry' : 'placing a dealer order'} with DubDub22.`,
+            ``,
+            `We've received your ${isInquiry ? 'inquiry' : 'order'} and will be in touch soon.`,
+            ``,
+          ];
+          if (formsParagraph) {
+            autoReplyLines.push(formsParagraph, ``);
+          }
+          autoReplyLines.push(
+            `If you have any questions, reach out to us at sales@dubdub22.com.`,
+            ``,
+            `Best regards,`,
+            `DubDub22 Team`,
+          );
+          const attachment = (!dealerFormStatus.taxFormOnFile && _getTaxFormBase64())
+            ? { filename: "multi_state_tax_form.pdf", base64Data: _getTaxFormBase64(), contentType: "application/pdf" }
+            : undefined;
+          await sendViaGmail({
+            to: email,
+            bcc: BCC_EMAIL,
+            from: isInquiry ? `DubDub22 Inquiries <inquiry@dubdub22.com>` : `DubDub22 Orders <orders@dubdub22.com>`,
+            subject: `We Received Your DubDub22 ${isInquiry ? 'Inquiry' : 'Order'}`,
+            text: autoReplyLines.join("\n"),
+            attachment,
+          });
+        } catch (gmailErr) {
+          console.error("dealer_request_auto_reply_error", gmailErr);
+        }
+      }
+
+      return res.json({ ok: true, id: submissionId || "unknown" });
+    } catch (err: any) {
+      console.error("dealer_request_error", err?.message || err);
+      return res.status(500).json({ ok: false, error: err?.message || "dealer_save_failed" });
+    }
+  });
+
   app.post("/api/dealer-terms-accepted", async (req, res) => {
     try {
       const { dealerName, dealerEmail, dealerPhone, orderType, quantity, signatureName, signatureDate } = req.body || {};
