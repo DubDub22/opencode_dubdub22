@@ -16,7 +16,7 @@ import { pool } from "./db";
 
 const BASE =
   process.env.FASTBOUND_BASE_URL?.replace(/\/$/, "") ??
-  "https://api.fastbound.com/api/v1";
+  `https://cloud.fastbound.com/${ACCOUNT}/api`;
 
 const ACCOUNT = process.env.FASTBOUND_ACCOUNT;
 const API_KEY = process.env.FASTBOUND_API_KEY;
