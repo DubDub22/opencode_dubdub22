@@ -3022,7 +3022,7 @@ IMPORTANT — Tax Form Note: Download the PDF before filling it out. Do NOT fill
           wr.archived,
           c.name  AS customer_name,
           c.email AS customer_email,
-          sn.serial_number
+          sn.serial
         FROM warranty_requests wr
         LEFT JOIN customers     c  ON c.id  = wr.customer_id
         LEFT JOIN serial_numbers sn ON sn.id = wr.serial_number_id
