@@ -1905,10 +1905,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const hasTax = !!(taxFormData && taxFormName);
 
       if (normalized) {
+        await pool.query(
           `UPDATE dealers SET email = $1, tier = 'Preferred', updated_at = CURRENT_TIMESTAMP WHERE id = $2 AND tier = 'Standard'`,
           [email.toLowerCase(), dealerId]
         );
-        // Also update ein_type if provided
         if (einType) {
           await pool.query(
             `UPDATE dealers SET ein_type = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2`,
