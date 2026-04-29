@@ -43,6 +43,52 @@
    - ✅ No unstaged changes
    - ✅ Build passing, website operational
 
+9. **`uploadContactDocument()` fixed for Node.js**:
+   - ❌ Uses `Blob` and `FormData` (browser APIs, not in Node.js)
+   - ✅ Manual multipart/form-data construction with `Buffer.concat()`
+   - ✅ Ready for Node.js deployment
+
+---
+
+## 🚨 Errors Found & Fixed Today
+
+### Session 1 (Earlier Today)
+1. **fetch() syntax error** in `fastbound.ts:440`:
+   - ❌ `fetch(url, { headers })` (missing comma)
+   - ✅ `fetch(url, { method: 'GET', headers })`
+
+2. **Blob type not working in Node.js**:
+   - ❌ `Promise<Blob>` return type
+   - ✅ `Promise<Buffer>` with `Buffer.from(arrayBuffer)`
+
+3. **Missing import** in `routes.ts`:
+   - ❌ `createOrUpdateContact` imported but not used
+   - ✅ Fixed to import `findContactByFFL`
+
+### Session 2 (Later Today - OpenCode)
+4. **Two `findContactByFFL` functions** in `fastbound.ts`:
+   - ❌ Duplicate function definition
+   - ✅ Removed second copy
+
+5. **Tax form routes outside `registerRoutes()`**:
+   - ❌ `POST /api/admin/tax-form/generate` registered outside
+   - ✅ Moved inside `registerRoutes()`
+
+6. **Orphaned route handlers**:
+   - ❌ Multiple route handlers outside `registerRoutes()`
+   - ✅ All moved inside properly
+
+7. **Disposition type for NFA items**:
+   - ❌ `disposeType: "Sold"` (regular sale)
+   - ✅ `disposeType: "NFA Disposition"` (NFA item transfer)
+
+### Session 3 (End of Day - Final Cleanup)
+8. **Repository state verified clean**:
+   - ✅ No duplicate functions
+   - ✅ All routes inside `registerRoutes()`
+   - ✅ No unstaged changes
+   - ✅ Build passing, website operational
+
 ---
 
 ## 🚨 Errors Found & Fixed Today
