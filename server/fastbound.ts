@@ -59,14 +59,22 @@ export type FastBoundItem = {
 };
 
 export type FastBoundContact = {
-  name: string;
-  addressLine1: string;
-  city: string;
-  state: string;
-  postalCode: string;
-  email?: string;
+  // FastBound FFL contact fields
+  premiseAddress1: string;
+  premiseCity: string;
+  premiseState: string;
+  premiseZipCode: string;
+  premiseCountry?: string; // default "US"
+  // FFL-specific (required for FFL contacts)
+  fflNumber: string;
+  fflExpires?: string; // YYYY-MM-DD
+  licenseName?: string; // business name on FFL
+  // Optional
+  email?: string; // stored in notes or custom field
   phone?: string;
-  fflNumber?: string;
+  contactName?: string; // firstName/lastName for FFL (FastBound doesn't allow for FFL)
+  ein?: string; // EIN from order form
+  einType?: string; // 'manufacturer' or 'dealer' from order form
 };
 
 export type CreateDispositionResult = {
@@ -77,27 +85,77 @@ export type CreateDispositionResult = {
 // ── API Methods ──────────────────────────────────────────────────────────────
 
 /**
+ * Create or update a FastBound FFL contact.
+ * Returns the FastBound contact ID.
+ */
+export async function createOrUpdateContact(
+  dealer: FastBoundContact,
+): Promise<string> {
+  // Try to find existing contact by FFL number
+  if (dealer.fflNumber) {
+    const existing = await findContactByFFL(dealer.fflNumber);
+    if (existing) return existing;
+  }
+
+  // Create new FFL contact
+  const contact: any = {
+    fflNumber: dealer.fflNumber,
+    licenseName: dealer.licenseName || dealer.premiseAddress1,
+    premiseAddress1: dealer.premiseAddress1,
+    premiseCity: dealer.premiseCity,
+    premiseState: dealer.premiseState,
+    premiseZipCode: dealer.premiseZipCode,
+    premiseCountry: dealer.premiseCountry || "US",
+    email: dealer.email, // stored in notes if not supported
+    phone: dealer.phone,
+    // EIN info from order form
+    ...(dealer.ein ? { ein: dealer.ein } : {}),
+    // Store EIN type in notes since FastBound doesn't have a direct field
+    ...(dealer.einType ? { notes: `EIN Type: ${dealer.einType}` } : {}),
+  };
+
+  const res: any = await fbFetch("/contacts", {
+    method: "POST",
+    body: JSON.stringify(contact),
+  });
+
+  return res.id;
+}
+
+/**
  * Create a pending disposition with dealer contact + items (serials).
  * Returns the disposition ID for later commit.
  *
  * FastBound flow:
- *   1. Create pending disposition  →  POST /dispositions
- *   2. Add contact                 →  POST /dispositions/{id}/contact
- *   3. Add items                   →  POST /dispositions/{id}/items
- *
- * Alternatively use Dispositions/CreateAndCommit but we want pending first
- * so the dealer can handle Form 3 separately.
+ *   1. Create/get FFL contact
+ *   2. Create pending disposition  →  POST /dispositions
+ *   3. Attach contact                 →  POST /dispositions/{id}/contact
+ *   4. Add items                   →  POST /dispositions/{id}/items
  */
 export async function createPendingDisposition(
   dealer: FastBoundContact,
   items: FastBoundItem[],
 ): Promise<CreateDispositionResult> {
-  // 1. Create empty pending disposition
+  // 1. Create or get FFL contact in FastBound
+  const contactId = await createOrUpdateContact(dealer);
+
+  // 2. Create empty pending disposition
   const disp: any = await fbFetch("/dispositions", {
     method: "POST",
     body: JSON.stringify({
       disposeDate: new Date().toISOString().slice(0, 10), // YYYY-MM-DD
       disposeType: "Sold",
+    }),
+  });
+
+  const dispositionId = disp.id;
+  if (!dispositionId) throw new Error("No disposition ID returned from FastBound");
+
+  // 3. Attach dealer contact by ID
+  await fbFetch(`/dispositions/${dispositionId}/contact`, {
+    method: "POST",
+    body: JSON.stringify({
+      contactId: contactId,
     }),
   });
 
@@ -119,7 +177,7 @@ export async function createPendingDisposition(
     }),
   });
 
-  // 3. Add items (serials) one by one
+  // 4. Add items (serials) one by one
   for (const item of items) {
     await fbFetch(`/dispositions/${dispositionId}/items`, {
       method: "POST",
@@ -135,6 +193,40 @@ export async function createPendingDisposition(
   }
 
   return { id: dispositionId, status: "pending" };
+}
+
+/**
+ * Upload a document (FFL, SOT, tax form) to a FastBound contact.
+ * Accepts base64 data or Buffer.
+ * Returns the attachment ID.
+ */
+export async function uploadContactDocument(
+  contactId: string,
+  fileName: string,
+  fileData: string | Buffer, // base64 string or Buffer
+  description?: string,
+  isPublic = false,
+): Promise<string> {
+  // Convert base64 to Buffer if needed
+  const buf = Buffer.isBuffer(fileData) ? fileData : Buffer.from(fileData, "base64");
+  const blob = new Blob([buf], { type: "application/octet-stream" });
+
+  const formData = new FormData();
+  formData.append("file", blob, fileName);
+  if (description) formData.append("description", description);
+  if (isPublic) formData.append("public", "true");
+
+  // Override content-type for multipart/form-data
+  const headers: Record<string, string> = { ...authHeaders() };
+  delete headers["Content-Type"]; // Let browser/Node set it with boundary
+
+  const res: any = await fbFetch(`/contacts/${contactId}/attachments`, {
+    method: "POST",
+    body: formData,
+    headers,
+  });
+
+  return res.id;
 }
 
 /**
