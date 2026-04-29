@@ -59,22 +59,24 @@ export type FastBoundItem = {
 };
 
 export type FastBoundContact = {
-  // FastBound FFL contact fields
+  // FastBound FFL contact required fields
+  fflNumber: string;
+  fflExpires?: string; // YYYY-MM-DD
+  licenseName: string; // business name on FFL
   premiseAddress1: string;
   premiseCity: string;
   premiseState: string;
   premiseZipCode: string;
   premiseCountry?: string; // default "US"
-  // FFL-specific (required for FFL contacts)
-  fflNumber: string;
-  fflExpires?: string; // YYYY-MM-DD
-  licenseName?: string; // business name on FFL
+  // SOT info
+  sotLicenseType?: string; // "1 - Importer", "2 - Manufacturer", "3 - Dealer" (EIN Type)
+  // Contact name (split for FFL contacts — FastBound doesn't allow contactName for FFL)
+  firstName?: string;
+  lastName?: string;
   // Optional
-  email?: string; // stored in notes or custom field
   phone?: string;
-  contactName?: string; // firstName/lastName for FFL (FastBound doesn't allow for FFL)
   ein?: string; // EIN from order form
-  einType?: string; // 'manufacturer' or 'dealer' from order form
+  email?: string; // stored in notes (FastBound contacts don't have email field)
 };
 
 export type CreateDispositionResult = {
@@ -98,20 +100,29 @@ export async function createOrUpdateContact(
   }
 
   // Create new FFL contact
+  // Split contactName into firstName/lastName (FastBound FFL contacts don't allow full name)
+  const nameParts = (dealer.contactName || "").split(" ");
+  const firstName = nameParts[0] || "";
+  const lastName = nameParts.slice(1).join(" ") || firstName;
+
   const contact: any = {
     fflNumber: dealer.fflNumber,
+    fflExpires: dealer.fflExpires || undefined,
     licenseName: dealer.licenseName || dealer.premiseAddress1,
     premiseAddress1: dealer.premiseAddress1,
     premiseCity: dealer.premiseCity,
     premiseState: dealer.premiseState,
     premiseZipCode: dealer.premiseZipCode,
     premiseCountry: dealer.premiseCountry || "US",
-    email: dealer.email, // stored in notes if not supported
     phone: dealer.phone,
-    // EIN info from order form
-    ...(dealer.ein ? { ein: dealer.ein } : {}),
-    // Store EIN type in notes since FastBound doesn't have a direct field
-    ...(dealer.einType ? { notes: `EIN Type: ${dealer.einType}` } : {}),
+    firstName: firstName || undefined,
+    lastName: lastName || undefined,
+    // EIN (FastBound stores as separate field on contact)
+    ein: dealer.ein || undefined,
+    // SOT License Type maps to FastBound's EIN Type field (1-Importer, 2-Manufacturer, 3-Dealer)
+    ...(dealer.einType ? { einType: dealer.einType } : {}),
+    // Email stored in notes (FastBound contacts don't have email field)
+    ...(dealer.email ? { notes: `Email: ${dealer.email}` } : {}),
   };
 
   const res: any = await fbFetch("/contacts", {
@@ -136,7 +147,17 @@ export async function createPendingDisposition(
   dealer: FastBoundContact,
   items: FastBoundItem[],
 ): Promise<CreateDispositionResult> {
-  // 1. Create or get FFL contact in FastBound
+  // 1. Map SOT license type to FastBound's EIN Type (1=Importer, 2=Manufacturer, 3=Dealer)
+  const einTypeMap: Record<string, string> = {
+    "1": "1 - Importer",
+    "2": "2 - Manufacturer",
+    "3": "3 - Dealer",
+  };
+  if (dealer.einType && !dealer.einType.includes("-")) {
+    dealer.einType = einTypeMap[dealer.einType] || dealer.einType;
+  }
+
+  // 2. Create or get FFL contact in FastBound
   const contactId = await createOrUpdateContact(dealer);
 
   // 2. Create empty pending disposition
