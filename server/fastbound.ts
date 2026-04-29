@@ -387,7 +387,7 @@ export async function searchInventoryItems(params: {
   manufacturer?: string; // default "DOUBLE TACTICAL"
   model?: string;         // e.g. "DubDub22 Suppressor"
   limit?: number;        // max items to return (match order qty)
-}: Promise<any[]> {
+}): Promise<any[]> {
   const query = new URLSearchParams();
   // Always filter by your manufacturer to only show DubDub22 suppressors
   query.set("manufacturer", params.manufacturer || "DOUBLE TACTICAL");
@@ -398,25 +398,6 @@ export async function searchInventoryItems(params: {
 
   const res: any = await fbFetch(`/items?${query.toString()}`);
   return res.data || res || [];
-}
-
-/**
- * Search for a FastBound contact by FFL number.
- * Returns the contact ID if found, null otherwise.
- */
-export async function findContactByFFL(fflNumber: string): Promise<string | null> {
-  try {
-    const query = new URLSearchParams({ fflNumber });
-    const res: any = await fbFetch(`/contacts?${query.toString()}`);
-    const contacts = res.data || res || [];
-    if (contacts.length > 0) {
-      return contacts[0].id;
-    }
-    return null;
-  } catch (err) {
-    console.error("findContactByFFL error:", err);
-    return null;
-  }
 }
 
 /**
