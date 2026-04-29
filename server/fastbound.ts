@@ -14,13 +14,13 @@
 
 import { pool } from "./db";
 
-const BASE =
-  process.env.FASTBOUND_BASE_URL?.replace(/\/$/, "") ??
-  `https://cloud.fastbound.com/${ACCOUNT}/api`;
-
 const ACCOUNT = process.env.FASTBOUND_ACCOUNT;
 const API_KEY = process.env.FASTBOUND_API_KEY;
 const AUDIT_USER = process.env.FASTBOUND_AUDIT_USER;
+
+const BASE =
+  process.env.FASTBOUND_BASE_URL?.replace(/\/$/, "") ??
+  `https://cloud.fastbound.com/${ACCOUNT}/api`;
 
 function authHeaders() {
   if (!ACCOUNT || !API_KEY) {

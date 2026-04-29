@@ -10,6 +10,12 @@ import { fileURLToPath } from "url";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+/** Cached tax form base64 — read once, used everywhere. Reads at call time (not startup) to avoid esbuild scope rename issues. */
+function _getTaxFormBase64(): string | null {
+  try { return fs.readFileSync(path.join(__dirname, "..", "shared", "multi_state_tax_form.pdf"), "base64"); }
+  catch { return null; }
+}
+
 import { registerWildRoutes } from "./routes/wild.ts";
 import session from "express-session";
 import rateLimit from "express-rate-limit";
@@ -433,14 +439,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (err: any) {
       return res.status(500).json({ ok: false, error: err?.message || "server_error" });
     }
-  // Load multi-state tax form PDF as base64 for auto-reply attachments
-  const MULTI_STATE_TAX_FORM_PATH = path.join(__dirname, "..", "shared", "multi_state_tax_form.pdf");
-  let multiStateTaxFormBase64: string | null = null;
-  try {
-    multiStateTaxFormBase64 = fs.readFileSync(MULTI_STATE_TAX_FORM_PATH, "base64");
-  } catch {
-    console.warn("multi_state_tax_form.pdf not found - tax form attachment will be skipped");
-  }
+
 
   // Generate filled tax form PDF
   app.post("/api/admin/tax-form/generate", requireAdmin, async (req, res) => {
@@ -2273,7 +2272,7 @@ DubDub22 Minions`;
       if (!dealerFormStatus.fflOnFile) missingForms.push("a current FFL");
       if (!dealerFormStatus.sotOnFile) missingForms.push("a current SOT");
       const taxFormInstruction = !dealerFormStatus.taxFormOnFile
-        ? (multiStateTaxFormBase64
+        ? (_getTaxFormBase64()
             ? `Please use the attached tax form for your resale tax exemption. If available, please also attach a copy of your state-issued sales and use tax permit.
 
 IMPORTANT — Tax Form Note: Download the PDF before filling it out. Do NOT fill it out in your browser or email viewer — many browsers do not save filled fields or signatures. Open the file in Adobe Acrobat Reader (or similar desktop PDF editor), fill in all fields, sign it, save it, and then attach the completed file to your reply.`
@@ -2309,8 +2308,8 @@ IMPORTANT — Tax Form Note: Download the PDF before filling it out. Do NOT fill
             `DubDub22 Team`,
           );
           // Attach multi-state tax form if not on file
-          const attachment = (!dealerFormStatus.taxFormOnFile && multiStateTaxFormBase64)
-            ? { filename: "multi_state_tax_form.pdf", base64Data: multiStateTaxFormBase64, contentType: "application/pdf" }
+          const attachment = (!dealerFormStatus.taxFormOnFile && _getTaxFormBase64())
+            ? { filename: "multi_state_tax_form.pdf", base64Data: _getTaxFormBase64(), contentType: "application/pdf" }
             : undefined;
           await sendViaGmail({
             to: email,
@@ -3578,8 +3577,8 @@ print(pdf_path)
       ].join("\n");
 
       // Attach Multi-State Tax Affidavit if state tax is missing
-      const attachment = (!hasStateTax && multiStateTaxFormBase64)
-        ? { filename: "Multi-State_Tax_Affidavit.pdf", base64Data: multiStateTaxFormBase64, contentType: "application/pdf" }
+      const attachment = (!hasStateTax && _getTaxFormBase64())
+        ? { filename: "Multi-State_Tax_Affidavit.pdf", base64Data: _getTaxFormBase64(), contentType: "application/pdf" }
         : undefined;
 
       await sendViaGmail({
