@@ -418,7 +418,10 @@ export async function downloadContactAttachment(contactId: string, attachmentId:
   const headers = authHeaders();
   delete headers["Content-Type"];
 
-  const res = await fetch(url, { headers });
+  const res = await fetch(url, {
+    method: 'GET',
+    headers,
+  });
   if (!res.ok) {
     const body = await res.text().catch(() => "");
     throw new Error(`FastBound ${res.status} download attachment – ${body}`);
