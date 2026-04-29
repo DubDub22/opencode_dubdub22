@@ -102,26 +102,28 @@ export async function createOrUpdateContact(
   }
 
   // Create new FFL contact
-  // NOTE: Do NOT send firstName, lastName, or organizationName for FFL contacts
-  // FastBound rejects them — use licenseName for "LAST, FIRST" format (auto-populated)
+  // FastBound auto-populates from FFL database when fflNumber is valid:
+  //   - licenseName ("LAST, FIRST")
+  //   - tradeName (business name)
+  //   - premise address, city, state, zip, country
+  //   - phone
+  // DO NOT send firstName, lastName, or organizationName (FastBound rejects them for FFL)
+  // DO send fields NOT auto-populated: ein, einType, email (in notes)
 
   const contact: any = {
     fflNumber: dealer.fflNumber,
-    licenseName: dealer.licenseName || undefined, // "TREVINO, THOMAS" (auto-populated by FastBound)
-    fflExpires: dealer.fflExpires || undefined,
-    tradeName: dealer.tradeName || undefined, // "DOUBLE T TACTICAL" (auto-populated)
-    businessType: dealer.businessType || undefined, // "Sole Proprietor", "LLC", etc.
-    premiseAddress1: dealer.premiseAddress1,
-    premiseCity: dealer.premiseCity,
-    premiseState: dealer.premiseState,
-    premiseZipCode: dealer.premiseZipCode,
-    premiseCountry: dealer.premiseCountry || "US",
-    phone: dealer.phone || undefined,
-    // EIN (not auto-populated by FastBound for FFL contacts)
+    // Only send these if you want to override FastBound's auto-populated values:
+    // licenseName: dealer.licenseName || undefined,
+    // tradeName: dealer.tradeName || undefined,
+    // premiseAddress1: dealer.premiseAddress1,
+    // premiseCity: dealer.premiseCity,
+    // premiseState: dealer.premiseState,
+    // premiseZipCode: dealer.premiseZipCode,
+    // premiseCountry: dealer.premiseCountry || "US",
+    // phone: dealer.phone || undefined,
+    // Fields NOT auto-populated by FastBound — must send explicitly:
     ein: dealer.ein || undefined,
-    // EIN Type maps from sotLicenseType ("1 - Importer", etc.)
     ...(dealer.einType ? { einType: dealer.einType } : {}),
-    // Email stored in notes (FastBound FFL contacts don't have email field)
     ...(dealer.email ? { notes: `Email: ${dealer.email}` } : {}),
   };
 
