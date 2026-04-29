@@ -3526,6 +3526,7 @@ export default function AdminPage() {
                 ) : (
                   submissions
                     .filter(s => s.archived && (archivedFromFilter === "" || s.archived_from === archivedFromFilter))
+                    .sort((a, b) => (a.contactName || a.fflNumber || "").localeCompare(b.contactName || b.fflNumber || ""))
                     .map(sub => (
                       <SubmissionCard
                         key={sub.id}
