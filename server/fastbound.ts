@@ -186,9 +186,10 @@ export async function createPendingDisposition(
     }),
   });
 
-  // 4. Validate serials exist in FastBound inventory (optional check)
+  // 4. Validate serials exist in FastBound inventory (only DubDub22 suppressors)
   const inventory = await searchInventoryItems({
     manufacturer: "DOUBLE TACTICAL",
+    model: "DubDub22", // only your suppressors
     limit: 1000,
   });
   const inventorySerials = new Set(inventory.map((i: any) => i.serialNumber));
