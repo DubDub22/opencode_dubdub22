@@ -845,17 +845,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         await pool.query(`UPDATE dealers SET has_demo_unit_shipped = true WHERE id = $1`, [dealerId]);
       }
 
-      // ── Upload Form 3 PDF to SFTP ────────────────────────────────────────────
+      // ── Upload Form 3 PDF to FastBound contact ──────────────────────────────
       if (s.ffl_license_number && req.body?.form3Data) {
         try {
           const dateTag = new Date().toISOString().split("T")[0].replace(/-/g, "");
-          const folder = fflToFolderName(s.ffl_license_number);
-          const sftpDest = `/home/dealer-uploader/dealer-docs/${folder}/${folder}Form3_${dateTag}.pdf`;
-          const { sftpUpload } = await import("./sftp-upload");
-          await sftpUpload(Buffer.from(req.body.form3Data, "base64"), sftpDest);
-          console.log(`[form3] uploaded to SFTP: ${sftpDest}`);
+          await uploadDealerDocumentsToFastBound(s.ffl_license_number, {
+            taxFormFileData: req.body.form3Data,
+            taxFormFileName: `Form3_${dateTag}.pdf`,
+          });
+          console.log(`[form3] uploaded to FastBound for FFL: ${s.ffl_license_number}`);
         } catch (e: any) {
-          console.error("form3 sftp upload failed:", e.message);
+          console.error("form3 fastbound upload failed:", e.message);
         }
       }
 
@@ -3152,20 +3152,14 @@ IMPORTANT — Tax Form Note: Download the PDF before filling it out. Do NOT fill
         return res.status(400).json({ ok: false, error: "already_accepted" });
       }
 
-      const ext = (record.file_name || "pdf").split(".").pop()?.toLowerCase() || "pdf";
-      const fflDigits = (record.ffl_license_number || record.ffl_number || "").replace(/-/g, "");
-      const remoteName = `Tax_${fflDigits}.${ext}`;
-      const folderName = fflDigits; // matches fflToFolderName logic
-
-      // Upload to 3dprintmanager via direct SFTP with correct naming
-      if (record.file_data) {
-        const { sftpUpload } = await import("./sftp-upload");
-        const remotePath = `/home/dealer-uploader/dealer-docs/${folderName}/${remoteName}`;
-        await sftpUpload(
-          Buffer.from(record.file_data, "base64"),
-          remotePath
-        ).catch(err => {
-          console.error("sftp_upload_tax_form_error", err);
+      // Upload to FastBound contact
+      if (record.file_data && (record.ffl_license_number || record.ffl_number)) {
+        const fflNumber = record.ffl_license_number || record.ffl_number;
+        await uploadDealerDocumentsToFastBound(fflNumber, {
+          taxFormFileData: record.file_data,
+          taxFormFileName: record.file_name || "tax_form.pdf",
+        }).catch(err => {
+          console.error("fastbound_upload_tax_form_error", err);
           throw err;
         });
       }
@@ -3382,7 +3376,7 @@ print(pdf_path)
         console.warn("PDF generation failed, continuing without PDF:", e.message);
       }
 
-      // ── Also upload invoice PDF to SFTP ─────────────────────────────────────
+      // ── Also upload invoice PDF to FastBound contact ───────────────────────
       if (pdfPath && submissionId) {
         try {
           const subRows = await pool.query(
@@ -3392,14 +3386,16 @@ print(pdf_path)
           const ffl = subRows.rows[0]?.ffl_license_number;
           if (ffl) {
             const dateTag = new Date().toISOString().split("T")[0].replace(/-/g, "");
-            const folder = fflToFolderName(ffl);
-            const sftpDest = `/home/dealer-uploader/dealer-docs/${folder}/${folder}Invoice_${dateTag}.pdf`;
-            const { sftpUpload } = await import("./sftp-upload");
-            await sftpUpload(fs.readFileSync(pdfPath), sftpDest);
-            console.log(`[invoice] uploaded to SFTP: ${sftpDest}`);
+            const pdfBuffer = fs.readFileSync(pdfPath);
+            const pdfBase64 = pdfBuffer.toString("base64");
+            await uploadDealerDocumentsToFastBound(ffl, {
+              taxFormFileData: pdfBase64, // Using taxForm field for invoice (can be any document type)
+              taxFormFileName: `Invoice_${dateTag}.pdf`,
+            });
+            console.log(`[invoice] uploaded to FastBound for FFL: ${ffl}`);
           }
         } catch (e: any) {
-          console.warn("invoice sftp upload failed:", e.message);
+          console.warn("invoice fastbound upload failed:", e.message);
         }
       }
 
