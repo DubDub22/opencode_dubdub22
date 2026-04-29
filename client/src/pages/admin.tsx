@@ -431,8 +431,6 @@ function SubmissionsTab({
           : filtered.map(sub => <SubmissionCard key={sub.id} sub={sub}
             onArchive={() => setArchiveTarget(sub)}
             onDelete={() => { console.log("delete card clicked", sub.id); setDeleteTarget(sub); }}
-            onShip={() => setShipTarget(sub)}
-            onInvoice={() => setInvoiceTarget(sub)}
             onPaid={() => setPaidTarget(sub)}
             onFastBoundPending={() => { setFastBoundTarget(sub); setSerialInput(""); }}
             onForm3Approved={() => setForm3Target(sub)} />)}
@@ -458,8 +456,6 @@ function SubmissionsTab({
               : filtered.map(sub => <SubmissionRow key={sub.id} sub={sub}
                 onArchive={() => setArchiveTarget(sub)}
                 onDelete={() => { console.log("delete row clicked", sub.id); setDeleteTarget(sub); }}
-                onShip={() => setShipTarget(sub)}
-                onInvoice={() => setInvoiceTarget(sub)}
                 onRequestDocs={() => setRequestDocsTarget(sub)}
                 onForm3Submitted={() => setForm3SubmittedTarget(sub)}
                 onPaid={() => setPaidTarget(sub)}
@@ -472,9 +468,8 @@ function SubmissionsTab({
   );
 }
 
-function SubmissionCard({ sub, onArchive, onDelete, onShip, onInvoice, onPaid, onFastBoundPending, onForm3Approved }: {
-  sub: Submission; onArchive: () => void; onDelete: () => void;
-  onShip: () => void; onInvoice: () => void; onPaid: () => void;
+function SubmissionCard({ sub, onArchive, onDelete, onPaid, onFastBoundPending, onForm3Approved }: {
+  sub: Submission; onArchive: () => void; onDelete: () => void; onPaid: () => void;
   onFastBoundPending?: () => void; onForm3Approved?: () => void;
 }) {
   return (
@@ -560,14 +555,6 @@ function SubmissionCard({ sub, onArchive, onDelete, onShip, onInvoice, onPaid, o
           </div>
           ) : (
             <div className="space-y-1">
-              <Button
-                variant="outline"
-                size="sm"
-                className={`w-full h-8 text-xs ${!sub.form3SubmittedAt ? "border-gray-400 text-gray-400 cursor-not-allowed" : (sub.trackingNumber ? "border-green-600 text-green-600 hover:bg-green-50" : "border-primary text-primary hover:bg-primary/10")}`}
-                onClick={!sub.form3SubmittedAt ? undefined : (sub.trackingNumber ? undefined : onShip)}
-              >
-                {sub.trackingNumber ? "✓ Shipped" : (!sub.form3SubmittedAt ? "Awaiting Form 3" : "Mark as Shipped")}
-              </Button>
               {!sub.trackingNumber && onFastBoundPending && (
                 <Button
                   variant="outline"
@@ -585,22 +572,14 @@ function SubmissionCard({ sub, onArchive, onDelete, onShip, onInvoice, onPaid, o
                   size="sm"
                   className="w-full h-8 text-xs border-green-600 text-green-600 hover:bg-green-50"
                   onClick={onForm3Approved}
-                  title="Form 3 Approved: create label, commit FastBound, email dealer"
+                  title="Form 3 Approved: label + FastBound + invoice + email"
                 >
-                  Form 3 ✓
+                  Form 3 ✓ (Full)
                 </Button>
               )}
-              <Button
-                variant="outline"
-                size="sm"
-                className={`w-full h-8 text-xs ${sub.hasInvoice
-                  ? "border-green-600 text-green-600 hover:bg-green-50"
-                  : "border-red-600 text-red-600 hover:bg-red-50"
-                }`}
-                onClick={onInvoice}
-              >
-                {sub.hasInvoice ? `✓ Invoice Sent` : "Send Invoice"}
-              </Button>
+              {sub.trackingNumber && (
+                <span className="text-xs text-green-600 font-medium text-center block">✓ Shipped + Invoiced</span>
+              )}
             </div>
           )}
       </div>
@@ -608,8 +587,8 @@ function SubmissionCard({ sub, onArchive, onDelete, onShip, onInvoice, onPaid, o
   );
 }
 
-function SubmissionRow({ sub, onArchive, onDelete, onShip, onInvoice, onRequestDocs, onForm3Submitted, onPaid, onFastBoundPending, onForm3Approved }: {
-  sub: Submission; onArchive: () => void; onDelete: () => void; onShip: () => void; onInvoice: () => void;
+function SubmissionRow({ sub, onArchive, onDelete, onRequestDocs, onForm3Submitted, onPaid, onFastBoundPending, onForm3Approved }: {
+  sub: Submission; onArchive: () => void; onDelete: () => void;
   onRequestDocs: () => void; onForm3Submitted?: () => void; onPaid: () => void;
   onFastBoundPending?: () => void; onForm3Approved?: () => void;
 }) {
@@ -696,26 +675,20 @@ function SubmissionRow({ sub, onArchive, onDelete, onShip, onInvoice, onRequestD
             >
               {sub.form3SubmittedAt ? "✓ Form 3 Submitted" : "Form 3 Pending"}
             </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              className={`h-7 text-xs whitespace-nowrap ${sub.hasInvoice
-                ? "border-green-600 text-green-600 hover:bg-green-50"
-                : "border-red-600 text-red-600 hover:bg-red-50"
-              }`}
-              onClick={onInvoice}
-            >
-              {sub.hasInvoice ? `✓ Invoice Sent` : "Send Invoice"}
-            </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                className={`h-7 text-xs whitespace-nowrap ${!sub.form3SubmittedAt ? "border-gray-400 text-gray-400 cursor-not-allowed" : (sub.trackingNumber ? "border-green-600 text-green-600 hover:bg-green-50" : "border-primary text-primary hover:bg-primary/10")}`}
-                onClick={!sub.form3SubmittedAt ? undefined : (sub.trackingNumber ? undefined : onShip)}
-                title={!sub.form3SubmittedAt ? "Form 3 must be sent before marking shipped" : (sub.trackingNumber ? "Already shipped" : "Mark as shipped")}
-              >
-                {sub.trackingNumber ? "✓ Shipped" : (!sub.form3SubmittedAt ? "Awaiting Form 3" : "Mark Shipped")}
-              </Button>
+              {!sub.trackingNumber && onForm3Approved && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-7 text-xs whitespace-nowrap border-green-600 text-green-600 hover:bg-green-50"
+                  onClick={onForm3Approved}
+                  title="Form 3 Approved: label + FastBound + invoice + email"
+                >
+                  Form 3 ✓ (Full)
+                </Button>
+              )}
+              {sub.trackingNumber && (
+                <span className="text-xs text-green-600 font-medium">✓ Shipped + Invoiced</span>
+              )}
               {!sub.trackingNumber && onFastBoundPending && (
                 <Button
                   variant="outline"
@@ -3308,7 +3281,8 @@ export default function AdminPage() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Form 3 workflow failed");
-      toast({ title: "Form 3 Approved", description: `Tracking: ${data.trackingNumber}` });
+      toast({ title: "Form 3 Approved - Full Workflow Complete",
+        description: `Tracking: ${data.trackingNumber}, Invoice: ${data.invoiceNumber}. Email sent with attachments.` });
       setForm3Target(null);
       fetchSubmissions();
     } catch (err: any) {
@@ -3549,8 +3523,6 @@ export default function AdminPage() {
                         sub={sub}
                         onArchive={() => setArchiveTarget(sub)}
                         onDelete={() => { console.log("delete card clicked", sub.id); setDeleteTarget(sub); }}
-                        onShip={() => {}}
-                        onInvoice={() => {}}
                       />
                     ))
                 )}
@@ -3735,20 +3707,22 @@ export default function AdminPage() {
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3 py-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={async () => {
-                try {
-                  const res = await fetch(`/api/admin/fastbound/inventory?limit=${fastBoundTarget?.quantity || 10}`);
-                  const data = await res.json();
-                  setAvailableSerials(data.items || []);
-                } catch (e) { console.error("Failed to fetch inventory", e); }
-              }}
-              className="mb-2"
-            >
-              Load Available Serials
-            </Button>
+            {availableSerials.length === 0 && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={async () => {
+                  try {
+                    const res = await fetch(`/api/admin/fastbound/inventory?limit=${fastBoundTarget?.quantity || 10}`);
+                    const data = await res.json();
+                    setAvailableSerials(data.items || []);
+                  } catch (e) { console.error("Failed to fetch inventory", e); }
+                }}
+                className="mb-2"
+              >
+                Load Available Serials
+              </Button>
+            )}
             {availableSerials.length > 0 && (
               <select
                 multiple
@@ -3783,18 +3757,21 @@ export default function AdminPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Form 3 Approved: Full Workflow */}
+      {/* Form 3 Approved: Full Workflow (Integrated) */}
       <Dialog open={!!form3Target} onOpenChange={(o) => { if (!o) setForm3Target(null); }}>
         <DialogContent className="bg-card border-border max-w-md">
           <DialogHeader>
-            <DialogTitle>Form 3 Approved</DialogTitle>
+            <DialogTitle>Form 3 Approved - Full Workflow</DialogTitle>
             <DialogDescription className="text-sm text-muted-foreground">
-              This will: (1) Create USPS shipping label, (2) Push tracking to FastBound, (3) Commit disposition, (4) Email dealer.
+              This will automatically: (1) Create USPS shipping label, (2) Commit FastBound disposition with tracking,
+              (3) Generate invoice with serial numbers + tracking, (4) Upload invoice to FastBound,
+              (5) Email dealer with invoice + Form 3 PDF attached.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-2 py-2">
             <p className="text-sm font-medium">Dealer: {form3Target?.contactName}</p>
             <p className="text-xs text-muted-foreground">Serial: {form3Target?.serialNumber || "Not assigned"}</p>
+            <p className="text-xs text-muted-foreground">This sends ONE email with invoice + Form 3 attached.</p>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setForm3Target(null)}>Cancel</Button>
@@ -3803,7 +3780,7 @@ export default function AdminPage() {
               disabled={form3Loading}
               className="bg-green-600 text-white hover:bg-green-700"
             >
-              {form3Loading ? "Processing..." : "Run Form 3 Workflow"}
+              {form3Loading ? "Processing..." : "Run Full Workflow"}
             </Button>
           </DialogFooter>
         </DialogContent>
