@@ -391,7 +391,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     secret: process.env.SESSION_SECRET,
     resave: false,
     saveUninitialized: false,
-    cookie: { secure: process.env.NODE_ENV === "production", httpOnly: true, sameSite: "strict", maxAge: 7 * 24 * 60 * 60 * 1000 }
+    cookie: { secure: false, httpOnly: true, sameSite: "lax", maxAge: 7 * 24 * 60 * 60 * 1000 }
   }));
 
   const publicFormLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 10, message: { ok: false, error: "Too many requests" } });
