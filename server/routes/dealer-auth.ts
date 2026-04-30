@@ -506,9 +506,6 @@ export function registerDealerAuthRoutes(app: Express) {
       } catch (e) {
         console.error("fastbound_contact_create_error", e);
       }
-      } catch (e) {
-        console.error("fastbound_contact_create_error", e);
-      }
 
       // 6. Send emails (non-blocking) — bundle all docs into one ZIP
       try {
