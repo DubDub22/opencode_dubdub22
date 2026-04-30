@@ -168,7 +168,7 @@ export default function DealerRegister() {
             {taxIds.map((e,i)=>(
               <div key={i} className="flex gap-2 mb-2">
                 <Input value={e.state} disabled={i===0} className={`${i===0?"bg-muted/30":"bg-background"} w-16 text-center font-bold`}/>
-                <Input value={e.taxId} onChange={ev=>{const n=[...taxIds];n[i]={...n[i],taxId:ev.target.value};setTaxIds(n)}} placeholder={`${e.state||"XX"} tax ID`} className={ic}/>
+                <Input value={e.taxId} onChange={ev=>{const v=ev.target.value;const n=[...taxIds];n[i]={...n[i],taxId:v};setTaxIds(n)}} placeholder={`${e.state||"XX"} tax ID`} className={ic}/>
               </div>
             ))}
           </div>

@@ -326,6 +326,21 @@ export function registerDealerAuthRoutes(app: Express) {
       const rawEin = (ein || "").replace(/[^0-9]/g, "");
       const formattedEin = rawEin.length === 9 ? rawEin.slice(0,2) + "-" + rawEin.slice(2) : (ein || null);
 
+      // Auto-format state tax IDs (strip non-alphanumeric, apply state-specific patterns)
+      const formatTaxId = (state: string, id: string): string => {
+        const cleaned = id.replace(/[^A-Za-z0-9]/g, "").toUpperCase();
+        // Texas format: 11 digits → X-XXXXX-XXXX-X
+        if (state === "TX" && /^\d{11}$/.test(cleaned)) {
+          return `${cleaned[0]}-${cleaned.slice(1,6)}-${cleaned.slice(6,10)}-${cleaned[10]}`;
+        }
+        // General: just return as entered (dealers know their state format)
+        return id.trim();
+      };
+      const formattedTaxIds = (stateTaxIds || []).map((s: any) => ({
+        state: s.state,
+        taxId: formatTaxId(s.state, s.taxId || ""),
+      }));
+
       // Hash password if provided
       let passwordHash = null;
       if (password && password.length >= 8) {
@@ -389,7 +404,7 @@ export function registerDealerAuthRoutes(app: Express) {
           AL:"State Registration Sellers Permit or ID Number of PurchaserAL 1",MO:"State Registration Sellers Permit or ID Number of PurchaserMO 16",AR:"State Registration Sellers Permit or ID Number of PurchaserAR",NE:"State Registration Sellers Permit or ID Number of PurchaserNE 16",AZ:"State Registration Sellers Permit or ID Number of PurchaserAZ 2",NV:"State Registration Sellers Permit or ID Number of PurchaserNV",CA:"State Registration Sellers Permit or ID Number of PurchaserCA 3",NJ:"State Registration Sellers Permit or ID Number of PurchaserNJ",CO:"State Registration Sellers Permit or ID Number of PurchaserCO 4",NM:"State Registration Sellers Permit or ID Number of PurchaserNM 417",CT:"State Registration Sellers Permit or ID Number of PurchaserCT 5",NC:"State Registration Sellers Permit or ID Number of PurchaserNC 18",FL:"State Registration Sellers Permit or ID Number of PurchaserFL6",ND:"State Registration Sellers Permit or ID Number of PurchaserND",GA:"State Registration Sellers Permit or ID Number of PurchaserGA7",OH:"State Registration Sellers Permit or ID Number of PurchaserOH19",HI:"State Registration Sellers Permit or ID Number of PurchaserHI 48",OK:"State Registration Sellers Permit or ID Number of PurchaserOK 20",ID:"State Registration Sellers Permit or ID Number of PurchaserID",PA:"State Registration Sellers Permit or ID Number of PurchaserPA 21",IL:"State Registration Sellers Permit or ID Number of PurchaserIL 49",RI:"State Registration Sellers Permit or ID Number of PurchaserRI 22",IA:"State Registration Sellers Permit or ID Number of PurchaserIA",SC:"State Registration Sellers Permit or ID Number of PurchaserSC",KS:"State Registration Sellers Permit or ID Number of PurchaserKS",SD:"State Registration Sellers Permit or ID Number of PurchaserSD 23",KY:"State Registration Sellers Permit or ID Number of PurchaserKY10",TN:"State Registration Sellers Permit or ID Number of PurchaserTN",ME:"State Registration Sellers Permit or ID Number of PurchaserME 11",TX:"State Registration Sellers Permit or ID Number of PurchaserTX 24",MD:"State Registration Sellers Permit or ID Number of PurchaserMD 12",UT:"State Registration Sellers Permit or ID Number of PurchaserUT",MI:"State Registration Sellers Permit or ID Number of PurchaserMI 13",VT:"State Registration Sellers Permit or ID Number of PurchaserVT",MN:"State Registration Sellers Permit or ID Number of PurchaserMN 14",WA:"State Registration Sellers Permit or ID Number of PurchaserWA 25",WI:"State Registration Sellers Permit or ID Number of PurchaserWI 26",
         };
         if (stateTaxIds && Array.isArray(stateTaxIds)) {
-          for (const entry of stateTaxIds) {
+          for (const entry of formattedTaxIds) {
             if (!entry.taxId || !entry.state) continue;
             const fieldName = stateMap[entry.state];
             if (fieldName) {
@@ -403,7 +418,7 @@ export function registerDealerAuthRoutes(app: Express) {
         const signerTitle = "Authorized Representative";
         try { form.getTextField("Title").setText(signerTitle); } catch {}
         try { form.getTextField("Date").setText(today); } catch {}
-        try { form.getTextField("Notes").setText(`EIN: ${formattedEin || "N/A"} | Tax ID: ${(stateTaxIds || []).filter((s:any) => s.taxId.trim()).map((s:any) => `${s.state}:${s.taxId}`).join(", ") || "N/A"}`); } catch {}
+        try { form.getTextField("Notes").setText(`EIN: ${formattedEin || "N/A"} | Tax ID: ${formattedTaxIds.filter((s:any) => s.taxId.trim()).map((s:any) => `${s.state}:${s.taxId}`).join(", ") || "N/A"}`); } catch {}
 
         // Embed signature image
         if (signatureDataUrl) {
