@@ -327,42 +327,6 @@ export function registerDealerAuthRoutes(app: Express) {
       return res.status(500).json({ ok: false, error: "order_failed" });
     }
   });
-    try {
-      const { fileName, fileData, documentType } = req.body || {};
-      if (!fileName || !fileData || !documentType) {
-        return res.status(400).json({ ok: false, error: "missing_fields" });
-      }
-      if (!["ffl", "sot", "tax"].includes(documentType)) {
-        return res.status(400).json({ ok: false, error: "invalid_document_type" });
-      }
-
-      const updates: Record<string, any> = {};
-      if (documentType === "ffl") {
-        updates.fflFileName = fileName;
-        updates.fflFileData = fileData;
-        updates.fflOnFile = true;
-      } else if (documentType === "sot") {
-        updates.sotFileName = fileName;
-        updates.sotFileData = fileData;
-        updates.sotOnFile = true;
-      } else if (documentType === "tax") {
-        updates.salesTaxFormName = fileName;
-        updates.salesTaxFormData = fileData;
-        updates.taxFormOnFile = true;
-      }
-      updates.updatedAt = new Date().toISOString();
-
-      await db.update(dealers)
-        .set(updates)
-        .where(eq(dealers.id, req.session!.dealerId!));
-
-      return res.json({ ok: true, documentType });
-    } catch (err: any) {
-      console.error("dealer_upload_document_error", err);
-      return res.status(500).json({ ok: false, error: "upload_failed" });
-    }
-  });
-
   // ── Full registration (both steps at once) ──────────────────────────
   app.post("/api/dealer/register-full", async (req, res) => {
     try {

@@ -121,10 +121,9 @@ export default function DealerOrderPage() {
           {orderType === "stocking" && (
             <div className="flex items-center gap-3 pl-7">
               <span className="text-sm">Quantity:</span>
-              <Input type="number" min={5} step={5} value={quantity} onChange={e => {
-                const v = parseInt(e.target.value) || 5;
-                setQuantity(Math.max(5, Math.round(v / 5) * 5));
-              }} className="w-24 bg-background text-center" />
+              <select value={quantity} onChange={e => setQuantity(parseInt(e.target.value))} className="h-10 rounded-md border border-border bg-background px-3 py-2 text-sm">
+                {[1,2,3,4,5,10,15,20,25,30,40,50,75,100].map(n => <option key={n} value={n}>{n} units — ${(n * unitPrice).toFixed(2)}</option>)}
+              </select>
             </div>
           )}
         </CardContent>
