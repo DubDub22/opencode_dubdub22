@@ -489,6 +489,7 @@ export function registerDealerAuthRoutes(app: Express) {
         const { sendViaGmail } = await import("../routes.js");
         const archiver = (await import("archiver")).default;
         const dealerEmail = email || "";
+        const dealerEmail = email || "";
 
         // Build ZIP with all documents
         let zipBase64: string | null = null;
