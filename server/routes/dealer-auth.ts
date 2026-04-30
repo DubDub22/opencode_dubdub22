@@ -480,9 +480,9 @@ export function registerDealerAuthRoutes(app: Express) {
         );
       }
 
-      // 5. Create FastBound contact (non-blocking)
+      // 5. Create FastBound contact + upload documents
       try {
-        const { createOrUpdateContact } = await import("../fastbound.js");
+        const { createOrUpdateContact, uploadDealerDocumentsToFastBound } = await import("../fastbound.js");
         await createOrUpdateContact({
           fflNumber: fflNumber,
           fflExpires: fflExpiry || undefined,
@@ -497,6 +497,21 @@ export function registerDealerAuthRoutes(app: Express) {
           einType: formattedEin ? (einType || undefined) : undefined,
           email: email || undefined,
         });
+
+        // Upload documents to FastBound contact
+        if (fflNumber) {
+          uploadDealerDocumentsToFastBound(fflNumber, {
+            fflFileData: fflFileData || undefined,
+            fflFileName: fflFileName || undefined,
+            sotFileData: sotFileData || undefined,
+            sotFileName: sotFileName || undefined,
+            resaleFileData: stateDocFileData || undefined,
+            resaleFileName: stateDocFileName || undefined,
+            taxFormFileData: filledTaxFormBase64 || undefined,
+            taxFormFileName: `TaxForm_${companyName.replace(/[^a-zA-Z0-9]/g, "_")}.pdf`,
+          }).catch((e: any) => console.error("fastbound_docs_upload_error", e));
+        }
+
         console.log("fastbound_contact_created", { fflNumber, companyName });
       } catch (e) {
         console.error("fastbound_contact_create_error", e);
