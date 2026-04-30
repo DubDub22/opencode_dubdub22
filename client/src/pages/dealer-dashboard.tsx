@@ -185,7 +185,8 @@ export default function DealerDashboardPage() {
               </CardHeader>
               <CardContent className="space-y-2">
                 <ActionLink href={`/apply?ffl=${profile.fflLicenseNumber || ""}`} label="Upload FFL/SOT Documents" />
-                <ActionLink href="/upload-tax-form" label="Upload Tax Form" />
+                <ActionLink href="/dealer/tax-form" label="Complete Multi-State Tax Form" />
+                <ActionLink href="/upload-tax-form" label="Upload State Tax ID Document" />
                 <ActionLink href={`/order?ffl=${profile.fflLicenseNumber || ""}`} label="Place New Order" />
               </CardContent>
             </Card>

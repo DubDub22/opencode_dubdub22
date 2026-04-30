@@ -5,6 +5,7 @@ import UploadTaxFormPage from "./pages/upload-tax-form";
 import DealerLoginPage from "@/pages/dealer-login";
 import DealerRegisterPage from "@/pages/dealer-register";
 import DealerDashboardPage from "@/pages/dealer-dashboard";
+import DealerTaxFormPage from "@/pages/dealer-tax-form";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -42,6 +43,7 @@ function Router() {
       <Route path="/dealer/login" component={DealerLoginPage} />
       <Route path="/dealer/register" component={DealerRegisterPage} />
       <Route path="/dealer/dashboard" component={DealerDashboardPage} />
+      <Route path="/dealer/tax-form" component={DealerTaxFormPage} />
       <Route path="/contact" component={ContactPage} />
       <Route path="/in-the-wild" component={InTheWildPage} />
       <Route path="/upload-tax-form" component={UploadTaxFormPage} />
