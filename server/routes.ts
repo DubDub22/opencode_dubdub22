@@ -1791,12 +1791,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.json({
           ok: true,
           valid: true,
+          tradeName: csvRecord.businessName,
+          licenseName: csvRecord.licenseeName,
           dealerName: csvRecord.businessName,
           fromMasterList: true,
           fflLicenseNumber: csvRecord.fflNumber,
-          fflExpiry: csvRecord.expiry || "",
-          email: csvRecord.email || "",
-          phone: csvRecord.phone || "",
+          premiseAddress1: csvRecord.premiseStreet,
+          premiseCity: csvRecord.premiseCity,
+          premiseState: csvRecord.premiseState,
+          premiseZipCode: csvRecord.premiseZip,
+          voicePhone: csvRecord.voicePhone,
           fflRecord: csvRecord,
         });
       }
