@@ -1,5 +1,4 @@
 import React, { useState, useRef, useEffect } from "react";
-import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -121,7 +120,7 @@ function Step1FFL({ onNext }: { onNext: (data: Step1Data) => void }) {
   const labelClass = "text-sm font-medium mb-1 block";
 
   return (
-    <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-6">
+    <div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-6">
       {/* FFL Lookup */}
       <Card>
         <CardHeader><CardTitle className="text-lg flex items-center gap-2"><Search className="w-5 h-5 text-primary" /> FFL Lookup</CardTitle></CardHeader>
@@ -224,7 +223,7 @@ function Step1FFL({ onNext }: { onNext: (data: Step1Data) => void }) {
       <Button onClick={handleNext} className="w-full font-display text-lg h-12 bg-primary hover:bg-primary/90">
         Next: Tax Form <ArrowRight className="w-5 h-5 ml-2" />
       </Button>
-    </motion.div>
+    </div>
   );
 }
 
@@ -289,7 +288,7 @@ function Step2TaxForm({ data, onBack, onSubmit }: { data: Step1Data; onBack: () 
   }
 
   return (
-    <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }} className="space-y-6">
+    <div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }} className="space-y-6">
       {/* Registration Type */}
       <Card>
         <CardHeader><CardTitle className="text-lg flex items-center gap-2"><FileText className="w-5 h-5 text-primary" /> Multi-State Tax Exemption Certificate</CardTitle></CardHeader>
@@ -398,7 +397,7 @@ function Step2TaxForm({ data, onBack, onSubmit }: { data: Step1Data; onBack: () 
           Submit Registration
         </Button>
       </div>
-    </motion.div>
+    </div>
   );
 }
 
@@ -477,12 +476,10 @@ export default function DealerRegistrationWizard() {
             </div>
           </div>
 
-          <AnimatePresence mode="wait">
-            {step === 1 && <Step1FFL key="step1" onNext={(data) => { setStep1Data(data); setStep(2); }} />}
-            {step === 2 && step1Data && (
-              <Step2TaxForm key="step2" data={step1Data} onBack={() => setStep(1)} onSubmit={handleFinalSubmit} />
-            )}
-          </AnimatePresence>
+          {step === 1 && <Step1FFL key="s1" onNext={(data) => { setStep1Data(data); setStep(2); }} />}
+          {step === 2 && step1Data && (
+            <Step2TaxForm key="s2" data={step1Data} onBack={() => setStep(1)} onSubmit={handleFinalSubmit} />
+          )}
 
           {submitting && (
             <div className="fixed inset-0 bg-background/80 flex items-center justify-center z-50">
