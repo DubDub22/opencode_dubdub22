@@ -8,6 +8,21 @@ import SiteHeader from "@/components/SiteHeader";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, CheckCircle, Upload, X, PenTool, ShieldCheck, FileText, ArrowRight, ArrowLeft, Search, AlertTriangle } from "lucide-react";
 
+// ═══ Types ═══════════════════════════════════════════════════════════
+
+interface Step1Data {
+  fflNumber: string; companyName: string; licenseName: string; phone: string;
+  address: string; city: string; state: string; zip: string; fflExpiry: string;
+  ein: string; einType: string; email: string; password: string;
+  fflFile: File | null; sotFile: File | null; fflHasSot: boolean;
+  fieldsEdited: string[];
+}
+
+interface Step2Data {
+  regType: string; businessDescription: string; stateTaxIds: {state: string; taxId: string}[];
+  signatureDataUrl: string; stateDocFile: File | null;
+}
+
 // ═══ Step 1: FFL/SOT Information ══════════════════════════════════════
 
 function Step1FFL({ onNext }: { onNext: (data: Step1Data) => void }) {
@@ -385,21 +400,6 @@ function Step2TaxForm({ data, onBack, onSubmit }: { data: Step1Data; onBack: () 
       </div>
     </motion.div>
   );
-}
-
-// ═══ Types ═══════════════════════════════════════════════════════════
-
-interface Step1Data {
-  fflNumber: string; companyName: string; licenseName: string; phone: string;
-  address: string; city: string; state: string; zip: string; fflExpiry: string;
-  ein: string; einType: string; email: string; password: string;
-  fflFile: File | null; sotFile: File | null; fflHasSot: boolean;
-  fieldsEdited: string[];
-}
-
-interface Step2Data {
-  regType: string; businessDescription: string; stateTaxIds: {state: string; taxId: string}[];
-  signatureDataUrl: string; stateDocFile: File | null;
 }
 
 // ═══ Main Registration Page ══════════════════════════════════════════
