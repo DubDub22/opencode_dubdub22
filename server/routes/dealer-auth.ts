@@ -399,19 +399,36 @@ export function registerDealerAuthRoutes(app: Express) {
         }
 
         // Fill signature, title, date, and notes
+        const today = new Date().toISOString().slice(0, 10);
+        const signerTitle = regType || "Authorized Representative";
+        try { form.getTextField("Title").setText(signerTitle); } catch {}
+        try { form.getTextField("Date").setText(today); } catch {}
+        try { form.getTextField("Notes").setText(`EIN: ${formattedEin || "N/A"} | Tax ID: ${(stateTaxIds || []).filter((s:any) => s.taxId.trim()).map((s:any) => `${s.state}:${s.taxId}`).join(", ") || "N/A"}`); } catch {}
+
+        // Embed signature image
         if (signatureDataUrl) {
           try {
             const sigBytes = Buffer.from(signatureDataUrl.replace(/^data:image\/\w+;base64,/, ""), "base64");
             const sigImage = await pdfDoc.embedPng(sigBytes);
-            const sigField = form.getTextField("Authorized Signature");
-            // Note: Text field can't display image — we set text + embed image nearby
-            sigField.setText("Digitally signed — see below");
-            // Embed signature image on a new page or below form fields
-          } catch { /* signature embed optional */ }
+            const pages = pdfDoc.getPages();
+            const page = pages[pages.length - 1]; // last page
+            const { width, height } = page.getSize();
+            // Place signature in bottom-right area (typical signature location)
+            page.drawImage(sigImage, {
+              x: width - 250,
+              y: 95,
+              width: 200,
+              height: 40,
+            });
+            // Also set signature text as fallback
+            try { form.getTextField("Authorized Signature").setText(licenseName || companyName || ""); } catch {}
+          } catch (sigErr) {
+            // Fallback: just set text
+            try { form.getTextField("Authorized Signature").setText(licenseName || companyName || ""); } catch {}
+          }
+        } else {
+          try { form.getTextField("Authorized Signature").setText(licenseName || companyName || ""); } catch {}
         }
-        try { form.getTextField("Title").setText(regType || "Dealer"); } catch {}
-        try { form.getTextField("Date").setText(new Date().toISOString().slice(0, 10)); } catch {}
-        try { form.getTextField("Notes").setText(`EIN: ${formattedEin || "N/A"} | State Tax ID: ${(stateTaxIds || []).map((s:any) => `${s.state}:${s.taxId}`).join(", ") || "N/A"}`); } catch {}
 
         const filledPdf = await pdfDoc.save();
         filledTaxFormBase64 = Buffer.from(filledPdf).toString("base64");
