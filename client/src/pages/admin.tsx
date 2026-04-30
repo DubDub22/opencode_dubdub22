@@ -664,6 +664,17 @@ function SubmissionRow({ sub, onArchive, onDelete, onRequestDocs, onForm3Submitt
           </div>
         ) : (
           <div className="space-y-1">
+            {!sub.trackingNumber && onFastBoundPending && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 text-xs whitespace-nowrap border-blue-600 text-blue-600 hover:bg-blue-50"
+                onClick={onFastBoundPending}
+                title="Assign serials & create FastBound pending disposition"
+              >
+                FB Pending
+              </Button>
+            )}
             <Button
               variant="outline"
               size="sm"
@@ -672,7 +683,7 @@ function SubmissionRow({ sub, onArchive, onDelete, onRequestDocs, onForm3Submitt
                 : "border-purple-600 text-purple-600 hover:bg-purple-50"
               }`}
               onClick={sub.form3SubmittedAt ? undefined : onForm3Submitted}
-              title={sub.form3SubmittedAt ? "Form 3 already submitted" : "Send Form 3 Submitted email"}
+              title={sub.form3SubmittedAt ? "Form 3 Submitted" : "Send Form 3 Submitted email"}
             >
               {sub.form3SubmittedAt ? "✓ Form 3 Submitted" : "Form 3 Pending"}
             </Button>
@@ -3165,7 +3176,7 @@ export default function AdminPage() {
   const [fastBoundLoading, setFastBoundLoading] = useState(false);
   const [form3Loading, setForm3Loading] = useState(false);
 
-  const openFastBoundDialog = (sub: Submission) => { setFastBoundTarget(sub); setSerialInput(""); setAvailableSerials([]); };
+  function openFastBoundDialog(sub: Submission) { setFastBoundTarget(sub); setSerialInput(""); setAvailableSerials([]); }
 
   const fetchSubmissions = useCallback(async (tabOverride?: string) => {
     const activeTab = tabOverride ?? tab;
