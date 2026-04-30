@@ -117,7 +117,11 @@ export function registerDealerAuthRoutes(app: Express) {
         .set({ lastLoginAt: new Date().toISOString() })
         .where(eq(dealers.id, dealer.id));
 
-      req.session!.dealerId = dealer.id;
+      if (!req.session) {
+        console.error("login_no_session");
+        return res.status(500).json({ ok: false, error: "session_not_available" });
+      }
+      req.session.dealerId = dealer.id;
       req.session!.dealerEmail = dealer.email;
 
       return res.json({
