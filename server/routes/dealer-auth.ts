@@ -313,8 +313,8 @@ export function registerDealerAuthRoutes(app: Express) {
         fflNumber, companyName, licenseName, phone, address, city, state, zip,
         fflExpiry, ein, einType,
         fflFileName, fflFileData, sotFileName, sotFileData, fflHasSot,
-        fieldsEdited,
-        regType, businessDescription, stateTaxId, signatureDataUrl,
+        fieldsEdited, email, password,
+        regType, businessDescription, stateTaxIds, signatureDataUrl,
         stateDocFileName, stateDocFileData,
       } = req.body || {};
 
@@ -322,10 +322,18 @@ export function registerDealerAuthRoutes(app: Express) {
         return res.status(400).json({ ok: false, error: "missing_required" });
       }
 
+      // Hash password if provided
+      let passwordHash = null;
+      if (password && password.length >= 8) {
+        passwordHash = await bcrypt.hash(password, 12);
+      }
+
       // 1. Insert dealer record
       const [dealer] = await db.insert(dealers).values({
         businessName: companyName,
         contactName: licenseName || companyName,
+        email: (email || "").toLowerCase() || null,
+        passwordHash,
         phone: phone || null,
         fflLicenseNumber: fflNumber,
         fflExpiryDate: fflExpiry || null,
@@ -372,15 +380,16 @@ export function registerDealerAuthRoutes(app: Express) {
         form.getTextField("Description of Business").setText(businessDescription || "");
         try { form.getTextField("General description of tangible property or taxable services to be purchased from the Seller 1").setText("Suppressors"); } catch {}
 
-        // Fill state tax ID
-        if (stateTaxId) {
-          const stateMap: Record<string, string> = {
-            AL:"State Registration Sellers Permit or ID Number of PurchaserAL 1",MO:"State Registration Sellers Permit or ID Number of PurchaserMO 16",AR:"State Registration Sellers Permit or ID Number of PurchaserAR",NE:"State Registration Sellers Permit or ID Number of PurchaserNE 16",AZ:"State Registration Sellers Permit or ID Number of PurchaserAZ 2",NV:"State Registration Sellers Permit or ID Number of PurchaserNV",CA:"State Registration Sellers Permit or ID Number of PurchaserCA 3",NJ:"State Registration Sellers Permit or ID Number of PurchaserNJ",CO:"State Registration Sellers Permit or ID Number of PurchaserCO 4",NM:"State Registration Sellers Permit or ID Number of PurchaserNM 417",CT:"State Registration Sellers Permit or ID Number of PurchaserCT 5",NC:"State Registration Sellers Permit or ID Number of PurchaserNC 18",FL:"State Registration Sellers Permit or ID Number of PurchaserFL6",ND:"State Registration Sellers Permit or ID Number of PurchaserND",GA:"State Registration Sellers Permit or ID Number of PurchaserGA7",OH:"State Registration Sellers Permit or ID Number of PurchaserOH19",HI:"State Registration Sellers Permit or ID Number of PurchaserHI 48",OK:"State Registration Sellers Permit or ID Number of PurchaserOK 20",ID:"State Registration Sellers Permit or ID Number of PurchaserID",PA:"State Registration Sellers Permit or ID Number of PurchaserPA 21",IL:"State Registration Sellers Permit or ID Number of PurchaserIL 49",RI:"State Registration Sellers Permit or ID Number of PurchaserRI 22",IA:"State Registration Sellers Permit or ID Number of PurchaserIA",SC:"State Registration Sellers Permit or ID Number of PurchaserSC",KS:"State Registration Sellers Permit or ID Number of PurchaserKS",SD:"State Registration Sellers Permit or ID Number of PurchaserSD 23",KY:"State Registration Sellers Permit or ID Number of PurchaserKY10",TN:"State Registration Sellers Permit or ID Number of PurchaserTN",ME:"State Registration Sellers Permit or ID Number of PurchaserME 11",TX:"State Registration Sellers Permit or ID Number of PurchaserTX 24",MD:"State Registration Sellers Permit or ID Number of PurchaserMD 12",UT:"State Registration Sellers Permit or ID Number of PurchaserUT",MI:"State Registration Sellers Permit or ID Number of PurchaserMI 13",VT:"State Registration Sellers Permit or ID Number of PurchaserVT",MN:"State Registration Sellers Permit or ID Number of PurchaserMN 14",WA:"State Registration Sellers Permit or ID Number of PurchaserWA 25",WI:"State Registration Sellers Permit or ID Number of PurchaserWI 26",
-          };
-          const fieldName = stateMap[state];
-          if (fieldName) {
-            try { form.getTextField(fieldName).setText(stateTaxId); } catch {}
+        // Fill all state tax IDs
+        if (stateTaxIds && Array.isArray(stateTaxIds)) {
+          for (const entry of stateTaxIds) {
+            if (!entry.taxId || !entry.state) continue;
+            const fieldName = stateMap[entry.state];
+            if (fieldName) {
+              try { form.getTextField(fieldName).setText(entry.taxId); } catch {}
+            }
           }
+        }
         }
 
         const filledPdf = await pdfDoc.save();
@@ -407,6 +416,57 @@ export function registerDealerAuthRoutes(app: Express) {
            VALUES ($1, $2, $3, $4, $5)`,
           ["tax_form_state", companyName, "registration@dubdub22.com", stateDocFileName, stateDocFileData]
         );
+      }
+
+      // 5. Send emails (non-blocking)
+      try {
+        const { sendViaGmail } = await import("../routes.js");
+        const dealerEmail = email || "";
+
+        // Email 1: Notify docs@dubdub22.com with all documents
+        if (dealerEmail) {
+          sendViaGmail({
+            to: "docs@dubdub22.com",
+            from: "docs@dubdub22.com",
+            subject: `DEALER DOC PACKAGE - ${companyName}`,
+            text: `New dealer registration complete for ${companyName}.
+
+FFL: ${fflNumber}
+Contact: ${licenseName || companyName}
+Email: ${dealerEmail}
+Phone: ${phone || "N/A"}
+Address: ${[address, city, state, zip].filter(Boolean).join(", ")}
+EIN: ${ein || "N/A"}
+Edited fields: ${(fieldsEdited || []).join(", ") || "None"}
+
+Documents received:
+- FFL License: ${fflFileData ? "Attached" : "Not provided"}
+- SOT License: ${sotFileData || fflHasSot ? "Attached" : "Not provided"}
+- Multi-State Tax Form: Filled and stored
+- State Tax ID Document: ${stateDocFileData ? "Attached" : "Not provided"}
+
+Tax ID Numbers: ${(stateTaxIds || []).map((s: any) => `${s.state}: ${s.taxId}`).join(", ") || "None"}
+
+Review in admin dashboard: https://dubdub22.com/admin`,
+          }).catch((e: any) => console.error("register_docs_email_error", e));
+        }
+
+        // Email 2: Send completed tax form to dealer
+        if (dealerEmail && filledTaxFormBase64) {
+          sendViaGmail({
+            to: dealerEmail,
+            from: "docs@dubdub22.com",
+            subject: "COMPLETED TAX FORM",
+            text: "FOR YOUR RECORDS. WE NOW HAVE ALL DOCS NECESSARY TO COMPLETE YOUR ACCOUNT SETUP. THANK YOU, DUBDUB22",
+            attachment: {
+              filename: `multi_state_tax_form_${companyName.replace(/[^a-zA-Z0-9]/g, "_")}.pdf`,
+              base64Data: filledTaxFormBase64,
+              contentType: "application/pdf",
+            },
+          }).catch((e: any) => console.error("register_dealer_email_error", e));
+        }
+      } catch (e) {
+        console.error("register_email_setup_error", e);
       }
 
       return res.json({ ok: true, dealerId, fieldsEdited: fieldsEdited || [] });

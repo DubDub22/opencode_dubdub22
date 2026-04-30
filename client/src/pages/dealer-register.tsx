@@ -21,7 +21,7 @@ function Step1FFL({ onNext }: { onNext: (data: Step1Data) => void }) {
   const [form, setForm] = useState({
     fflNumber: "", companyName: "", licenseName: "", phone: "",
     address: "", city: "", state: "", zip: "", fflExpiry: "",
-    ein: "", einType: "3",
+    ein: "", einType: "3", email: "", password: "",
   });
 
   // File uploads
@@ -76,6 +76,14 @@ function Step1FFL({ onNext }: { onNext: (data: Step1Data) => void }) {
   function handleNext() {
     if (!form.companyName || !form.fflNumber) {
       toast({ title: "Missing info", description: "Company name and FFL number are required", variant: "destructive" });
+      return;
+    }
+    if (!form.email || !/^[^@]+@[^@]+\.[^@]+$/.test(form.email)) {
+      toast({ title: "Invalid email", description: "A valid email is required", variant: "destructive" });
+      return;
+    }
+    if (!form.password || form.password.length < 8) {
+      toast({ title: "Password too short", description: "Password must be at least 8 characters", variant: "destructive" });
       return;
     }
     if (!fflFile && !fflHasSot) {
@@ -135,6 +143,14 @@ function Step1FFL({ onNext }: { onNext: (data: Step1Data) => void }) {
           <div>
             <label className={labelClass}>Phone</label>
             <Input value={form.phone} onChange={e => update("phone", e.target.value)} className={inputClass} />
+          </div>
+          <div>
+            <label className={labelClass}>Email *</label>
+            <Input type="email" value={form.email} onChange={e => update("email", e.target.value)} className={inputClass} />
+          </div>
+          <div>
+            <label className={labelClass}>Password * (min 8 chars)</label>
+            <Input type="password" value={form.password} onChange={e => update("password", e.target.value)} className={inputClass} />
           </div>
           <div>
             <label className={labelClass}>EIN (Federal) *</label>
@@ -222,7 +238,9 @@ function Step2TaxForm({ data, onBack, onSubmit }: { data: Step1Data; onBack: () 
   const [regType, setRegType] = useState("");
   const [otherRegType, setOtherRegType] = useState("");
   const [businessDescription, setBusinessDescription] = useState("");
-  const [stateTaxId, setStateTaxId] = useState("");
+  const [stateTaxIds, setStateTaxIds] = useState<{state: string; taxId: string}[]>([{state: dealerState, taxId: ""}]);
+  const [addingState, setAddingState] = useState("");
+  const [addingTaxId, setAddingTaxId] = useState("");
   const [stateDocFile, setStateDocFile] = useState<File | null>(null);
 
   // Auto-set the dealer's state from FFL lookup
@@ -293,12 +311,40 @@ function Step2TaxForm({ data, onBack, onSubmit }: { data: Step1Data; onBack: () 
             <Textarea value={businessDescription} onChange={e => setBusinessDescription(e.target.value)} placeholder="e.g. Retail firearms and accessories dealer" className="bg-background" rows={2} />
           </div>
 
-          {/* State Tax ID — auto-set to dealer's state */}
+          {/* State Tax IDs */}
           <div>
-            <label className="text-sm font-medium mb-1 block">
-              State Tax Registration Number for <strong>{dealerState || "your state"}</strong> *
-            </label>
-            <Input value={stateTaxId} onChange={e => setStateTaxId(e.target.value)} placeholder={`${dealerState} sales tax permit number`} className="bg-background" />
+            <label className="text-sm font-medium mb-1 block">State Tax Registration Numbers</label>
+            <p className="text-xs text-muted-foreground mb-2">Enter the tax ID from your state-issued sales tax permit. Add additional states if you have locations in multiple states.</p>
+            
+            {stateTaxIds.map((entry, i) => (
+              <div key={i} className="flex gap-2 mb-2">
+                <Input value={entry.state} disabled={i === 0} className={`bg-muted/30 w-16 text-center font-bold ${i > 0 ? "bg-background" : ""}`} />
+                <Input value={entry.taxId} onChange={e => {
+                  const next = [...stateTaxIds];
+                  next[i] = {...next[i], taxId: e.target.value};
+                  setStateTaxIds(next);
+                }} placeholder={`${entry.state} tax ID (e.g. X-XXXXX-XXXX-X)`} className="bg-background" />
+                {i > 0 && (
+                  <button onClick={() => setStateTaxIds(prev => prev.filter((_, idx) => idx !== i))} className="text-red-400 hover:text-red-300 shrink-0"><X className="w-5 h-5" /></button>
+                )}
+              </div>
+            ))}
+            
+            <div className="flex gap-2 mt-1">
+              <select value={addingState} onChange={e => setAddingState(e.target.value)} className="h-9 rounded-md border border-border bg-background px-2 text-sm w-20">
+                <option value="">+</option>
+                {["AL","AK","AZ","AR","CO","CT","DE","FL","GA","ID","IL","IN","IA","KS","KY","LA","ME","MD","MI","MN","MS","MO","MT","NE","NV","NH","NM","NC","ND","OH","OK","OR","PA","RI","SC","SD","TN","UT","VT","VA","WA","WV","WI","WY"].filter(s => !stateTaxIds.some(e => e.state === s)).map(s => (
+                  <option key={s} value={s}>{s}</option>
+                ))}
+              </select>
+              <Input value={addingTaxId} onChange={e => setAddingTaxId(e.target.value)} placeholder="Tax ID for additional state" className="bg-background h-9" />
+              <Button variant="outline" size="sm" onClick={() => {
+                if (addingState && addingTaxId.trim()) {
+                  setStateTaxIds(prev => [...prev, {state: addingState, taxId: addingTaxId.trim()}]);
+                  setAddingState(""); setAddingTaxId("");
+                }
+              }} disabled={!addingState || !addingTaxId.trim()}>Add</Button>
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -331,7 +377,7 @@ function Step2TaxForm({ data, onBack, onSubmit }: { data: Step1Data; onBack: () 
 
       <div className="flex gap-3">
         <Button onClick={onBack} variant="outline" className="flex-1 font-display"><ArrowLeft className="w-5 h-5 mr-2" /> Back</Button>
-        <Button onClick={() => onSubmit({ regType: regType === "Other" ? otherRegType : regType, businessDescription, stateTaxId, signatureDataUrl, stateDocFile })} disabled={!hasSignature || !regType || !stateTaxId} className="flex-1 font-display bg-primary hover:bg-primary/90">
+        <Button onClick={() => onSubmit({ regType: regType === "Other" ? otherRegType : regType, businessDescription, stateTaxIds: stateTaxIds.filter(s => s.taxId.trim()), signatureDataUrl, stateDocFile })} disabled={!hasSignature || !regType || stateTaxIds.every(s => !s.taxId.trim())} className="flex-1 font-display bg-primary hover:bg-primary/90">
           Submit Registration
         </Button>
       </div>
@@ -344,13 +390,13 @@ function Step2TaxForm({ data, onBack, onSubmit }: { data: Step1Data; onBack: () 
 interface Step1Data {
   fflNumber: string; companyName: string; licenseName: string; phone: string;
   address: string; city: string; state: string; zip: string; fflExpiry: string;
-  ein: string; einType: string;
+  ein: string; einType: string; email: string; password: string;
   fflFile: File | null; sotFile: File | null; fflHasSot: boolean;
   fieldsEdited: string[];
 }
 
 interface Step2Data {
-  regType: string; businessDescription: string; stateTaxId: string;
+  regType: string; businessDescription: string; stateTaxIds: {state: string; taxId: string}[];
   signatureDataUrl: string; stateDocFile: File | null;
 }
 
@@ -386,13 +432,14 @@ export default function DealerRegistrationWizard() {
           fflNumber: s1.fflNumber, companyName: s1.companyName, licenseName: s1.licenseName,
           phone: s1.phone, address: s1.address, city: s1.city, state: s1.state, zip: s1.zip,
           fflExpiry: s1.fflExpiry, ein: s1.ein, einType: s1.einType,
+          email: s1.email, password: s1.password,
           fflFileName: s1.fflFile?.name || null, fflFileData: fflBase64 || null,
           sotFileName: s1.sotFile?.name || null, sotFileData: sotBase64 || null,
           fflHasSot: s1.fflHasSot,
           fieldsEdited: s1.fieldsEdited,
           // Step 2
           regType: step2Data.regType, businessDescription: step2Data.businessDescription,
-          stateTaxId: step2Data.stateTaxId, signatureDataUrl: step2Data.signatureDataUrl,
+          stateTaxIds: step2Data.stateTaxIds, signatureDataUrl: step2Data.signatureDataUrl,
           stateDocFileName: step2Data.stateDocFile?.name || null, stateDocFileData: stateDocBase64 || null,
         }),
       });
