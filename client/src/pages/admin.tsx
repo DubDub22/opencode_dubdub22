@@ -441,7 +441,7 @@ function SubmissionsTab({
             onArchive={() => setArchiveTarget(sub)}
             onDelete={() => { console.log("delete card clicked", sub.id); setDeleteTarget(sub); }}
             onPaid={() => setPaidTarget(sub)}
-            onFastBoundPending={() => setFastBoundTarget(sub)}
+            onFastBoundPending={() => openFastBoundDialog(sub)}
             onForm3Approved={() => setForm3Target(sub)} />)}
       </div>
 
@@ -468,7 +468,7 @@ function SubmissionsTab({
                 onRequestDocs={() => setRequestDocsTarget(sub)}
                 onForm3Submitted={() => setForm3SubmittedTarget(sub)}
                 onPaid={() => setPaidTarget(sub)}
-            onFastBoundPending={() => setFastBoundTarget(sub)}
+                onFastBoundPending={() => openFastBoundDialog(sub)}
                 onForm3Approved={() => setForm3Target(sub)} />)}
           </tbody>
         </table>
