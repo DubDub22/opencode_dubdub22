@@ -129,14 +129,14 @@ export default function DealerDashboardPage() {
               onFile={profile.fflOnFile}
               expiry={profile.fflExpiryDate}
               type="ffl"
-              dealerId={profile.id}
+              detail={profile.fflLicenseNumber || "Not on file"}
             />
             <DocStatusCard
               label="SOT License"
               onFile={profile.sotOnFile}
               expiry={profile.sotExpiryDate}
               type="sot"
-              dealerId={profile.id}
+              detail={profile.einType === "2" ? "Manufacturer" : profile.einType === "1" ? "Importer" : profile.sotOnFile ? "Dealer" : "Not on file"}
             />
           </div>
 
@@ -182,7 +182,6 @@ export default function DealerDashboardPage() {
               </CardHeader>
               <CardContent className="space-y-2">
                 <ActionLink href="/dealer/order" label="Place New Order" />
-                <ActionLink href="/dealer/tax-form" label="Complete Tax Form" />
                 <AdditionalUpload dealerName={profile.businessName} />
               </CardContent>
             </Card>
@@ -237,8 +236,8 @@ function getExpiryStatus(expiry: string | undefined): "green" | "amber" | "red" 
   return "green";
 }
 
-function DocStatusCard({ label, onFile, expiry, type, dealerId }: {
-  label: string; onFile: boolean; expiry?: string; type: "ffl" | "sot"; dealerId: string;
+function DocStatusCard({ label, onFile, expiry, type, detail }: {
+  label: string; onFile: boolean; expiry?: string; type: "ffl" | "sot"; detail: string;
 }) {
   const status = onFile ? getExpiryStatus(expiry) : "red";
   const colors = { green: "border-green-500/50 bg-green-500/5", amber: "border-yellow-500/50 bg-yellow-500/5", red: "border-red-500/50 bg-red-500/5" };
@@ -284,6 +283,7 @@ function DocStatusCard({ label, onFile, expiry, type, dealerId }: {
             <span className={`text-xs font-medium ${iconColors[status]}`}>{labels[status]}</span>
           </div>
         </div>
+        <p className="text-sm text-muted-foreground mb-1">{detail}</p>
         {expiry && <p className="text-xs text-muted-foreground mb-1">Expires: {expiry}</p>}
         {!onFile && <p className="text-xs text-muted-foreground mb-2">No document on file</p>}
         
