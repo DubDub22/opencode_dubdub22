@@ -150,7 +150,7 @@ export default function DealerOrderPage() {
         <CardHeader><CardTitle className="text-lg"><Package className="w-5 h-5 inline mr-2 text-primary"/>Order Summary</CardTitle></CardHeader>
         <CardContent className="space-y-2 text-sm">
           <div className="flex justify-between"><span>{orderType === "demo" ? "1x Demo Unit" : `${quantity}x DubDub22 @ $${unitPrice}/ea`}</span><span>${subtotal.toFixed(2)}</span></div>
-          <div className="flex justify-between"><span>Shipping</span><span>{orderType === "demo" ? "FREE" : `$${shipping.toFixed(2)}`}</span></div>
+          <div className="flex justify-between"><span>Shipping & Handling</span><span>${shipping.toFixed(2)}</span></div>
           <div className="flex justify-between font-bold text-base border-t border-border pt-2 mt-2"><span>Total</span><span className="text-primary">${total.toFixed(2)}</span></div>
         </CardContent>
       </Card>
