@@ -664,7 +664,6 @@ function SubmissionRow({ sub, onArchive, onDelete, onRequestDocs, onForm3Submitt
           </div>
         ) : (
           <div className="space-y-1">
-          </div>
             <Button
               variant="outline"
               size="sm"
