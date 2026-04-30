@@ -369,6 +369,20 @@ function PendingUpload(props: { fflNumber: string }) {
           />
         </div>
 
+        <FormField
+          control={form.control}
+          name="address"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Business Address</FormLabel>
+              <FormControl>
+                <Input {...field} className="bg-card border-border" />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
         <div className="grid grid-cols-3 gap-4">
           <FormField
             control={form.control}
