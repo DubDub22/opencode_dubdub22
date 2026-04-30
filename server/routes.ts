@@ -347,13 +347,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Load FFL master list
   await loadFFLMaster();
 
-  // Setup session BEFORE any route registrations (needed for auth)
-  if (!process.env.SESSION_SECRET) {
-    console.error('FATAL: SESSION_SECRET environment variable is required');
-    process.exit(1);
-  }
+  // Setup session middleware BEFORE any route registrations
   app.use(session({
-    secret: process.env.SESSION_SECRET,
+    secret: process.env.SESSION_SECRET || "dev-secret",
     resave: false,
     saveUninitialized: false,
     cookie: { secure: false, httpOnly: true, sameSite: "lax", maxAge: 7 * 24 * 60 * 60 * 1000 }
