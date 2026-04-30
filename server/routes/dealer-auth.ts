@@ -390,7 +390,6 @@ export function registerDealerAuthRoutes(app: Express) {
             }
           }
         }
-        }
 
         const filledPdf = await pdfDoc.save();
         filledTaxFormBase64 = Buffer.from(filledPdf).toString("base64");
