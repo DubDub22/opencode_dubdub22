@@ -6,7 +6,7 @@ import { format, parseISO } from "date-fns";
 import {
   Copy, Image as ImageIcon, Download, Trash2, Package, Archive,
   ChevronRight, ArrowLeft, ArrowUpDown, Building2, FileText,
-  Upload, Eye, X, Search, Inbox,
+  Upload, Eye, X, Search, Inbox, Loader2,
   MessageSquare, ShieldCheck, Phone, Files, CheckCircle, XCircle, Send,
   RefreshCw, Store, ShoppingCart
 } from "lucide-react";
