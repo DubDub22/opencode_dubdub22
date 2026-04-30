@@ -29,7 +29,7 @@ export default function DealersPage() {
       });
       const data = await resp.json();
       if (data.valid) {
-        setDealerName(data.dealerName || "");
+        setTradeName(data.tradeName || data.dealerName || "");
         setStatus("success");
         setTimeout(() => {
           window.location.href = `/apply?ffl=${encodeURIComponent(fullFfl)}`;

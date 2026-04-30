@@ -640,7 +640,7 @@ function DealerForm(props: { fflNumber: string; dealerName?: string; email?: str
     }
   }
 
-  // Auto-fill from dealer profile API after FFL verification
+    // Auto-fill from dealer profile API after FFL verification
   React.useEffect(() => {
     if (!props.fflNumber) return;
     fetch(`/api/dealer/profile?ffl=${encodeURIComponent(props.fflNumber)}`)
@@ -651,18 +651,18 @@ function DealerForm(props: { fflNumber: string; dealerName?: string; email?: str
         // Only auto-fill empty fields to avoid overwriting user edits
         const current = form.getValues();
         form.reset({
-          dealerName: current.dealerName || d.businessName || props.dealerName || "",
-          contactName: current.contactName || d.contactName || "",
+          tradeName: current.tradeName || d.tradeName || props.dealerName || "",
+          licenseName: current.licenseName || d.licenseName || "",
           email: current.email || d.email || props.email || "",
           confirmEmail: current.confirmEmail || d.email || props.email || "",
           contactPhone: current.contactPhone || d.phone || props.phone || "",
-          address: current.address || d.address || props.address || "",
-          city: current.city || d.city || props.city || "",
-          state: current.state || d.state || props.state || "",
-          zipCode: current.zipCode || d.zip || props.zip || "",
-          ein: current.ein || d.stateTaxId || "",
-          einType: current.einType || "",
-          fflExpiry: current.fflExpiry || "",
+          premiseAddress1: current.premiseAddress1 || d.premiseAddress1 || props.address || "",
+          premiseCity: current.premiseCity || d.premiseCity || props.city || "",
+          premiseState: current.premiseState || d.premiseState || props.state || "",
+          premiseZipCode: current.premiseZipCode || d.premiseZipCode || props.zip || "",
+          fflExpiry: current.fflExpiry || d.fflExpiryDate || "",
+          ein: current.ein || d.ein || "",
+          einType: current.einType || d.einType || "",
           message: current.message || "",
         });
       })
@@ -758,14 +758,14 @@ function DealerForm(props: { fflNumber: string; dealerName?: string; email?: str
         const params = new URLSearchParams({
           type: orderKind === "demo" ? "demo" : "stocking",
           qty,
-          dealer: encodeURIComponent(values.dealerName || ""),
-          contact: encodeURIComponent(values.contactName || ""),
+          dealer: encodeURIComponent(values.tradeName || ""),
+          contact: encodeURIComponent(values.licenseName || ""),
           email: encodeURIComponent(values.email || ""),
           phone: encodeURIComponent(values.contactPhone || ""),
-          address: encodeURIComponent(values.address || ""),
-          city: encodeURIComponent(values.city || ""),
-          state: encodeURIComponent(values.state || ""),
-          zip: encodeURIComponent(values.zipCode || ""),
+          address: encodeURIComponent(values.premiseAddress1 || ""),
+          city: encodeURIComponent(values.premiseCity || ""),
+          state: encodeURIComponent(values.premiseState || ""),
+          zip: encodeURIComponent(values.premiseZipCode || ""),
         });
         window.location.href = `/order-confirmation?${params.toString()}`;
         return;
