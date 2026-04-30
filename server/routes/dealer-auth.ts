@@ -417,7 +417,29 @@ export function registerDealerAuthRoutes(app: Express) {
         );
       }
 
-      // 5. Send emails (non-blocking)
+      // 5. Create FastBound contact (non-blocking)
+      try {
+        const { createOrUpdateContact } = await import("../fastbound.js");
+        await createOrUpdateContact({
+          fflNumber: fflNumber,
+          fflExpires: fflExpiry || undefined,
+          licenseName: licenseName || companyName,
+          tradeName: companyName,
+          premiseAddress1: address || "",
+          premiseCity: city || "",
+          premiseState: state || "",
+          premiseZipCode: zip || "",
+          phone: phone || undefined,
+          ein: ein || undefined,
+          einType: einType || undefined,
+          email: email || undefined,
+        });
+        console.log("fastbound_contact_created", { fflNumber, companyName });
+      } catch (e) {
+        console.error("fastbound_contact_create_error", e);
+      }
+
+      // 6. Send emails (non-blocking)
       try {
         const { sendViaGmail } = await import("../routes.js");
         const dealerEmail = email || "";
