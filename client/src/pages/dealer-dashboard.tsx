@@ -136,7 +136,7 @@ export default function DealerDashboardPage() {
               onFile={profile.sotOnFile}
               expiry={profile.sotExpiryDate}
               type="sot"
-              detail={profile.einType === "2" ? "Manufacturer" : profile.einType === "1" ? "Importer" : profile.sotOnFile ? "Dealer" : "Not on file"}
+              detail={profile.ein || profile.fflLicenseNumber || "Not on file"}
             />
           </div>
 
