@@ -441,7 +441,7 @@ function SubmissionsTab({
             onArchive={() => setArchiveTarget(sub)}
             onDelete={() => { console.log("delete card clicked", sub.id); setDeleteTarget(sub); }}
             onPaid={() => setPaidTarget(sub)}
-            onFastBoundPending={() => openFastBoundDialog(sub)}
+            onFastBoundPending={() => { setFastBoundTarget(sub); setSerialInput(""); setAvailableSerials([]); }}
             onForm3Approved={() => setForm3Target(sub)} />)}
       </div>
 
