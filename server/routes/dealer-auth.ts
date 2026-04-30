@@ -411,14 +411,14 @@ export function registerDealerAuthRoutes(app: Express) {
             const sigBytes = Buffer.from(signatureDataUrl.replace(/^data:image\/\w+;base64,/, ""), "base64");
             const sigImage = await pdfDoc.embedPng(sigBytes);
             const pages = pdfDoc.getPages();
-            const page = pages[pages.length - 1]; // last page
-            const { width, height } = page.getSize();
-            // Place signature in bottom-right area (typical signature location)
+            const page = pages[pages.length - 1];
+            const { width } = page.getSize();
+            // Place signature near the Authorized Signature field (bottom-left area of form)
             page.drawImage(sigImage, {
-              x: width - 250,
-              y: 95,
+              x: 50,
+              y: 175,
               width: 200,
-              height: 40,
+              height: 50,
             });
             // Also set signature text as fallback
             try { form.getTextField("Authorized Signature").setText(licenseName || companyName || ""); } catch {}
