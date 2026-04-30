@@ -4098,6 +4098,16 @@ print(pdf_path)
   });
 
   // ── FFL Database Update (admin paste ATF download URL) ─────────────
+  app.get("/api/admin/ffl-csv-date", requireAdmin, async (_req, res) => {
+    try {
+      const csvPath = path.resolve(__dirname, "..", "ffl_master.csv");
+      const stat = fs.statSync(csvPath);
+      return res.json({ ok: true, updatedAt: stat.mtime.toISOString() });
+    } catch (err: any) {
+      return res.json({ ok: false, error: err.message });
+    }
+  });
+
   app.post("/api/admin/update-ffl", requireAdmin, async (req, res) => {
     try {
       const { url } = req.body || {};

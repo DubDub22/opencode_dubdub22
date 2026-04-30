@@ -3028,6 +3028,31 @@ function FFLUpdatePanel() {
   const [status, setStatus] = useState<"idle" | "loading" | "done">("idle");
   const [output, setOutput] = useState("");
   const [expanded, setExpanded] = useState(false);
+  const [overdue, setOverdue] = useState(false);
+
+  const prevMonth = new Date(new Date().setMonth(new Date().getMonth() - 1));
+  const mm = String(prevMonth.getMonth() + 1).padStart(2, "0");
+  const yy = String(prevMonth.getFullYear()).slice(2);
+  const prevLabel = prevMonth.toLocaleString("en-US", { month: "long", year: "numeric" });
+
+  useEffect(() => {
+    // Check if overdue: after the 5th and CSV is from before current expected month
+    const today = new Date();
+    fetch("/api/admin/check-auth").then(() => {
+      // Use the CSV file date from the server
+      fetch("/api/admin/ffl-csv-date").then(r => r.json()).then(d => {
+        if (d.ok && d.updatedAt) {
+          const csvDate = new Date(d.updatedAt);
+          const expectedEnd = new Date(today.getFullYear(), today.getMonth() - 1, 5);
+          // Overdue if today is after the 5th of previous month and CSV is older
+          if (today.getDate() >= 5 && csvDate < expectedEnd) {
+            setOverdue(true);
+            setExpanded(true); // Auto-expand if overdue
+          }
+        }
+      }).catch(() => {});
+    }).catch(() => {});
+  }, []);
 
   async function doUpdate() {
     if (!url.trim()) return;
@@ -3042,6 +3067,7 @@ function FFLUpdatePanel() {
       const data = await resp.json();
       setOutput(data.output || data.error || "Done");
       setStatus("done");
+      setOverdue(false);
     } catch (e: any) {
       setOutput(e.message);
       setStatus("idle");
@@ -3052,19 +3078,30 @@ function FFLUpdatePanel() {
   const yy = String(new Date(new Date().setMonth(new Date().getMonth() - 1)).getFullYear()).slice(2);
 
   return (
-    <Card className="bg-card/30 border-border">
+    <Card className={`${overdue ? "border-red-500/50 bg-red-500/5" : "bg-card/30"} border-border transition-colors`}>
       <CardContent className="p-3">
         <div className="flex items-center justify-between cursor-pointer" onClick={() => setExpanded(!expanded)}>
           <span className="text-sm font-medium flex items-center gap-2">
-            <RefreshCw className="w-4 h-4 text-muted-foreground" />
+            <RefreshCw className={`w-4 h-4 ${overdue ? "text-red-400" : "text-muted-foreground"}`} />
             System: Update FFL Database
+            {overdue && <Badge variant="destructive" className="text-xs">OVERDUE</Badge>}
           </span>
-          <ChevronRight className={`w-4 h-4 text-muted-foreground transition-transform ${expanded ? "rotate-90" : ""}`} />
+          <div className="flex items-center gap-2" onClick={e => e.stopPropagation()}>
+            <Button size="sm" variant="link" className="text-xs h-6 px-1" onClick={() => window.open("https://www.atf.gov/firearms/listing-federal-firearms-licensees", "_blank")}>
+              Open ATF Page ↗
+            </Button>
+            <ChevronRight className={`w-4 h-4 ${expanded ? "rotate-90" : ""} transition-transform`} />
+          </div>
         </div>
         {expanded && (
           <div className="mt-3 space-y-2">
+            {overdue && (
+              <p className="text-xs text-red-400 font-medium">
+                FFL database has not been updated for {prevLabel}. Please update now.
+              </p>
+            )}
             <p className="text-xs text-muted-foreground">
-              Paste the ATF download URL for month {mm}/{yy}.
+              Paste the ATF download URL for month {mm}/{yy} ({prevLabel}).
               <br />
               <a href="https://www.atf.gov/firearms/listing-federal-firearms-licensees" target="_blank" className="text-primary hover:underline">
                 Open ATF FFL Listing page →
