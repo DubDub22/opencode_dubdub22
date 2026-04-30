@@ -1,164 +1,448 @@
-import React, { useState } from "react";
-import { motion } from "framer-motion";
-import { Loader2, ShieldCheck } from "lucide-react";
-import SiteHeader from "@/components/SiteHeader";
+import React, { useState, useRef, useEffect } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import SiteHeader from "@/components/SiteHeader";
 import { useToast } from "@/hooks/use-toast";
+import { Loader2, CheckCircle, Upload, X, PenTool, ShieldCheck, FileText, ArrowRight, ArrowLeft, Search, AlertTriangle } from "lucide-react";
 
-export default function DealerRegisterPage() {
+// ═══ Step 1: FFL/SOT Information ══════════════════════════════════════
+
+function Step1FFL({ onNext }: { onNext: (data: Step1Data) => void }) {
   const { toast } = useToast();
+  const [fflInput, setFflInput] = useState("");
+  const [looking, setLooking] = useState(false);
+  const [found, setFound] = useState(false);
+  const [edits, setEdits] = useState<Set<string>>(new Set());
+
+  // Auto-populated from ATF CSV
   const [form, setForm] = useState({
-    email: "", password: "", confirmPassword: "",
-    businessName: "", contactName: "", phone: "",
-    fflNumber: "", ein: "", einType: "",
-    address: "", city: "", state: "", zip: ""
+    fflNumber: "", companyName: "", licenseName: "", phone: "",
+    address: "", city: "", state: "", zip: "", fflExpiry: "",
+    ein: "", einType: "3",
   });
-  const [loading, setLoading] = useState(false);
+
+  // File uploads
+  const [fflFile, setFflFile] = useState<File | null>(null);
+  const [sotFile, setSotFile] = useState<File | null>(null);
+  const [fflHasSot, setFflHasSot] = useState(false);
+
+  function markEdit(field: string) {
+    if (found) setEdits(prev => new Set(prev).add(field));
+  }
 
   function update(field: string, value: string) {
     setForm(prev => ({ ...prev, [field]: value }));
   }
 
-  async function handleRegister(e: React.FormEvent) {
-    e.preventDefault();
-    if (!form.email || !form.password || !form.businessName || !form.contactName || !form.fflNumber) {
-      toast({ title: "Missing fields", description: "Email, password, business name, contact name, and FFL number are required", variant: "destructive" });
-      return;
-    }
-    if (form.password.length < 8) {
-      toast({ title: "Password too short", description: "Password must be at least 8 characters", variant: "destructive" });
-      return;
-    }
-    if (form.password !== form.confirmPassword) {
-      toast({ title: "Passwords don't match", description: "Please re-enter your password", variant: "destructive" });
-      return;
-    }
-    if (form.phone.replace(/\D/g, "").length < 10) {
-      toast({ title: "Invalid phone", description: "Please enter a valid 10-digit phone number", variant: "destructive" });
-      return;
-    }
-
-    setLoading(true);
+  async function lookupFFL() {
+    if (!fflInput.trim()) return;
+    setLooking(true);
     try {
-      const resp = await fetch("/api/dealer/auth/register", {
+      const resp = await fetch("/api/ffl/validate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
+        body: JSON.stringify({ fflNumber: fflInput.trim() }),
       });
       const data = await resp.json();
-      if (data.ok) {
-        toast({ title: "Account created!", description: "Welcome to DubDub22. You are now logged in." });
-        window.location.href = "/dealer/dashboard";
+      if (data.valid) {
+        setForm(prev => ({
+          ...prev,
+          fflNumber: data.fflLicenseNumber || fflInput,
+          companyName: data.tradeName || data.dealerName || "",
+          licenseName: data.licenseName || "",
+          phone: data.voicePhone || "",
+          address: data.premiseAddress1 || "",
+          city: data.premiseCity || "",
+          state: data.premiseState || "",
+          zip: data.premiseZipCode || "",
+          fflExpiry: data.fflExpiryDate || "",
+        }));
+        setFound(true);
       } else {
-        toast({ title: "Registration failed", description: data.message || data.error || "Please try again", variant: "destructive" });
+        toast({ title: "FFL Not Found", description: "Not in the ATF database. You can still enter info manually.", variant: "destructive" });
+        setFound(true); // Still allow proceeding
       }
     } catch {
-      toast({ title: "Connection error", description: "Could not reach server. Please try again.", variant: "destructive" });
+      toast({ title: "Error", description: "Could not verify FFL. Continue manually.", variant: "destructive" });
+      setFound(true);
     } finally {
-      setLoading(false);
+      setLooking(false);
     }
+  }
+
+  function handleNext() {
+    if (!form.companyName || !form.fflNumber) {
+      toast({ title: "Missing info", description: "Company name and FFL number are required", variant: "destructive" });
+      return;
+    }
+    if (!fflFile && !fflHasSot) {
+      toast({ title: "Missing FFL", description: "Please upload your FFL document", variant: "destructive" });
+      return;
+    }
+    if (!fflHasSot && !sotFile) {
+      toast({ title: "Missing SOT", description: "Please upload your SOT or check the combined box", variant: "destructive" });
+      return;
+    }
+    onNext({
+      ...form,
+      fflFile, sotFile, fflHasSot,
+      fieldsEdited: Array.from(edits),
+    });
   }
 
   const inputClass = "bg-background border-border";
   const labelClass = "text-sm font-medium mb-1 block";
 
   return (
+    <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-6">
+      {/* FFL Lookup */}
+      <Card>
+        <CardHeader><CardTitle className="text-lg flex items-center gap-2"><Search className="w-5 h-5 text-primary" /> FFL Lookup</CardTitle></CardHeader>
+        <CardContent>
+          <div className="flex gap-2">
+            <Input value={fflInput} onChange={e => setFflInput(e.target.value)} placeholder="Enter FFL number (X-XX-XXX-XX-XX-XXXXX)" className={inputClass} />
+            <Button onClick={lookupFFL} disabled={looking} variant="outline" className="shrink-0">
+              {looking ? <Loader2 className="w-4 h-4 animate-spin" /> : "Lookup"}
+            </Button>
+          </div>
+          {found && <p className="text-sm text-green-500 mt-2 flex items-center gap-1"><CheckCircle className="w-4 h-4" /> Data loaded from ATF database</p>}
+        </CardContent>
+      </Card>
+
+      {/* Business Info */}
+      <Card>
+        <CardHeader><CardTitle className="text-lg flex items-center gap-2"><ShieldCheck className="w-5 h-5 text-primary" /> FFL / Business Information</CardTitle></CardHeader>
+        <CardContent className="grid grid-cols-2 gap-4">
+          <div>
+            <label className={labelClass}>Company Name * {edits.has("companyName") && <AlertTriangle className="w-3 h-3 inline text-yellow-500" />}</label>
+            <Input value={form.companyName} onChange={e => { update("companyName", e.target.value); markEdit("companyName"); }} className={inputClass} />
+          </div>
+          <div>
+            <label className={labelClass}>License Name {edits.has("licenseName") && <AlertTriangle className="w-3 h-3 inline text-yellow-500" />}</label>
+            <Input value={form.licenseName} onChange={e => { update("licenseName", e.target.value); markEdit("licenseName"); }} className={inputClass} />
+          </div>
+          <div>
+            <label className={labelClass}>FFL Number *</label>
+            <Input value={form.fflNumber} onChange={e => update("fflNumber", e.target.value)} className={inputClass} />
+          </div>
+          <div>
+            <label className={labelClass}>FFL Expiration {edits.has("fflExpiry") && <AlertTriangle className="w-3 h-3 inline text-yellow-500" />}</label>
+            <Input value={form.fflExpiry} onChange={e => { update("fflExpiry", e.target.value); markEdit("fflExpiry"); }} className={inputClass} placeholder="YYYY-MM-DD" />
+          </div>
+          <div>
+            <label className={labelClass}>Phone</label>
+            <Input value={form.phone} onChange={e => update("phone", e.target.value)} className={inputClass} />
+          </div>
+          <div>
+            <label className={labelClass}>EIN (Federal) *</label>
+            <Input value={form.ein} onChange={e => update("ein", e.target.value)} placeholder="XX-XXXXXXX" className={inputClass} />
+          </div>
+          <div>
+            <label className={labelClass}>EIN Type *</label>
+            <select value={form.einType} onChange={e => update("einType", e.target.value)} className="w-full h-10 rounded-md border border-border bg-background px-3 py-2 text-sm">
+              <option value="3">Dealer</option>
+              <option value="2">Manufacturer</option>
+              <option value="1">Importer</option>
+            </select>
+          </div>
+          <div>
+            <label className={labelClass}>Address {edits.has("address") && <AlertTriangle className="w-3 h-3 inline text-yellow-500" />}</label>
+            <Input value={form.address} onChange={e => { update("address", e.target.value); markEdit("address"); }} className={inputClass} />
+          </div>
+          <div>
+            <label className={labelClass}>City {edits.has("city") && <AlertTriangle className="w-3 h-3 inline text-yellow-500" />}</label>
+            <Input value={form.city} onChange={e => { update("city", e.target.value); markEdit("city"); }} className={inputClass} />
+          </div>
+          <div>
+            <label className={labelClass}>State {edits.has("state") && <AlertTriangle className="w-3 h-3 inline text-yellow-500" />}</label>
+            <Input value={form.state} onChange={e => { update("state", e.target.value); markEdit("state"); }} className={inputClass} maxLength={2} />
+          </div>
+          <div>
+            <label className={labelClass}>ZIP {edits.has("zip") && <AlertTriangle className="w-3 h-3 inline text-yellow-500" />}</label>
+            <Input value={form.zip} onChange={e => { update("zip", e.target.value); markEdit("zip"); }} className={inputClass} maxLength={10} />
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Document Uploads */}
+      <Card>
+        <CardHeader><CardTitle className="text-lg flex items-center gap-2"><Upload className="w-5 h-5 text-primary" /> Required Documents</CardTitle></CardHeader>
+        <CardContent className="space-y-4">
+          <div>
+            <label className={labelClass}>FFL License *</label>
+            <FileUpload id="ffl-upload" file={fflFile} setFile={setFflFile} accept=".pdf,.png,.jpg,.jpeg" />
+          </div>
+          <label className="flex items-center gap-2 text-sm cursor-pointer">
+            <input type="checkbox" checked={fflHasSot} onChange={e => setFflHasSot(e.target.checked)} className="accent-primary" />
+            My FFL has SOT combined on the same page
+          </label>
+          {!fflHasSot && (
+            <div>
+              <label className={labelClass}>SOT License *</label>
+              <FileUpload id="sot-upload" file={sotFile} setFile={setSotFile} accept=".pdf,.png,.jpg,.jpeg" />
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <Button onClick={handleNext} className="w-full font-display text-lg h-12 bg-primary hover:bg-primary/90">
+        Next: Tax Form <ArrowRight className="w-5 h-5 ml-2" />
+      </Button>
+    </motion.div>
+  );
+}
+
+// ═══ File Upload Helper ══════════════════════════════════════════════
+
+function FileUpload({ id, file, setFile, accept }: { id: string; file: File | null; setFile: (f: File | null) => void; accept: string }) {
+  return (
+    <label htmlFor={id} className={`flex flex-col items-center justify-center border-2 border-dashed rounded-lg p-3 cursor-pointer transition-colors ${file ? "border-green-500/50 bg-green-500/5" : "border-border hover:border-primary/40 bg-card"}`}>
+      <input id={id} type="file" accept={accept} className="sr-only" onChange={e => setFile(e.target.files?.[0] || null)} />
+      {file ? (
+        <span className="text-sm text-green-500 flex items-center gap-2"><CheckCircle className="w-4 h-4" /> {file.name}</span>
+      ) : (
+        <span className="text-sm text-muted-foreground flex items-center gap-2"><Upload className="w-4 h-4" /> Upload {accept}</span>
+      )}
+    </label>
+  );
+}
+
+// ═══ Step 2: Tax Form ════════════════════════════════════════════════
+
+function Step2TaxForm({ data, onBack, onSubmit }: { data: Step1Data; onBack: () => void; onSubmit: (data: Step2Data) => void }) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [isDrawing, setIsDrawing] = useState(false);
+  const [hasSignature, setHasSignature] = useState(false);
+  const [signatureDataUrl, setSignatureDataUrl] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+
+  const [regType, setRegType] = useState("");
+  const [otherRegType, setOtherRegType] = useState("");
+  const [businessDescription, setBusinessDescription] = useState("");
+  const [stateTaxId, setStateTaxId] = useState("");
+  const [stateDocFile, setStateDocFile] = useState<File | null>(null);
+
+  // Auto-set the dealer's state from FFL lookup
+  const dealerState = data.state || "";
+
+  // Drawing handlers
+  function startDraw(e: React.MouseEvent | React.TouchEvent) {
+    setIsDrawing(true);
+    const canvas = canvasRef.current!;
+    const rect = canvas.getBoundingClientRect();
+    const x = ("touches" in e ? e.touches[0].clientX : e.clientX) - rect.left;
+    const y = ("touches" in e ? e.touches[0].clientY : e.clientY) - rect.top;
+    const ctx = canvas.getContext("2d")!;
+    ctx.beginPath(); ctx.moveTo(x, y); ctx.strokeStyle = "#000"; ctx.lineWidth = 2; ctx.lineCap = "round";
+  }
+  function draw(e: React.MouseEvent | React.TouchEvent) {
+    if (!isDrawing) return; e.preventDefault();
+    const canvas = canvasRef.current!;
+    const rect = canvas.getBoundingClientRect();
+    const x = ("touches" in e ? e.touches[0].clientX : e.clientX) - rect.left;
+    const y = ("touches" in e ? e.touches[0].clientY : e.clientY) - rect.top;
+    canvas.getContext("2d")!.lineTo(x, y); canvas.getContext("2d")!.stroke();
+    setHasSignature(true);
+  }
+  function stopDraw() { setIsDrawing(false); if (canvasRef.current) setSignatureDataUrl(canvasRef.current.toDataURL()); }
+  function clearSig() {
+    const c = canvasRef.current!; c.getContext("2d")!.clearRect(0, 0, c.width, c.height);
+    setHasSignature(false); setSignatureDataUrl("");
+  }
+
+  return (
+    <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }} className="space-y-6">
+      {/* Registration Type */}
+      <Card>
+        <CardHeader><CardTitle className="text-lg flex items-center gap-2"><FileText className="w-5 h-5 text-primary" /> Multi-State Tax Exemption Certificate</CardTitle></CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-sm text-muted-foreground">This information will be used to fill your Multi-State Sales &amp; Use Tax Exemption form.</p>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="text-sm font-medium mb-1 block">Company Name</label>
+              <Input value={data.companyName} disabled className="bg-muted/30" />
+            </div>
+            <div>
+              <label className="text-sm font-medium mb-1 block">State (from FFL)</label>
+              <Input value={dealerState} disabled className="bg-muted/30" />
+            </div>
+          </div>
+
+          <div>
+            <label className="text-sm font-medium mb-1 block">Registered As *</label>
+            <select value={regType} onChange={e => setRegType(e.target.value)} className="w-full h-10 rounded-md border border-border bg-background px-3 py-2 text-sm">
+              <option value="">Select type...</option>
+              <option value="Wholesaler">Wholesaler</option>
+              <option value="Retailer">Retailer</option>
+              <option value="Manufacturer">Manufacturer</option>
+              <option value="Lessor">Lessor</option>
+              <option value="Exempt Organization">Exempt Organization</option>
+              <option value="Other">Other</option>
+            </select>
+          </div>
+          {regType === "Other" && (
+            <Input placeholder="Specify other..." value={otherRegType} onChange={e => setOtherRegType(e.target.value)} className="bg-background" />
+          )}
+
+          <div>
+            <label className="text-sm font-medium mb-1 block">Description of Business</label>
+            <Textarea value={businessDescription} onChange={e => setBusinessDescription(e.target.value)} placeholder="e.g. Retail firearms and accessories dealer" className="bg-background" rows={2} />
+          </div>
+
+          {/* State Tax ID — auto-set to dealer's state */}
+          <div>
+            <label className="text-sm font-medium mb-1 block">
+              State Tax Registration Number for <strong>{dealerState || "your state"}</strong> *
+            </label>
+            <Input value={stateTaxId} onChange={e => setStateTaxId(e.target.value)} placeholder={`${dealerState} sales tax permit number`} className="bg-background" />
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* State Tax ID Document Upload */}
+      <Card>
+        <CardHeader><CardTitle className="text-lg flex items-center gap-2"><Upload className="w-5 h-5 text-primary" /> State-Issued Tax ID Document</CardTitle></CardHeader>
+        <CardContent>
+          <p className="text-sm text-muted-foreground mb-3">Upload your state-issued sales tax / resale permit.</p>
+          <FileUpload id="state-doc" file={stateDocFile} setFile={setStateDocFile} accept=".pdf,.png,.jpg,.jpeg" />
+        </CardContent>
+      </Card>
+
+      {/* Signature */}
+      <Card>
+        <CardHeader><CardTitle className="text-lg flex items-center gap-2"><PenTool className="w-5 h-5 text-primary" /> Digital Signature</CardTitle></CardHeader>
+        <CardContent className="space-y-3">
+          <div className="border border-border rounded-lg bg-white" style={{ touchAction: "none" }}>
+            <canvas ref={canvasRef} width={500} height={120} className="w-full rounded-lg cursor-crosshair"
+              onMouseDown={startDraw} onMouseMove={draw} onMouseUp={stopDraw} onMouseLeave={stopDraw}
+              onTouchStart={startDraw} onTouchMove={draw} onTouchEnd={stopDraw} />
+          </div>
+          <div className="flex items-center gap-3">
+            <PenTool className="w-4 h-4 text-muted-foreground" />
+            <span className="text-sm text-muted-foreground">Sign above</span>
+            {hasSignature && <button onClick={clearSig} className="text-sm text-red-400 hover:underline ml-auto">Clear</button>}
+          </div>
+        </CardContent>
+      </Card>
+
+      <div className="flex gap-3">
+        <Button onClick={onBack} variant="outline" className="flex-1 font-display"><ArrowLeft className="w-5 h-5 mr-2" /> Back</Button>
+        <Button onClick={() => onSubmit({ regType: regType === "Other" ? otherRegType : regType, businessDescription, stateTaxId, signatureDataUrl, stateDocFile })} disabled={!hasSignature || !regType || !stateTaxId} className="flex-1 font-display bg-primary hover:bg-primary/90">
+          Submit Registration
+        </Button>
+      </div>
+    </motion.div>
+  );
+}
+
+// ═══ Types ═══════════════════════════════════════════════════════════
+
+interface Step1Data {
+  fflNumber: string; companyName: string; licenseName: string; phone: string;
+  address: string; city: string; state: string; zip: string; fflExpiry: string;
+  ein: string; einType: string;
+  fflFile: File | null; sotFile: File | null; fflHasSot: boolean;
+  fieldsEdited: string[];
+}
+
+interface Step2Data {
+  regType: string; businessDescription: string; stateTaxId: string;
+  signatureDataUrl: string; stateDocFile: File | null;
+}
+
+// ═══ Main Registration Page ══════════════════════════════════════════
+
+export default function DealerRegistrationWizard() {
+  const { toast } = useToast();
+  const [step, setStep] = useState<1 | 2>(1);
+  const [step1Data, setStep1Data] = useState<Step1Data | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+
+  function toBase64(file: File): Promise<string> {
+    return new Promise(resolve => {
+      const reader = new FileReader();
+      reader.onload = () => resolve((reader.result as string).split(",")[1]);
+      reader.readAsDataURL(file);
+    });
+  }
+
+  async function handleFinalSubmit(step2Data: Step2Data) {
+    setSubmitting(true);
+    try {
+      const s1 = step1Data!;
+      const fflBase64 = s1.fflFile ? await toBase64(s1.fflFile) : "";
+      const sotBase64 = s1.sotFile ? await toBase64(s1.sotFile) : "";
+      const stateDocBase64 = step2Data.stateDocFile ? await toBase64(step2Data.stateDocFile) : "";
+
+      const resp = await fetch("/api/dealer/register-full", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          // Step 1
+          fflNumber: s1.fflNumber, companyName: s1.companyName, licenseName: s1.licenseName,
+          phone: s1.phone, address: s1.address, city: s1.city, state: s1.state, zip: s1.zip,
+          fflExpiry: s1.fflExpiry, ein: s1.ein, einType: s1.einType,
+          fflFileName: s1.fflFile?.name || null, fflFileData: fflBase64 || null,
+          sotFileName: s1.sotFile?.name || null, sotFileData: sotBase64 || null,
+          fflHasSot: s1.fflHasSot,
+          fieldsEdited: s1.fieldsEdited,
+          // Step 2
+          regType: step2Data.regType, businessDescription: step2Data.businessDescription,
+          stateTaxId: step2Data.stateTaxId, signatureDataUrl: step2Data.signatureDataUrl,
+          stateDocFileName: step2Data.stateDocFile?.name || null, stateDocFileData: stateDocBase64 || null,
+        }),
+      });
+      const data = await resp.json();
+      if (data.ok) {
+        toast({ title: "Registration Complete!", description: "Your account has been created and documents submitted for review." });
+        window.location.href = "/dealer/dashboard";
+      } else {
+        toast({ title: "Error", description: data.error || "Registration failed", variant: "destructive" });
+      }
+    } catch {
+      toast({ title: "Error", description: "Connection error", variant: "destructive" });
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
     <div className="min-h-screen bg-background text-foreground">
       <SiteHeader />
       <section className="pt-24 pb-16">
-        <div className="container mx-auto px-6 max-w-lg">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5 }}
-            className="bg-card border border-border rounded-lg p-8"
-          >
-            <div className="text-center mb-6">
-              <ShieldCheck className="w-12 h-12 text-primary mx-auto mb-3" />
-              <h1 className="text-2xl font-display font-semibold">Dealer Registration</h1>
-              <p className="text-sm text-muted-foreground mt-1">Create your DubDub22 dealer account</p>
+        <div className="container mx-auto px-6 max-w-2xl">
+          {/* Progress indicator */}
+          <div className="flex items-center justify-center gap-4 mb-8">
+            <div className={`flex items-center gap-2 text-sm font-medium ${step === 1 ? "text-primary" : "text-muted-foreground"}`}>
+              <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${step >= 1 ? "bg-primary text-white" : "bg-muted"}`}>1</div>
+              FFL & Documents
             </div>
-
-            <form onSubmit={handleRegister} className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className={labelClass}>Email *</label>
-                  <Input type="email" value={form.email} onChange={e => update("email", e.target.value)} placeholder="dealer@example.com" className={inputClass} autoComplete="email" />
-                </div>
-                <div>
-                  <label className={labelClass}>Phone *</label>
-                  <Input type="tel" value={form.phone} onChange={e => update("phone", e.target.value)} placeholder="555-123-4567" className={inputClass} />
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className={labelClass}>Password *</label>
-                  <Input type="password" value={form.password} onChange={e => update("password", e.target.value)} placeholder="Min 8 characters" className={inputClass} autoComplete="new-password" />
-                </div>
-                <div>
-                  <label className={labelClass}>Confirm Password *</label>
-                  <Input type="password" value={form.confirmPassword} onChange={e => update("confirmPassword", e.target.value)} placeholder="Re-enter password" className={inputClass} />
-                </div>
-              </div>
-              <div>
-                <label className={labelClass}>Business Name *</label>
-                <Input value={form.businessName} onChange={e => update("businessName", e.target.value)} placeholder="Your FFL business name" className={inputClass} />
-              </div>
-              <div>
-                <label className={labelClass}>Contact Name *</label>
-                <Input value={form.contactName} onChange={e => update("contactName", e.target.value)} placeholder="Your full name" className={inputClass} />
-              </div>
-              <div>
-                <label className={labelClass}>FFL Number *</label>
-                <Input value={form.fflNumber} onChange={e => update("fflNumber", e.target.value)} placeholder="X-XX-XXX-XX-XX-XXXXX" className={inputClass} />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className={labelClass}>EIN</label>
-                  <Input value={form.ein} onChange={e => update("ein", e.target.value)} placeholder="XX-XXXXXXX" className={inputClass} />
-                </div>
-                <div>
-                  <label className={labelClass}>EIN Type</label>
-                  <select
-                    value={form.einType}
-                    onChange={e => update("einType", e.target.value)}
-                    className="w-full h-10 rounded-md border border-border bg-background px-3 py-2 text-sm"
-                  >
-                    <option value="">Select type...</option>
-                    <option value="2">Manufacturer</option>
-                    <option value="3">Dealer</option>
-                  </select>
-                </div>
-              </div>
-              <div>
-                <label className={labelClass}>Street Address</label>
-                <Input value={form.address} onChange={e => update("address", e.target.value)} placeholder="Premise address" className={inputClass} />
-              </div>
-              <div className="grid grid-cols-3 gap-4">
-                <div>
-                  <label className={labelClass}>City</label>
-                  <Input value={form.city} onChange={e => update("city", e.target.value)} placeholder="City" className={inputClass} />
-                </div>
-                <div>
-                  <label className={labelClass}>State</label>
-                  <Input value={form.state} onChange={e => update("state", e.target.value)} placeholder="TX" maxLength={2} className={inputClass} />
-                </div>
-                <div>
-                  <label className={labelClass}>ZIP</label>
-                  <Input value={form.zip} onChange={e => update("zip", e.target.value)} placeholder="12345" maxLength={10} className={inputClass} />
-                </div>
-              </div>
-              <Button type="submit" disabled={loading} className="w-full font-display bg-primary hover:bg-primary/90">
-                {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : "CREATE ACCOUNT"}
-              </Button>
-            </form>
-
-            <div className="mt-4 text-center text-sm">
-              <span className="text-muted-foreground">Already have an account? </span>
-              <a href="/dealer/login" className="text-primary hover:underline font-medium">Sign in</a>
+            <div className="w-12 h-0.5 bg-border" />
+            <div className={`flex items-center gap-2 text-sm font-medium ${step === 2 ? "text-primary" : "text-muted-foreground"}`}>
+              <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${step >= 2 ? "bg-primary text-white" : "bg-muted"}`}>2</div>
+              Tax Form & Sign
             </div>
-          </motion.div>
+          </div>
+
+          <AnimatePresence mode="wait">
+            {step === 1 && <Step1FFL key="step1" onNext={(data) => { setStep1Data(data); setStep(2); }} />}
+            {step === 2 && step1Data && (
+              <Step2TaxForm key="step2" data={step1Data} onBack={() => setStep(1)} onSubmit={handleFinalSubmit} />
+            )}
+          </AnimatePresence>
+
+          {submitting && (
+            <div className="fixed inset-0 bg-background/80 flex items-center justify-center z-50">
+              <div className="text-center">
+                <Loader2 className="w-10 h-10 animate-spin text-primary mx-auto mb-3" />
+                <p className="text-lg font-display">Processing your registration...</p>
+              </div>
+            </div>
+          )}
         </div>
       </section>
     </div>

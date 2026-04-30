@@ -306,8 +306,115 @@ export function registerDealerAuthRoutes(app: Express) {
     }
   });
 
-  // ── Tax form submission: fill PDF + store + upload to FastBound ──────
-  app.post("/api/dealer/tax-form/submit", requireDealerAuth, async (req, res) => {
+  // ── Full registration (both steps at once) ──────────────────────────
+  app.post("/api/dealer/register-full", async (req, res) => {
+    try {
+      const {
+        fflNumber, companyName, licenseName, phone, address, city, state, zip,
+        fflExpiry, ein, einType,
+        fflFileName, fflFileData, sotFileName, sotFileData, fflHasSot,
+        fieldsEdited,
+        regType, businessDescription, stateTaxId, signatureDataUrl,
+        stateDocFileName, stateDocFileData,
+      } = req.body || {};
+
+      if (!companyName || !fflNumber || !state) {
+        return res.status(400).json({ ok: false, error: "missing_required" });
+      }
+
+      // 1. Insert dealer record
+      const [dealer] = await db.insert(dealers).values({
+        businessName: companyName,
+        contactName: licenseName || companyName,
+        phone: phone || null,
+        fflLicenseNumber: fflNumber,
+        fflExpiryDate: fflExpiry || null,
+        ein: ein || null,
+        einType: einType || "3",
+        businessAddress: address || null,
+        city: city || null,
+        state: state || null,
+        zip: zip || null,
+        fflFileName: fflFileName || null,
+        fflFileData: fflFileData || null,
+        fflOnFile: !!(fflFileData),
+        sotFileName: sotFileName || null,
+        sotFileData: sotFileData || null,
+        sotOnFile: !!(sotFileData || fflHasSot),
+        source: "dealer_registration",
+        tier: "Standard",
+        verified: false,
+        notes: fieldsEdited?.length > 0 ? `EDITED_FIELDS: ${(fieldsEdited || []).join(", ")}` : null,
+      } as any).returning({ id: dealers.id });
+
+      const dealerId = dealer.id;
+
+      // 2. Fill and store multi-state tax form
+      let filledTaxFormBase64 = null;
+      try {
+        const pdfBytes = fs.readFileSync(TAX_FORM_PATH);
+        const pdfDoc = await PDFDocument.load(pdfBytes);
+        const form = pdfDoc.getForm();
+
+        form.getTextField("Issued to Seller").setText("Double T Tactical");
+        form.getTextField("Address").setText("105 Bear Trce, Floresville, TX 78114");
+        form.getTextField("Name of Firm Buyer").setText(companyName || "");
+        form.getTextField("Address_2").setText([address, city, state, zip].filter(Boolean).join(", "));
+
+        const regLower = regType?.toLowerCase() || "";
+        try { form.getCheckBox("Wholesaler")[regLower === "wholesaler" ? "check" : "uncheck"](); } catch {}
+        try { form.getCheckBox("Retailer")[regLower === "retailer" ? "check" : "uncheck"](); } catch {}
+        try { form.getCheckBox("Manufacturer")[regLower === "manufacturer" ? "check" : "uncheck"](); } catch {}
+        if (!["wholesaler", "retailer", "manufacturer"].includes(regLower)) {
+          try { form.getTextField("Other Specify").setText(regType || ""); } catch {}
+        }
+
+        form.getTextField("Description of Business").setText(businessDescription || "");
+        try { form.getTextField("General description of tangible property or taxable services to be purchased from the Seller 1").setText("Suppressors"); } catch {}
+
+        // Fill state tax ID
+        if (stateTaxId) {
+          const stateMap: Record<string, string> = {
+            AL:"State Registration Sellers Permit or ID Number of PurchaserAL 1",MO:"State Registration Sellers Permit or ID Number of PurchaserMO 16",AR:"State Registration Sellers Permit or ID Number of PurchaserAR",NE:"State Registration Sellers Permit or ID Number of PurchaserNE 16",AZ:"State Registration Sellers Permit or ID Number of PurchaserAZ 2",NV:"State Registration Sellers Permit or ID Number of PurchaserNV",CA:"State Registration Sellers Permit or ID Number of PurchaserCA 3",NJ:"State Registration Sellers Permit or ID Number of PurchaserNJ",CO:"State Registration Sellers Permit or ID Number of PurchaserCO 4",NM:"State Registration Sellers Permit or ID Number of PurchaserNM 417",CT:"State Registration Sellers Permit or ID Number of PurchaserCT 5",NC:"State Registration Sellers Permit or ID Number of PurchaserNC 18",FL:"State Registration Sellers Permit or ID Number of PurchaserFL6",ND:"State Registration Sellers Permit or ID Number of PurchaserND",GA:"State Registration Sellers Permit or ID Number of PurchaserGA7",OH:"State Registration Sellers Permit or ID Number of PurchaserOH19",HI:"State Registration Sellers Permit or ID Number of PurchaserHI 48",OK:"State Registration Sellers Permit or ID Number of PurchaserOK 20",ID:"State Registration Sellers Permit or ID Number of PurchaserID",PA:"State Registration Sellers Permit or ID Number of PurchaserPA 21",IL:"State Registration Sellers Permit or ID Number of PurchaserIL 49",RI:"State Registration Sellers Permit or ID Number of PurchaserRI 22",IA:"State Registration Sellers Permit or ID Number of PurchaserIA",SC:"State Registration Sellers Permit or ID Number of PurchaserSC",KS:"State Registration Sellers Permit or ID Number of PurchaserKS",SD:"State Registration Sellers Permit or ID Number of PurchaserSD 23",KY:"State Registration Sellers Permit or ID Number of PurchaserKY10",TN:"State Registration Sellers Permit or ID Number of PurchaserTN",ME:"State Registration Sellers Permit or ID Number of PurchaserME 11",TX:"State Registration Sellers Permit or ID Number of PurchaserTX 24",MD:"State Registration Sellers Permit or ID Number of PurchaserMD 12",UT:"State Registration Sellers Permit or ID Number of PurchaserUT",MI:"State Registration Sellers Permit or ID Number of PurchaserMI 13",VT:"State Registration Sellers Permit or ID Number of PurchaserVT",MN:"State Registration Sellers Permit or ID Number of PurchaserMN 14",WA:"State Registration Sellers Permit or ID Number of PurchaserWA 25",WI:"State Registration Sellers Permit or ID Number of PurchaserWI 26",
+          };
+          const fieldName = stateMap[state];
+          if (fieldName) {
+            try { form.getTextField(fieldName).setText(stateTaxId); } catch {}
+          }
+        }
+
+        const filledPdf = await pdfDoc.save();
+        filledTaxFormBase64 = Buffer.from(filledPdf).toString("base64");
+      } catch (e) {
+        console.error("tax_form_fill_error", e);
+      }
+
+      // 3. Update dealer with filled tax form
+      if (filledTaxFormBase64) {
+        await db.update(dealers)
+          .set({
+            salesTaxFormName: `multi_state_tax_form_${companyName.replace(/[^a-zA-Z0-9]/g, "_")}.pdf`,
+            salesTaxFormData: filledTaxFormBase64,
+            taxFormOnFile: true,
+          } as any)
+          .where(eq(dealers.id, dealerId));
+      }
+
+      // 4. Store state-issued tax document
+      if (stateDocFileData && stateDocFileName) {
+        await pool.query(
+          `INSERT INTO submissions (type, contact_name, email, ffl_file_name, ffl_file_data)
+           VALUES ($1, $2, $3, $4, $5)`,
+          ["tax_form_state", companyName, "registration@dubdub22.com", stateDocFileName, stateDocFileData]
+        );
+      }
+
+      return res.json({ ok: true, dealerId, fieldsEdited: fieldsEdited || [] });
+    } catch (err: any) {
+      console.error("dealer_register_full_error", err);
+      return res.status(500).json({ ok: false, error: "registration_failed" });
+    }
+  });
     try {
       const {
         companyName, address, regType, businessDescription,
