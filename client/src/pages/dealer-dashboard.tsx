@@ -109,7 +109,7 @@ export default function DealerDashboardPage() {
             <div className="flex gap-2">
               <Button
                 variant="outline"
-                onClick={() => window.location.href = "/apply"}
+                onClick={() => window.location.href = "/dealer/order"}
                 className="font-display border-primary text-primary hover:bg-primary/10"
               >
                 <ShoppingCart className="w-4 h-4 mr-2" />
@@ -187,7 +187,7 @@ export default function DealerDashboardPage() {
                 <ActionLink href={`/apply?ffl=${profile.fflLicenseNumber || ""}`} label="Upload FFL/SOT Documents" />
                 <ActionLink href="/dealer/tax-form" label="Complete Multi-State Tax Form" />
                 <ActionLink href="/upload-tax-form" label="Upload State Tax ID Document" />
-                <ActionLink href={`/order?ffl=${profile.fflLicenseNumber || ""}`} label="Place New Order" />
+                <ActionLink href="/dealer/order" label="Place New Order" />
               </CardContent>
             </Card>
 
