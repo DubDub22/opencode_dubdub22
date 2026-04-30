@@ -400,7 +400,7 @@ export function registerDealerAuthRoutes(app: Express) {
 
         // Fill signature, title, date, and notes
         const today = new Date().toISOString().slice(0, 10);
-        const signerTitle = regType || "Authorized Representative";
+        const signerTitle = "Authorized Representative";
         try { form.getTextField("Title").setText(signerTitle); } catch {}
         try { form.getTextField("Date").setText(today); } catch {}
         try { form.getTextField("Notes").setText(`EIN: ${formattedEin || "N/A"} | Tax ID: ${(stateTaxIds || []).filter((s:any) => s.taxId.trim()).map((s:any) => `${s.state}:${s.taxId}`).join(", ") || "N/A"}`); } catch {}
@@ -494,6 +494,7 @@ export function registerDealerAuthRoutes(app: Express) {
         ];
 
         const validFiles = zipFiles.filter(f => f.data);
+        console.log("zip_files", { total: zipFiles.length, valid: validFiles.length, names: validFiles.map(f => f.name) });
         if (validFiles.length > 0) {
           const archive = archiver("zip", { zlib: { level: 9 } });
           const chunks: Buffer[] = [];
