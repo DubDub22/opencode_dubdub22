@@ -420,9 +420,12 @@ export function registerDealerAuthRoutes(app: Express) {
         );
       }
 
-      // 5. Create FastBound contact (non-blocking)
+      // 5. Create FastBound contact (non-blocking, skip EIN if invalid)
       try {
         const { createOrUpdateContact } = await import("../fastbound.js");
+        // Only send EIN if it looks valid (XX-XXXXXXX or 9 digits)
+        const cleanEin = (ein || "").replace(/[^0-9]/g, "");
+        const hasValidEin = cleanEin.length === 9;
         await createOrUpdateContact({
           fflNumber: fflNumber,
           fflExpires: fflExpiry || undefined,
@@ -433,8 +436,8 @@ export function registerDealerAuthRoutes(app: Express) {
           premiseState: state || "",
           premiseZipCode: zip || "",
           phone: phone || undefined,
-          ein: ein || undefined,
-          einType: einType || undefined,
+          ein: hasValidEin ? ein : undefined,
+          einType: hasValidEin ? (einType || undefined) : undefined,
           email: email || undefined,
         });
         console.log("fastbound_contact_created", { fflNumber, companyName });
