@@ -55,9 +55,9 @@ export default function DealerOrderPage() {
   if (!profile) return null;
 
   const demoPrice = 0;
-  const unitPrice = 99;
+  const unitPrice = 60;
   const subtotal = orderType === "demo" ? 0 : quantity * unitPrice;
-  const shipping = orderType === "demo" ? 0 : 15;
+  const shipping = orderType === "demo" ? 0 : 10;
   const total = subtotal + shipping;
 
   if (submitted) return (
@@ -114,7 +114,7 @@ export default function DealerOrderPage() {
             <div>
               <span className="font-medium">Stocking Order</span>
               <span className="text-muted-foreground ml-2 text-sm">${unitPrice}/unit</span>
-              <p className="text-xs text-muted-foreground mt-1">Minimum 5 units. Quantities in multiples of 5.</p>
+              <p className="text-xs text-muted-foreground mt-1">Minimum 1 unit.</p>
             </div>
           </label>
 
