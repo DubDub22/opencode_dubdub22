@@ -119,6 +119,17 @@ export async function createOrUpdateContact(
   // DO send: fflExpires (required when fflNumber is present), licenseName (required)
   // DO send fields NOT auto-populated: ein, einType, email (in notes)
 
+  const einTypeLabel: Record<string, string> = {
+    "1": "Importer",
+    "2": "Manufacturer", 
+    "3": "Dealer",
+  };
+
+  // Format phone as (XXX) XXX-XXXX for FastBound
+  const formattedPhone = dealer.phone
+    ? dealer.phone.replace(/\D/g, "").replace(/^1?(\d{3})(\d{3})(\d{4})$/, "($1) $2-$3")
+    : undefined;
+
   const contact: any = {
     fflNumber: dealer.fflNumber,
     fflExpires: dealer.fflExpires || undefined,
@@ -129,11 +140,14 @@ export async function createOrUpdateContact(
     premiseState: dealer.premiseState || undefined,
     premiseZipCode: dealer.premiseZipCode || undefined,
     premiseCountry: dealer.premiseCountry || "US",
-    // These are NOT accepted by FastBound for FFL contacts via API:
-    // phone and emailAddress are silently ignored. FastBound only
-    // auto-populates phone through its FFL EZ Check button in the UI.
-    // Email must be stored in the notes field.
-    ...(dealer.email ? { notes: `Email: ${dealer.email} | Phone: ${dealer.phone || "N/A"}` } : {}),
+    // Tell FastBound to auto-populate from FFL EZ Check
+    lookupFFL: true,
+    // Custom fields NOT auto-populated by FFL lookup
+    phoneNumber: formattedPhone || undefined,
+    emailAddress: dealer.email || undefined,
+    sotein: dealer.ein || undefined,
+    sotClass: dealer.einType ? einTypeLabel[dealer.einType] || undefined : undefined,
+  };
 
   // For Sole Proprietor: FastBound auto-populates licenseName as "LAST, FIRST"
   // For LLC: licenseName will be the LLC name, tradeName may be empty
