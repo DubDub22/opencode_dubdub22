@@ -227,11 +227,11 @@ export default function DealerDashboardPage() {
 
 function getExpiryStatus(expiry: string | undefined): "green" | "amber" | "red" {
   if (!expiry) return "red";
-  const d = new Date(expiry + (expiry.length === 10 ? "T23:59:59" : ""));
+  const d = new Date(expiry + "T23:59:59");
   if (isNaN(d.getTime())) return "red";
   const now = new Date();
-  if (d < now) return "red";
   const daysLeft = Math.ceil((d.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+  if (daysLeft <= 0) return "red";
   if (daysLeft <= 90) return "amber";
   return "green";
 }
@@ -243,7 +243,7 @@ function DocStatusCard({ label, onFile, expiry, type, detail }: {
   const colors = { green: "border-green-500/50 bg-green-500/5", amber: "border-yellow-500/50 bg-yellow-500/5", red: "border-red-500/50 bg-red-500/5" };
   const icons = { green: CheckCircle, amber: Clock, red: XCircle };
   const iconColors = { green: "text-green-500", amber: "text-yellow-500", red: "text-red-500" };
-  const labels = { green: "Current", amber: "Expiring Soon", red: onFile ? "Expired" : "Not on File" };
+  const labels = { green: "Current", amber: "Expires Soon", red: onFile ? "Expired" : "Not on File" };
   const Icon = icons[status];
   const [showUpload, setShowUpload] = useState(false);
   const [file, setFile] = useState(null);
