@@ -3365,8 +3365,6 @@ export default function AdminPage() {
     } finally { setForm3Loading(false); }
   };
 
-  deleteAuthCheck; // ensure no unused var
-
   return (
     <div className="min-h-screen bg-background p-4 md:p-8 lg:p-12">
       <div className="max-w-7xl mx-auto space-y-6">
