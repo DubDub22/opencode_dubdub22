@@ -480,10 +480,11 @@ export function registerDealerAuthRoutes(app: Express) {
         );
       }
 
-      // 5. Create FastBound contact + upload documents
+      // 5. Create FastBound contact
+      let fbContactId: string | null = null;
       try {
-        const { createOrUpdateContact, uploadDealerDocumentsToFastBound } = await import("../fastbound.js");
-        await createOrUpdateContact({
+        const { createOrUpdateContact } = await import("../fastbound.js");
+        fbContactId = await createOrUpdateContact({
           fflNumber: fflNumber,
           fflExpires: fflExpiry || undefined,
           licenseName: licenseName || companyName,
@@ -497,22 +498,10 @@ export function registerDealerAuthRoutes(app: Express) {
           einType: formattedEin ? (einType || undefined) : undefined,
           email: email || undefined,
         });
-
-        // Upload documents to FastBound contact
-        if (fflNumber) {
-          uploadDealerDocumentsToFastBound(fflNumber, {
-            fflFileData: fflFileData || undefined,
-            fflFileName: fflFileName || undefined,
-            sotFileData: sotFileData || undefined,
-            sotFileName: sotFileName || undefined,
-            resaleFileData: stateDocFileData || undefined,
-            resaleFileName: stateDocFileName || undefined,
-            taxFormFileData: filledTaxFormBase64 || undefined,
-            taxFormFileName: `TaxForm_${companyName.replace(/[^a-zA-Z0-9]/g, "_")}.pdf`,
-          }).catch((e: any) => console.error("fastbound_docs_upload_error", e));
-        }
-
-        console.log("fastbound_contact_created", { fflNumber, companyName });
+        console.log("fastbound_contact_created", { fflNumber, companyName, fbContactId });
+      } catch (e) {
+        console.error("fastbound_contact_create_error", e);
+      }
       } catch (e) {
         console.error("fastbound_contact_create_error", e);
       }
@@ -586,6 +575,17 @@ All documents attached as ZIP. Review in admin: https://dubdub22.com/admin`,
               contentType: "application/zip",
             },
           }).catch((e: any) => console.error("docs_zip_email_error", e));
+
+          // Upload ZIP to FastBound contact
+          if (fbContactId) {
+            const { uploadContactDocument } = await import("../fastbound.js");
+            uploadContactDocument(
+              fbContactId,
+              `DubDub22_Dealer_Docs_${companyName.replace(/[^a-zA-Z0-9]/g, "_")}.zip`,
+              zipBase64,
+              "Dealer registration package — FFL, SOT, Tax Form, State Resale Cert"
+            ).catch((e: any) => console.error("fastbound_zip_upload_error", e));
+          }
         }
       } catch (e) {
         console.error("register_email_setup_error", e);
