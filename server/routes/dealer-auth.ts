@@ -478,14 +478,55 @@ export function registerDealerAuthRoutes(app: Express) {
         console.error("fastbound_contact_create_error", e);
       }
 
-      // 6. Send emails (non-blocking)
+      // 6. Send emails (non-blocking) — bundle all docs into one ZIP
       try {
         const { sendViaGmail } = await import("../routes.js");
+        const archiver = (await import("archiver")).default;
         const dealerEmail = email || "";
 
-        // Email 1: Notify docs@dubdub22.com with completed tax form attached
-        if (dealerEmail) {
-          const emailOpts: any = {
+        // Build ZIP with all documents
+        let zipBase64: string | null = null;
+        const zipFiles: { name: string; data: string | null }[] = [
+          { name: `TaxForm_${companyName}.pdf`, data: filledTaxFormBase64 },
+          { name: fflFileName || "FFL.pdf", data: fflFileData || null },
+          { name: sotFileName || "SOT.pdf", data: sotFileData || null },
+          { name: stateDocFileName || "StateTaxDoc.pdf", data: stateDocFileData || null },
+        ];
+
+        const validFiles = zipFiles.filter(f => f.data);
+        if (validFiles.length > 0) {
+          const archive = archiver("zip", { zlib: { level: 9 } });
+          const chunks: Buffer[] = [];
+          archive.on("data", (chunk: Buffer) => chunks.push(chunk));
+          const zipPromise = new Promise<string>((resolve) => {
+            archive.on("end", () => resolve(Buffer.concat(chunks).toString("base64")));
+          });
+          for (const f of validFiles) {
+            archive.append(Buffer.from(f.data!, "base64"), { name: f.name.replace(/[^a-zA-Z0-9._-]/g, "_") });
+          }
+          archive.finalize();
+          zipBase64 = await zipPromise;
+        }
+
+        // Email 1: Dealer gets ZIP with all docs
+        if (dealerEmail && zipBase64) {
+          sendViaGmail({
+            to: dealerEmail,
+            from: "docs@dubdub22.com",
+            subject: "YOUR DUBDUB22 DEALER DOCUMENTS",
+            text: `FOR YOUR RECORDS. All dealer registration documents for ${companyName} are attached as a ZIP file. Thank you, DubDub22`,
+            attachment: {
+              filename: `DubDub22_Dealer_Docs_${companyName.replace(/[^a-zA-Z0-9]/g, "_")}.zip`,
+              base64Data: zipBase64,
+              contentType: "application/zip",
+            },
+          }).then(() => console.log("dealer_zip_email_sent", dealerEmail))
+            .catch((e: any) => console.error("dealer_zip_email_error", e));
+        }
+
+        // Email 2: docs@ gets ZIP with all docs + summary
+        if (zipBase64) {
+          sendViaGmail({
             to: "docs@dubdub22.com",
             from: "docs@dubdub22.com",
             subject: `DEALER DOC PACKAGE - ${companyName}`,
@@ -497,25 +538,15 @@ Email: ${dealerEmail}
 Phone: ${phone || "N/A"}
 Address: ${[address, city, state, zip].filter(Boolean).join(", ")}
 EIN: ${formattedEin || "N/A"}
-Edited fields: ${(fieldsEdited || []).join(", ") || "None"}
 
-Documents received:
-- FFL License: ${fflFileData ? "Attached" : "Not provided"}
-- SOT License: ${sotFileData || fflHasSot ? "Attached" : "Not provided"}
-- Multi-State Tax Form: Attached (see PDF)
-- State Tax ID Document: ${stateDocFileData ? "Attached" : "Not provided"}
-
-Tax ID Numbers: ${(stateTaxIds || []).map((s: any) => `${s.state}: ${s.taxId}`).join(", ") || "None"}
-
-Review in admin dashboard: https://dubdub22.com/admin`,
-          };
-          if (filledTaxFormBase64) {
-            emailOpts.attachment = {
-              filename: `multi_state_tax_form_${companyName.replace(/[^a-zA-Z0-9]/g, "_")}.pdf`,
-              base64Data: filledTaxFormBase64,
-              contentType: "application/pdf",
-            };
-          }
+All documents attached as ZIP. Review in admin: https://dubdub22.com/admin`,
+            attachment: {
+              filename: `DubDub22_Dealer_Docs_${companyName.replace(/[^a-zA-Z0-9]/g, "_")}.zip`,
+              base64Data: zipBase64,
+              contentType: "application/zip",
+            },
+          }).catch((e: any) => console.error("docs_zip_email_error", e));
+        }
           sendViaGmail(emailOpts).catch((e: any) => console.error("register_docs_email_error", e));
         }
 
