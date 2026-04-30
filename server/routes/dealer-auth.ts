@@ -329,7 +329,7 @@ export function registerDealerAuthRoutes(app: Express) {
           to: dealer.email,
           bcc: "orders@dubdub22.com",
           from: "orders@dubdub22.com",
-          subject: `Order Confirmation — ${dealer.businessName}`,
+          subject: `Order Confirmation - ${dealer.businessName}`,
           text: `Thank you for your DubDub22 order!
 
 Order Details:
