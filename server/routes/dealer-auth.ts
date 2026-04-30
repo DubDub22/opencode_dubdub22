@@ -431,9 +431,12 @@ export function registerDealerAuthRoutes(app: Express) {
           try { form.getTextField("Authorized Signature").setText(licenseName || companyName || ""); } catch {}
         }
 
+        // Flatten the form so fields become non-editable
+        form.flatten();
+
         // Remove extra pages (keep only page 1)
         while (pdfDoc.getPageCount() > 1) {
-          pdfDoc.removePage(1); // remove pages after the first
+          pdfDoc.removePage(1);
         }
 
         const filledPdf = await pdfDoc.save();
