@@ -3125,9 +3125,13 @@ function FFLUpdatePanel() {
               </a>{" → Select {mm}/{yy} → Apply → Download CSV → Drop below"}
             </p>
             <div className="flex gap-2 items-center">
-              <label className={`flex-1 flex items-center justify-center border-2 border-dashed rounded p-2 cursor-pointer text-sm transition-colors ${file ? "border-green-500/50 bg-green-500/5" : "border-border hover:border-primary/40 bg-card"}`}>
+              <label
+                className={`flex-1 flex items-center justify-center border-2 border-dashed rounded p-3 cursor-pointer text-sm transition-colors ${file ? "border-green-500/50 bg-green-500/5" : "border-border hover:border-primary/40 bg-card"}`}
+                onDragOver={e => { e.preventDefault(); e.stopPropagation(); }}
+                onDrop={e => { e.preventDefault(); e.stopPropagation(); const f = e.dataTransfer.files?.[0]; if (f?.name.endsWith(".csv")) setFile(f); }}
+              >
                 <input type="file" accept=".csv" className="sr-only" onChange={e => setFile(e.target.files?.[0] || null)} />
-                {file ? <span className="text-green-500">{file.name}</span> : <span className="text-muted-foreground">Drop CSV file or click to browse</span>}
+                {file ? <span className="text-green-500">{file.name}</span> : <span className="text-muted-foreground">Drop CSV here or click to browse</span>}
               </label>
               <Button size="sm" onClick={doUpdate} disabled={status === "loading" || !file} className="shrink-0 h-8">
                 {status === "loading" ? <Loader2 className="w-4 h-4 animate-spin" /> : "Update"}
