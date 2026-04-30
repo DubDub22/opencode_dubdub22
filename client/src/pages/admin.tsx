@@ -3094,9 +3094,6 @@ function FFLUpdatePanel() {
     }
   }
 
-  const mm = String(new Date(new Date().setMonth(new Date().getMonth() - 1)).getMonth() + 1).padStart(2, "0");
-  const yy = String(new Date(new Date().setMonth(new Date().getMonth() - 1)).getFullYear()).slice(2);
-
   return (
     <Card className={`${overdue ? "border-red-500/50 bg-red-500/5" : "bg-card/30"} border-border transition-colors`}>
       <CardContent className="p-3">
