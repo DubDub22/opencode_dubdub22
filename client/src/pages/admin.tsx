@@ -3021,6 +3021,76 @@ function FilesTab() {
   );
 }
 
+// ═══ FFL Update Panel ══════════════════════════════════════════════
+
+function FFLUpdatePanel() {
+  const [url, setUrl] = useState("");
+  const [status, setStatus] = useState<"idle" | "loading" | "done">("idle");
+  const [output, setOutput] = useState("");
+  const [expanded, setExpanded] = useState(false);
+
+  async function doUpdate() {
+    if (!url.trim()) return;
+    setStatus("loading");
+    setOutput("");
+    try {
+      const resp = await fetch("/api/admin/update-ffl", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: url.trim() }),
+      });
+      const data = await resp.json();
+      setOutput(data.output || data.error || "Done");
+      setStatus("done");
+    } catch (e: any) {
+      setOutput(e.message);
+      setStatus("idle");
+    }
+  }
+
+  const mm = String(new Date(new Date().setMonth(new Date().getMonth() - 1)).getMonth() + 1).padStart(2, "0");
+  const yy = String(new Date(new Date().setMonth(new Date().getMonth() - 1)).getFullYear()).slice(2);
+
+  return (
+    <Card className="bg-card/30 border-border">
+      <CardContent className="p-3">
+        <div className="flex items-center justify-between cursor-pointer" onClick={() => setExpanded(!expanded)}>
+          <span className="text-sm font-medium flex items-center gap-2">
+            <RefreshCw className="w-4 h-4 text-muted-foreground" />
+            System: Update FFL Database
+          </span>
+          <ChevronRight className={`w-4 h-4 text-muted-foreground transition-transform ${expanded ? "rotate-90" : ""}`} />
+        </div>
+        {expanded && (
+          <div className="mt-3 space-y-2">
+            <p className="text-xs text-muted-foreground">
+              Paste the ATF download URL for month {mm}/{yy}.
+              <br />
+              <a href="https://www.atf.gov/firearms/listing-federal-firearms-licensees" target="_blank" className="text-primary hover:underline">
+                Open ATF FFL Listing page →
+              </a>{" → Select {mm}/{yy} → Apply → Copy CSV link"}
+            </p>
+            <div className="flex gap-2">
+              <Input
+                value={url}
+                onChange={e => setUrl(e.target.value)}
+                placeholder={`Paste ATF CSV download URL for ${mm}/${yy}...`}
+                className="bg-background text-sm h-8"
+              />
+              <Button size="sm" onClick={doUpdate} disabled={status === "loading" || !url.trim()} className="shrink-0 h-8">
+                {status === "loading" ? <Loader2 className="w-4 h-4 animate-spin" /> : "Update"}
+              </Button>
+            </div>
+            {output && (
+              <pre className="text-xs text-muted-foreground bg-muted/50 p-2 rounded max-h-32 overflow-auto">{output}</pre>
+            )}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 // ── Main AdminPage ─────────────────────────────────────────────────────────────
 
 export default function AdminPage() {
@@ -3303,8 +3373,13 @@ export default function AdminPage() {
         {/* Header */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
           <h1 className="text-2xl md:text-3xl font-bold font-display text-primary">Admin Dashboard</h1>
-          <Button variant="outline" size="sm" onClick={onLogout}>Logout</Button>
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={onLogout}>Logout</Button>
+          </div>
         </div>
+
+        {/* FFL Update */}
+        <FFLUpdatePanel />
 
         {/* Tabs */}
         <div className="flex gap-1 border-b border-border overflow-x-auto">

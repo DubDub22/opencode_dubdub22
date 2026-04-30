@@ -8,6 +8,7 @@ import path from "path";
 import { fileURLToPath } from "url";
 
 const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 import { registerDealerAuthRoutes } from "./routes/dealer-auth";
 import { registerAdminAuthRoutes, requireAdmin as newRequireAdmin } from "./routes/admin-auth";
 const __dirname = path.dirname(__filename);
@@ -4096,7 +4097,29 @@ print(pdf_path)
     }
   });
 
-  // â”€â”€ FastBound: Get inventory items (DubDub22 suppressors)
+  // ── FFL Database Update (admin paste ATF download URL) ─────────────
+  app.post("/api/admin/update-ffl", requireAdmin, async (req, res) => {
+    try {
+      const { url } = req.body || {};
+      if (!url) return res.status(400).json({ ok: false, error: "url_required" });
+
+      // Run the update script
+      const scriptPath = path.resolve(__dirname, "..", "scripts", "update-ffl.mjs");
+      const result = execFileSync("node", [scriptPath, url], {
+        encoding: "utf8",
+        timeout: 120000,
+        env: { ...process.env, DATABASE_URL: process.env.DATABASE_URL || "" },
+      });
+
+      // Restart the FFL master in memory (server will pick up the new CSV on next restart)
+      return res.json({ ok: true, output: result });
+    } catch (err: any) {
+      console.error("update_ffl_error", err);
+      return res.status(500).json({ ok: false, error: err.stderr || err.stdout || err.message });
+    }
+  });
+
+  // ── FastBound: Get inventory items (DubDub22 suppressors) ─────────
   app.get("/api/admin/fastbound/inventory", requireAdmin, async (req, res) => {
     try {
       const limit = req.query.limit ? parseInt(req.query.limit as string) : 100;
