@@ -468,7 +468,7 @@ function SubmissionsTab({
                 onRequestDocs={() => setRequestDocsTarget(sub)}
                 onForm3Submitted={() => setForm3SubmittedTarget(sub)}
                 onPaid={() => setPaidTarget(sub)}
-            onFastBoundPending={() => openFastBoundDialog(sub)}
+            onFastBoundPending={() => { setFastBoundTarget(sub); setSerialInput(""); setAvailableSerials([]); }}
                 onForm3Approved={() => setForm3Target(sub)} />)}
           </tbody>
         </table>
