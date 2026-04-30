@@ -3024,8 +3024,8 @@ function FilesTab() {
 // ═══ FFL Update Panel ══════════════════════════════════════════════
 
 function FFLUpdatePanel() {
-  const [url, setUrl] = useState("");
-  const [status, setStatus] = useState<"idle" | "loading" | "done">("idle");
+  const [file, setFile] = useState(null);
+  const [status, setStatus] = useState("idle");
   const [output, setOutput] = useState("");
   const [expanded, setExpanded] = useState(false);
   const [overdue, setOverdue] = useState(false);
@@ -3036,19 +3036,43 @@ function FFLUpdatePanel() {
   const prevLabel = prevMonth.toLocaleString("en-US", { month: "long", year: "numeric" });
 
   useEffect(() => {
-    // Check if overdue: after the 5th and CSV is from before current expected month
     const today = new Date();
-    fetch("/api/admin/check-auth").then(() => {
-      // Use the CSV file date from the server
-      fetch("/api/admin/ffl-csv-date").then(r => r.json()).then(d => {
-        if (d.ok && d.updatedAt) {
-          const csvDate = new Date(d.updatedAt);
-          const expectedEnd = new Date(today.getFullYear(), today.getMonth() - 1, 5);
-          // Overdue if today is after the 5th of previous month and CSV is older
-          if (today.getDate() >= 5 && csvDate < expectedEnd) {
-            setOverdue(true);
-            setExpanded(true); // Auto-expand if overdue
-          }
+    fetch("/api/admin/ffl-csv-date").then(r => r.json()).then(d => {
+      if (d.ok && d.updatedAt) {
+        const csvDate = new Date(d.updatedAt);
+        const expectedEnd = new Date(today.getFullYear(), today.getMonth() - 1, 5);
+        if (today.getDate() >= 5 && csvDate < expectedEnd) {
+          setOverdue(true);
+          setExpanded(true);
+        }
+      }
+    }).catch(() => {});
+  }, []);
+
+  async function doUpdate() {
+    if (!file) return;
+    setStatus("loading");
+    setOutput("");
+    try {
+      const base64 = await new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result.split(",")[1]);
+        reader.readAsDataURL(file);
+      });
+      const resp = await fetch("/api/admin/update-ffl", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fileData: base64, fileName: file.name }),
+      });
+      const data = await resp.json();
+      setOutput(data.output || data.error || "Done");
+      setStatus("done");
+      setOverdue(false);
+    } catch (e) {
+      setOutput(e.message);
+      setStatus("idle");
+    }
+  }
         }
       }).catch(() => {});
     }).catch(() => {});
@@ -3101,20 +3125,18 @@ function FFLUpdatePanel() {
               </p>
             )}
             <p className="text-xs text-muted-foreground">
-              Paste the ATF download URL for month {mm}/{yy} ({prevLabel}).
+              Upload the ATF FFL CSV file for {prevLabel} ({mm}/{yy}).
               <br />
               <a href="https://www.atf.gov/firearms/listing-federal-firearms-licensees" target="_blank" className="text-primary hover:underline">
-                Open ATF FFL Listing page →
-              </a>{" → Select {mm}/{yy} → Apply → Copy CSV link"}
+                Download from ATF →
+              </a>{" → Select {mm}/{yy} → Apply → Download CSV → Drop below"}
             </p>
-            <div className="flex gap-2">
-              <Input
-                value={url}
-                onChange={e => setUrl(e.target.value)}
-                placeholder={`Paste ATF CSV download URL for ${mm}/${yy}...`}
-                className="bg-background text-sm h-8"
-              />
-              <Button size="sm" onClick={doUpdate} disabled={status === "loading" || !url.trim()} className="shrink-0 h-8">
+            <div className="flex gap-2 items-center">
+              <label className={`flex-1 flex items-center justify-center border-2 border-dashed rounded p-2 cursor-pointer text-sm transition-colors ${file ? "border-green-500/50 bg-green-500/5" : "border-border hover:border-primary/40 bg-card"}`}>
+                <input type="file" accept=".csv" className="sr-only" onChange={e => setFile(e.target.files?.[0] || null)} />
+                {file ? <span className="text-green-500">{file.name}</span> : <span className="text-muted-foreground">Drop CSV file or click to browse</span>}
+              </label>
+              <Button size="sm" onClick={doUpdate} disabled={status === "loading" || !file} className="shrink-0 h-8">
                 {status === "loading" ? <Loader2 className="w-4 h-4 animate-spin" /> : "Update"}
               </Button>
             </div>

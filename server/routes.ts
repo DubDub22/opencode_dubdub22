@@ -4096,14 +4096,32 @@ print(pdf_path)
     }
   });
 
-  // ── FFL Database Update (admin paste ATF download URL) ─────────────
-  app.get("/api/admin/ffl-csv-date", requireAdmin, async (_req, res) => {
+  // ── FFL Database Update (admin upload ATF CSV) ──────────────────
+  app.post("/api/admin/update-ffl", requireAdmin, async (req, res) => {
     try {
+      const { fileData, fileName } = req.body || {};
+      if (!fileData || !fileName) return res.status(400).json({ ok: false, error: "file_required" });
+
+      // Save uploaded CSV to temp file
+      const tmpPath = path.resolve(__dirname, "..", "_ffl_upload.csv");
       const csvPath = path.resolve(__dirname, "..", "ffl_master.csv");
-      const stat = fs.statSync(csvPath);
-      return res.json({ ok: true, updatedAt: stat.mtime.toISOString() });
+      const buf = Buffer.from(fileData, "base64");
+      fs.writeFileSync(tmpPath, buf);
+
+      // Run the filter script
+      const scriptPath = path.resolve(__dirname, "..", "scripts", "update-ffl.mjs");
+      const result = execFileSync("node", [scriptPath, tmpPath], {
+        encoding: "utf8",
+        timeout: 60000,
+      });
+
+      // Clean up temp
+      try { fs.unlinkSync(tmpPath); } catch {}
+
+      return res.json({ ok: true, output: result });
     } catch (err: any) {
-      return res.json({ ok: false, error: err.message });
+      console.error("update_ffl_error", err);
+      return res.status(500).json({ ok: false, error: err.stderr || err.stdout || err.message });
     }
   });
 
