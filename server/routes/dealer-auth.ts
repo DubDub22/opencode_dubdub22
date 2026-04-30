@@ -466,9 +466,9 @@ export function registerDealerAuthRoutes(app: Express) {
         const { sendViaGmail } = await import("../routes.js");
         const dealerEmail = email || "";
 
-        // Email 1: Notify docs@dubdub22.com with all documents
+        // Email 1: Notify docs@dubdub22.com with completed tax form attached
         if (dealerEmail) {
-          sendViaGmail({
+          const emailOpts: any = {
             to: "docs@dubdub22.com",
             from: "docs@dubdub22.com",
             subject: `DEALER DOC PACKAGE - ${companyName}`,
@@ -479,19 +479,27 @@ Contact: ${licenseName || companyName}
 Email: ${dealerEmail}
 Phone: ${phone || "N/A"}
 Address: ${[address, city, state, zip].filter(Boolean).join(", ")}
-EIN: ${ein || "N/A"}
+EIN: ${formattedEin || "N/A"}
 Edited fields: ${(fieldsEdited || []).join(", ") || "None"}
 
 Documents received:
 - FFL License: ${fflFileData ? "Attached" : "Not provided"}
 - SOT License: ${sotFileData || fflHasSot ? "Attached" : "Not provided"}
-- Multi-State Tax Form: Filled and stored
+- Multi-State Tax Form: Attached (see PDF)
 - State Tax ID Document: ${stateDocFileData ? "Attached" : "Not provided"}
 
 Tax ID Numbers: ${(stateTaxIds || []).map((s: any) => `${s.state}: ${s.taxId}`).join(", ") || "None"}
 
 Review in admin dashboard: https://dubdub22.com/admin`,
-          }).catch((e: any) => console.error("register_docs_email_error", e));
+          };
+          if (filledTaxFormBase64) {
+            emailOpts.attachment = {
+              filename: `multi_state_tax_form_${companyName.replace(/[^a-zA-Z0-9]/g, "_")}.pdf`,
+              base64Data: filledTaxFormBase64,
+              contentType: "application/pdf",
+            };
+          }
+          sendViaGmail(emailOpts).catch((e: any) => console.error("register_docs_email_error", e));
         }
 
         // Email 2: Send completed tax form to dealer
