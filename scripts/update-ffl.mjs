@@ -31,7 +31,7 @@ const BANNED_TYPES = new Set(["03", "06"]);
 
 // ═══ CSV Parser ═════════════════════════════════════════════════════
 
-function parseCSV(line: string): string[] {
+function parseCSV(line) {
   const fields: string[] = [];
   let current = "";
   let inQuotes = false;
@@ -44,7 +44,7 @@ function parseCSV(line: string): string[] {
   return fields;
 }
 
-function shouldInclude(state: string, fflType: string): boolean {
+function shouldInclude(state, fflType) {
   if (BANNED_STATES.has(state) || TERRITORIES.has(state)) return false;
   if (BANNED_TYPES.has(fflType)) return false;
   return true;
