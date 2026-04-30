@@ -290,9 +290,10 @@ export function registerDealerAuthRoutes(app: Express) {
 
       const orderTypeLabel = orderType === "demo" ? "demo_order" : "dealer_order";
       const qty = orderType === "demo" ? 1 : parseInt(quantity) || 5;
-      const unitPrice = orderType === "demo" ? 0 : 99;
+      const unitPrice = 60;
       const subtotal = qty * unitPrice;
-      const shipping = orderType === "demo" ? 0 : 15;
+      const shipping = 10;
+      const total = subtotal + shipping;
 
       // Create submission
       const subResult = await pool.query(
@@ -320,6 +321,32 @@ export function registerDealerAuthRoutes(app: Express) {
       if (orderType === "demo") {
         await db.update(dealers).set({ hasDemoUnitShipped: true } as any).where(eq(dealers.id, dealerId));
       }
+
+      // Send order confirmation email
+      try {
+        const { sendViaGmail } = await import("../routes.js");
+        sendViaGmail({
+          to: dealer.email,
+          bcc: "orders@dubdub22.com",
+          from: "orders@dubdub22.com",
+          subject: `Order Confirmation — ${dealer.businessName}`,
+          text: `Thank you for your DubDub22 order!
+
+Order Details:
+  Type: ${orderType === "demo" ? "Demo Unit" : "Stocking Order"}
+  Quantity: ${qty}
+  Unit Price: $${unitPrice.toFixed(2)}
+  Subtotal: $${subtotal.toFixed(2)}
+  Shipping: $${shipping.toFixed(2)}
+  Total: $${total.toFixed(2)}
+
+Your order will be reviewed and processed. You will receive tracking information once shipped.
+
+Questions? Email orders@dubdub22.com
+
+— DubDub22 / Double T Tactical`,
+        }).catch((e: any) => console.error("order_confirmation_email_error", e));
+      } catch {}
 
       return res.json({ ok: true, submissionId, orderType: orderTypeLabel });
     } catch (err: any) {
