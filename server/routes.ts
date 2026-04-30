@@ -8,7 +8,6 @@ import path from "path";
 import { fileURLToPath } from "url";
 
 const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 import { registerDealerAuthRoutes } from "./routes/dealer-auth";
 import { registerAdminAuthRoutes, requireAdmin as newRequireAdmin } from "./routes/admin-auth";
 const __dirname = path.dirname(__filename);
