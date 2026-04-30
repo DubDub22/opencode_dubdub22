@@ -15,6 +15,7 @@ export default function DealerOrderPage() {
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [showTerms, setShowTerms] = useState(false);
 
   useEffect(() => {
     fetch("/api/dealer/auth/me")
@@ -161,9 +162,44 @@ export default function DealerOrderPage() {
         <span>I understand that all NFA rules apply. Suppressors must be transferred on an approved ATF Form 3 (dealer-to-dealer) or Form 4 (individual). The buyer is responsible for all transfer taxes and compliance. Orders subject to availability.</span>
       </label>
 
-      <Button onClick={handleSubmit} disabled={submitting || !termsAccepted || !canOrder} className="w-full font-display text-lg h-12 bg-primary hover:bg-primary/90">
+      <Button onClick={() => setShowTerms(true)} disabled={submitting || !termsAccepted || !canOrder} className="w-full font-display text-lg h-12 bg-primary hover:bg-primary/90">
         {submitting ? <Loader2 className="w-5 h-5 animate-spin" /> : !canOrder ? "Order Blocked — Expired Documents" : orderType === "demo" ? "Request Demo Unit" : `Place Order — $${total.toFixed(2)}`}
       </Button>
+
+      {/* Terms & Conditions Modal */}
+      {showTerms && (
+        <div className="fixed inset-0 bg-background/80 flex items-center justify-center z-50 p-4" onClick={() => setShowTerms(false)}>
+          <div className="bg-card border border-border rounded-lg max-w-lg w-full max-h-[80vh] overflow-y-auto p-6" onClick={e => e.stopPropagation()}>
+            <h2 className="text-xl font-display font-bold mb-4">Terms &amp; Conditions</h2>
+            <div className="space-y-4 text-sm text-muted-foreground mb-6">
+              <div>
+                <h3 className="font-semibold text-foreground mb-1">No Returns on Suppressors</h3>
+                <p>Suppressors are regulated by the ATF and cannot be returned once sold. All suppressor sales are final.</p>
+              </div>
+              <div>
+                <h3 className="font-semibold text-foreground mb-1">Restocking Fee</h3>
+                <p>Any order cancelled after processing is subject to a 10% restocking fee to cover ATF Form 3 transfer and administrative processing.</p>
+              </div>
+              <div>
+                <h3 className="font-semibold text-foreground mb-1">NFA Compliance</h3>
+                <p>All NFA rules apply. Suppressors must be transferred on an approved ATF Form 3 (dealer-to-dealer) or Form 4 (individual). Buyer is responsible for all transfer taxes and compliance.</p>
+              </div>
+              <div>
+                <h3 className="font-semibold text-foreground mb-1">Shipping</h3>
+                <p>Orders ship via USPS Priority Mail with tracking. Shipping and handling is $10 flat rate per order.</p>
+              </div>
+              <div>
+                <h3 className="font-semibold text-foreground mb-1">Demo Units</h3>
+                <p>Limit 1 demo unit per FFL. Demo units require the same ATF transfer process as stocking orders.</p>
+              </div>
+            </div>
+            <div className="flex gap-3">
+              <Button onClick={() => setShowTerms(false)} variant="outline" className="flex-1">Cancel</Button>
+              <Button onClick={() => { setShowTerms(false); handleSubmit(); }} className="flex-1 bg-primary hover:bg-primary/90">I Accept — Place Order</Button>
+            </div>
+          </div>
+        </div>
+      )}
     </section></div>
   );
 }
