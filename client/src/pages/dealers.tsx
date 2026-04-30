@@ -9,7 +9,7 @@ export default function DealersPage() {
   const { toast } = useToast();
   const [fflSegs, setFflSegs] = useState(["", "", "", "", "", ""]);
   const [status, setStatus] = useState<"idle" | "checking" | "success" | "not-found">("idle");
-  const [dealerName, setDealerName] = useState("");
+  const [tradeName, setTradeName] = useState("");
   const [fflError, setFflError] = useState("");
 
   async function handleVerify(e: React.FormEvent) {
@@ -29,10 +29,20 @@ export default function DealersPage() {
       });
       const data = await resp.json();
       if (data.valid) {
-        setTradeName(data.tradeName || data.dealerName || "");
+        setTradeName(data.tradeName || "");
         setStatus("success");
+        const params = new URLSearchParams({
+          ffl: fullFfl,
+          name: data.tradeName || "",
+          email: data.email || "",
+          phone: data.voicePhone || data.phone || "",
+          address: data.premiseAddress1 || "",
+          city: data.premiseCity || "",
+          state: data.premiseState || "",
+          zip: data.premiseZipCode || "",
+        });
         setTimeout(() => {
-          window.location.href = `/apply?ffl=${encodeURIComponent(fullFfl)}`;
+          window.location.href = `/apply?${params.toString()}`;
         }, 1500);
       } else {
         setStatus("not-found");
@@ -48,15 +58,14 @@ export default function DealersPage() {
 
   function handleFflSegChange(idx: number, val: string) {
     const maxLens = [1, 2, 3, 2, 2, 5];
-    const cleaned = val.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, maxLens[idx]);
+    const digits = val.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, maxLens[idx]);
     const next = [...fflSegs];
-    next[idx] = cleaned;
+    next[idx] = digits;
     setFflSegs(next);
-    setFflError("");
-    if (cleaned.length >= maxLens[idx] && idx < 5) {
-      setTimeout(() => {
-        (document.getElementById(`dealer-ffl-seg${idx + 1}`) as HTMLInputElement)?.focus();
-      }, 0);
+    // Auto-advance
+    if (digits.length === maxLens[idx] && idx < 5) {
+      const nextInput = document.getElementById(`ffl-seg-${idx + 1}`) as HTMLInputElement | null;
+      nextInput?.focus();
     }
   }
 
@@ -93,69 +102,69 @@ export default function DealersPage() {
               </label>
               <div className="flex items-center justify-center gap-1 font-mono text-sm">
                 <input
-                  key="dealer-ffl-seg0"
+                  key="ffl-seg0"
                   type="text"
                   maxLength={1}
                   value={fflSegs[0]}
                   onChange={e => handleFflSegChange(0, e.target.value)}
                   className="w-8 h-12 border border-border rounded bg-card text-center text-center uppercase text-lg focus:border-primary focus:outline-none"
-                  id="dealer-ffl-seg0"
+                  id="ffl-seg0"
                   placeholder="X"
                   autoFocus
                 />
                 <span className="text-muted-foreground mx-0.5">-</span>
                 <input
-                  key="dealer-ffl-seg1"
+                  key="ffl-seg1"
                   type="text"
                   maxLength={2}
                   value={fflSegs[1]}
                   onChange={e => handleFflSegChange(1, e.target.value)}
                   className="w-10 h-12 border border-border rounded bg-card text-center text-center uppercase text-lg focus:border-primary focus:outline-none"
-                  id="dealer-ffl-seg1"
+                  id="ffl-seg1"
                   placeholder="XX"
                 />
                 <span className="text-muted-foreground mx-0.5">-</span>
                 <input
-                  key="dealer-ffl-seg2"
+                  key="ffl-seg2"
                   type="text"
                   maxLength={3}
                   value={fflSegs[2]}
                   onChange={e => handleFflSegChange(2, e.target.value)}
                   className="w-12 h-12 border border-border rounded bg-card text-center text-center uppercase text-lg focus:border-primary focus:outline-none"
-                  id="dealer-ffl-seg2"
+                  id="ffl-seg2"
                   placeholder="XXX"
                 />
                 <span className="text-muted-foreground mx-0.5">-</span>
                 <input
-                  key="dealer-ffl-seg3"
+                  key="ffl-seg3"
                   type="text"
                   maxLength={2}
                   value={fflSegs[3]}
                   onChange={e => handleFflSegChange(3, e.target.value)}
                   className="w-10 h-12 border border-border rounded bg-card text-center text-center uppercase text-lg focus:border-primary focus:outline-none"
-                  id="dealer-ffl-seg3"
+                  id="ffl-seg3"
                   placeholder="XX"
                 />
                 <span className="text-muted-foreground mx-0.5">-</span>
                 <input
-                  key="dealer-ffl-seg4"
+                  key="ffl-seg4"
                   type="text"
                   maxLength={2}
                   value={fflSegs[4]}
                   onChange={e => handleFflSegChange(4, e.target.value)}
                   className="w-10 h-12 border border-border rounded bg-card text-center text-center uppercase text-lg focus:border-primary focus:outline-none"
-                  id="dealer-ffl-seg4"
+                  id="ffl-seg4"
                   placeholder="XX"
                 />
                 <span className="text-muted-foreground mx-0.5">-</span>
                 <input
-                  key="dealer-ffl-seg5"
+                  key="ffl-seg5"
                   type="text"
                   maxLength={5}
                   value={fflSegs[5]}
                   onChange={e => handleFflSegChange(5, e.target.value)}
                   className="w-14 h-12 border border-border rounded bg-card text-center text-center uppercase text-lg focus:border-primary focus:outline-none"
-                  id="dealer-ffl-seg5"
+                  id="ffl-seg5"
                   placeholder="XXXXX"
                 />
               </div>
@@ -190,7 +199,7 @@ export default function DealersPage() {
                 <CheckCircle className="w-5 h-5" />
                 FFL Verified — Loading Dealer Portal...
               </div>
-              {dealerName && <p className="text-sm text-muted-foreground mt-1">{dealerName}</p>}
+              {tradeName && <p className="text-sm text-muted-foreground mt-1">{tradeName}</p>}
             </motion.div>
           )}
 

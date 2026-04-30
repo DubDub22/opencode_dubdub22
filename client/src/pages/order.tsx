@@ -72,14 +72,14 @@ export default function OrderPage() {
         const d = data.data;
         form.reset({
           ...form.getValues(),
-          contactName: form.getValues("contactName") || d.contactName || d.businessName || "",
+          contactName: form.getValues("contactName") || d.licenseName || d.tradeName || "",
           email: form.getValues("email") || d.email || "",
           confirmEmail: form.getValues("confirmEmail") || d.email || "",
           phone: form.getValues("phone") || d.phone || "",
-          customerAddress: form.getValues("customerAddress") || d.address || "",
-          customerCity: form.getValues("customerCity") || d.city || "",
-          customerState: form.getValues("customerState") || d.state || "",
-          customerZip: form.getValues("customerZip") || d.zip || "",
+          customerAddress: form.getValues("customerAddress") || d.premiseAddress1 || "",
+          customerCity: form.getValues("customerCity") || d.premiseCity || "",
+          customerState: form.getValues("customerState") || d.premiseState || "",
+          customerZip: form.getValues("customerZip") || d.premiseZipCode || "",
         });
       })
       .catch(() => {});

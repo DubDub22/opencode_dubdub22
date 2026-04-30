@@ -571,7 +571,7 @@ function PendingUpload(props: { fflNumber: string }) {
 
 // ─── Dealer Form (verified FFL — place order or inquiry) ───────────────────────
 
-function DealerForm(props: { fflNumber: string; dealerName?: string; email?: string; phone?: string; address?: string; city?: string; state?: string; zip?: string }) {
+function DealerForm(props: { fflNumber: string; tradeName?: string; email?: string; phone?: string; premiseAddress1?: string; premiseCity?: string; premiseState?: string; premiseZipCode?: string }) {
   const { toast } = useToast();
   const [orderKind, setOrderKind] = useState<"inquiry" | "demo" | "stocking">("inquiry");
   const [quantityCans, setQuantityCans] = useState("5");
@@ -582,6 +582,21 @@ function DealerForm(props: { fflNumber: string; dealerName?: string; email?: str
   const [fflFile, setFflFile] = useState<File | null>(null);
   const [sotFile, setSotFile] = useState<File | null>(null);
 
+  // FFL segment state for 6-part FFL entry
+  const [fflSegs, setFflSegs] = useState<string[]>(() => {
+    const parts = props.fflNumber.split("-");
+    return [
+      parts[0] || "", parts[1] || "", parts[2] || "",
+      parts[3] || "", parts[4] || "", parts[5] || ""
+    ];
+  });
+
+  function handleFflSegChange(idx: number, val: string) {
+    const next = [...fflSegs];
+    next[idx] = val.toUpperCase().replace(/[^A-Z0-9]/g, "");
+    setFflSegs(next);
+  }
+
   // Check if dealer already received a demo unit — if so, hide the demo option
   React.useEffect(() => {
     if (!props.email) return;
@@ -590,57 +605,13 @@ function DealerForm(props: { fflNumber: string; dealerName?: string; email?: str
       .then(data => {
         if (data.hasShippedDemo) {
           setHasDemoUnitShipped(true);
-          // If demo was selected, fall back to inquiry
           setOrderKind("inquiry");
         }
       })
       .catch(() => {});
   }, [props.email]);
 
-  // Parse FFL number into 6 segments for display/editing
-  // Handles both dashed ("1-66-075-01-8B-00358") and raw 15-digit ("166075018B00358") formats
-  const parseFflSegments = (ffl: string): string[] => {
-    if (ffl.includes("-")) {
-      // Has dashes — split directly
-      const parts = ffl.split("-");
-      return [
-        parts[0] || "",
-        parts[1] || "",
-        parts[2] || "",
-        parts[3] || "",
-        parts[4] || "",
-        parts[5] || "",
-      ];
-    }
-    // Raw 15-digit — parse by position (ATF format: X-XX-XXX-XX-XX-XXXXX)
-    return [
-      ffl.slice(0, 1)  || "",
-      ffl.slice(1, 3)  || "",
-      ffl.slice(3, 6)  || "",
-      ffl.slice(6, 8)  || "",
-      ffl.slice(8, 10) || "",
-      ffl.slice(10, 15) || "",
-    ];
-  };
-
-  const [fflSegs, setFflSegs] = useState<string[]>(() => parseFflSegments(props.fflNumber));
-
-  function handleFflSegChange(idx: number, val: string) {
-    const cleaned = val.toUpperCase().replace(/[^A-Z0-9]/g, "");
-    const maxLens = [1, 2, 3, 2, 2, 5];
-    const capped = cleaned.slice(0, maxLens[idx]);
-    const next = [...fflSegs];
-    next[idx] = capped;
-    setFflSegs(next);
-    // Auto-advance focus
-    if (capped.length >= maxLens[idx] && idx < 5) {
-      setTimeout(() => {
-        (document.getElementById(`df-seg${idx + 1}`) as HTMLInputElement)?.focus();
-      }, 0);
-    }
-  }
-
-    // Auto-fill from dealer profile API after FFL verification
+  // Auto-fill from dealer profile API after FFL verification
   React.useEffect(() => {
     if (!props.fflNumber) return;
     fetch(`/api/dealer/profile?ffl=${encodeURIComponent(props.fflNumber)}`)
@@ -648,18 +619,17 @@ function DealerForm(props: { fflNumber: string; dealerName?: string; email?: str
       .then(data => {
         if (!data.ok || !data.data) return;
         const d = data.data;
-        // Only auto-fill empty fields to avoid overwriting user edits
         const current = form.getValues();
         form.reset({
-          tradeName: current.tradeName || d.tradeName || props.dealerName || "",
+          tradeName: current.tradeName || d.tradeName || props.tradeName || "",
           licenseName: current.licenseName || d.licenseName || "",
           email: current.email || d.email || props.email || "",
           confirmEmail: current.confirmEmail || d.email || props.email || "",
           contactPhone: current.contactPhone || d.phone || props.phone || "",
-          premiseAddress1: current.premiseAddress1 || d.premiseAddress1 || props.address || "",
-          premiseCity: current.premiseCity || d.premiseCity || props.city || "",
-          premiseState: current.premiseState || d.premiseState || props.state || "",
-          premiseZipCode: current.premiseZipCode || d.premiseZipCode || props.zip || "",
+          premiseAddress1: current.premiseAddress1 || d.premiseAddress1 || props.premiseAddress1 || "",
+          premiseCity: current.premiseCity || d.premiseCity || props.premiseCity || "",
+          premiseState: current.premiseState || d.premiseState || props.premiseState || "",
+          premiseZipCode: current.premiseZipCode || d.premiseZipCode || props.premiseZipCode || "",
           fflExpiry: current.fflExpiry || d.fflExpiryDate || "",
           ein: current.ein || d.ein || "",
           einType: current.einType || d.einType || "",
@@ -671,32 +641,31 @@ function DealerForm(props: { fflNumber: string; dealerName?: string; email?: str
 
   const form = useForm<DealerApplyValues>({
     defaultValues: {
-      dealerName: props.dealerName || "",
-      contactName: "",
+      tradeName: props.tradeName || "",
+      licenseName: "",
       email: props.email || "",
       confirmEmail: "",
       fflExpiry: "",
       ein: "",
       einType: "",
       contactPhone: props.phone || "",
-      address: props.address || "",
-      city: props.city || "",
-      state: props.state || "",
-      zipCode: props.zip || "",
+      premiseAddress1: props.premiseAddress1 || "",
+      premiseCity: props.premiseCity || "",
+      premiseState: props.premiseState || "",
+      premiseZipCode: props.premiseZipCode || "",
       message: "",
     },
   });
 
   async function onSubmit(values: DealerApplyValues) {
-    // Manual validation
-    if (!values.dealerName || values.dealerName.trim().length < 2) { toast({ title: "Validation", description: "Dealer / FFL name must be at least 2 characters", variant: "destructive" }); return; }
-    if (!values.contactName || values.contactName.trim().length < 2) { toast({ title: "Validation", description: "Contact name must be at least 2 characters", variant: "destructive" }); return; }
+    if (!values.tradeName || values.tradeName.trim().length < 2) { toast({ title: "Validation", description: "Trade name must be at least 2 characters", variant: "destructive" }); return; }
+    if (!values.licenseName || values.licenseName.trim().length < 2) { toast({ title: "Validation", description: "License name must be at least 2 characters", variant: "destructive" }); return; }
     if (!values.email || !/^[^@]+@[^@]+\.[^@]+$/.test(values.email)) { toast({ title: "Validation", description: "Valid email is required", variant: "destructive" }); return; }
     if (values.email !== values.confirmEmail) { toast({ title: "Validation", description: "Emails do not match", variant: "destructive" }); return; }
     if (!values.contactPhone || values.contactPhone.replace(/\D/g, "").length < 10) { toast({ title: "Validation", description: "Contact phone is required", variant: "destructive" }); return; }
-    if (!values.city || values.city.trim().length < 2) { toast({ title: "Validation", description: "City is required", variant: "destructive" }); return; }
-    if (!values.state || values.state.trim().length < 2) { toast({ title: "Validation", description: "State is required", variant: "destructive" }); return; }
-    if (!values.zipCode || values.zipCode.trim().length < 5) { toast({ title: "Validation", description: "ZIP code is required", variant: "destructive" }); return; }
+    if (!values.premiseCity || values.premiseCity.trim().length < 2) { toast({ title: "Validation", description: "City is required", variant: "destructive" }); return; }
+    if (!values.premiseState || values.premiseState.trim().length < 2) { toast({ title: "Validation", description: "State is required", variant: "destructive" }); return; }
+    if (!values.premiseZipCode || values.premiseZipCode.trim().length < 5) { toast({ title: "Validation", description: "ZIP code is required", variant: "destructive" }); return; }
     if (!values.einType) { toast({ title: "Validation", description: "EIN type is required (Dealer or Manufacturer)", variant: "destructive" }); return; }
     if (!values.ein || values.ein.trim().length < 2) { toast({ title: "Validation", description: "EIN is required", variant: "destructive" }); return; }
     if (orderKind === "inquiry" && (!values.message || values.message.trim().length < 1)) { toast({ title: "Validation", description: "Message is required", variant: "destructive" }); return; }
@@ -751,9 +720,7 @@ function DealerForm(props: { fflNumber: string; dealerName?: string; email?: str
       const data = await resp.json();
       if (!resp.ok) throw new Error(data.error || "Request failed");
 
-      // Demo / stocking orders → redirect to order confirmation to accept terms
       if (orderKind !== "inquiry") {
-        // File data already uploaded to SFTP via /api/dealer-request — no sessionStorage relay needed
         const qty = quantityCans ? String(quantityCans) : "1";
         const params = new URLSearchParams({
           type: orderKind === "demo" ? "demo" : "stocking",
@@ -771,7 +738,6 @@ function DealerForm(props: { fflNumber: string; dealerName?: string; email?: str
         return;
       }
 
-      // Inquiries show the success screen
       setSubmitted(true);
     } catch (err: any) {
       toast({ title: "Submission Failed", description: err.message, variant: "destructive" });
@@ -790,11 +756,7 @@ function DealerForm(props: { fflNumber: string; dealerName?: string; email?: str
         <p className="text-muted-foreground max-w-md mx-auto">
           Check your spam folder for an email from dubdub22.com.
         </p>
-        <Button
-          onClick={() => window.location.href = "/"}
-          variant="outline"
-          className="mt-4 cursor-pointer"
-        >
+        <Button onClick={() => window.location.href = "/"} variant="outline" className="mt-4 cursor-pointer">
           Return Home
         </Button>
       </div>
@@ -804,7 +766,6 @@ function DealerForm(props: { fflNumber: string; dealerName?: string; email?: str
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-
         {/* ── Order type selector ── */}
         <div className="space-y-3">
           <p className="text-sm font-medium text-muted-foreground">How can we help you today?</p>
@@ -814,21 +775,8 @@ function DealerForm(props: { fflNumber: string; dealerName?: string; email?: str
               { value: "demo", label: "Demo Order", sub: "Order 1 Demo Can", price: "$60" },
               { value: "stocking", label: "Stocking Order", sub: "Order in bulk for your inventory", price: "$60/unit" },
             ].filter(opt => opt.value !== "demo" || !hasDemoUnitShipped).map((opt) => (
-              <label
-                key={opt.value}
-                className={
-                  "flex items-center gap-3 p-4 rounded-lg border cursor-pointer transition-colors " +
-                  (orderKind === opt.value ? "border-primary bg-primary/10" : "border-border hover:border-primary/50")
-                }
-              >
-                <input
-                  type="radio"
-                  name="orderKind"
-                  value={opt.value}
-                  checked={orderKind === opt.value}
-                  onChange={() => setOrderKind(opt.value as typeof orderKind)}
-                  className="accent-primary"
-                />
+              <label key={opt.value} className={"flex items-center gap-3 p-4 rounded-lg border cursor-pointer transition-colors " + (orderKind === opt.value ? "border-primary bg-primary/10" : "border-border hover:border-primary/50")}>
+                <input type="radio" name="orderKind" value={opt.value} checked={orderKind === opt.value} onChange={() => setOrderKind(opt.value as typeof orderKind)} className="accent-primary" />
                 <div className="flex-1">
                   <span className="font-medium">{opt.label}</span>
                   <span className="text-sm text-muted-foreground ml-2">{opt.sub}</span>
@@ -843,82 +791,28 @@ function DealerForm(props: { fflNumber: string; dealerName?: string; email?: str
         <div className="space-y-2">
           <label className="text-sm font-medium">FFL Number</label>
           <div className="flex items-center gap-1 font-mono text-sm">
-            <input
-              key={`df-seg0-${fflSegs[0]}`}
-              type="text"
-              maxLength={1}
-              value={fflSegs[0]}
-              onChange={e => handleFflSegChange(0, e.target.value)}
-              className="w-8 h-9 border border-border rounded bg-card text-center uppercase"
-              id="df-seg0"
-              placeholder="X"
-            />
+            <input key={`df-seg0-${fflSegs[0]}`} type="text" maxLength={1} value={fflSegs[0]} onChange={e => handleFflSegChange(0, e.target.value)} className="w-8 h-9 border border-border rounded bg-card text-center uppercase" placeholder="X" />
             <span className="text-muted-foreground mx-0.5">-</span>
-            <input
-              key={`df-seg1-${fflSegs[1]}`}
-              type="text"
-              maxLength={2}
-              value={fflSegs[1]}
-              onChange={e => handleFflSegChange(1, e.target.value)}
-              className="w-10 h-9 border border-border rounded bg-card text-center uppercase"
-              id="df-seg1"
-              placeholder="XX"
-            />
+            <input key={`df-seg1-${fflSegs[1]}`} type="text" maxLength={2} value={fflSegs[1]} onChange={e => handleFflSegChange(1, e.target.value)} className="w-10 h-9 border border-border rounded bg-card text-center uppercase" placeholder="XX" />
             <span className="text-muted-foreground mx-0.5">-</span>
-            <input
-              key={`df-seg2-${fflSegs[2]}`}
-              type="text"
-              maxLength={3}
-              value={fflSegs[2]}
-              onChange={e => handleFflSegChange(2, e.target.value)}
-              className="w-12 h-9 border border-border rounded bg-card text-center uppercase"
-              id="df-seg2"
-              placeholder="XXX"
-            />
+            <input key={`df-seg2-${fflSegs[2]}`} type="text" maxLength={3} value={fflSegs[2]} onChange={e => handleFflSegChange(2, e.target.value)} className="w-12 h-9 border border-border rounded bg-card text-center uppercase" placeholder="XXX" />
             <span className="text-muted-foreground mx-0.5">-</span>
-            <input
-              key={`df-seg3-${fflSegs[3]}`}
-              type="text"
-              maxLength={2}
-              value={fflSegs[3]}
-              onChange={e => handleFflSegChange(3, e.target.value)}
-              className="w-10 h-9 border border-border rounded bg-card text-center uppercase"
-              id="df-seg3"
-              placeholder="XX"
-            />
+            <input key={`df-seg3-${fflSegs[3]}`} type="text" maxLength={2} value={fflSegs[3]} onChange={e => handleFflSegChange(3, e.target.value)} className="w-10 h-9 border border-border rounded bg-card text-center uppercase" placeholder="XX" />
             <span className="text-muted-foreground mx-0.5">-</span>
-            <input
-              key={`df-seg4-${fflSegs[4]}`}
-              type="text"
-              maxLength={2}
-              value={fflSegs[4]}
-              onChange={e => handleFflSegChange(4, e.target.value)}
-              className="w-10 h-9 border border-border rounded bg-card text-center uppercase"
-              id="df-seg4"
-              placeholder="XX"
-            />
+            <input key={`df-seg4-${fflSegs[4]}`} type="text" maxLength={2} value={fflSegs[4]} onChange={e => handleFflSegChange(4, e.target.value)} className="w-10 h-9 border border-border rounded bg-card text-center uppercase" placeholder="XX" />
             <span className="text-muted-foreground mx-0.5">-</span>
-            <input
-              key={`df-seg5-${fflSegs[5]}`}
-              type="text"
-              maxLength={5}
-              value={fflSegs[5]}
-              onChange={e => handleFflSegChange(5, e.target.value)}
-              className="w-14 h-9 border border-border rounded bg-card text-center uppercase"
-              id="df-seg5"
-              placeholder="XXXXX"
-            />
+            <input key={`df-seg5-${fflSegs[5]}`} type="text" maxLength={5} value={fflSegs[5]} onChange={e => handleFflSegChange(5, e.target.value)} className="w-14 h-9 border border-border rounded bg-card text-center uppercase" placeholder="XXXXX" />
           </div>
           <p className="text-xs text-muted-foreground">Edit if needed.</p>
         </div>
 
         {/* ── Contact fields ── */}
         <div className="grid md:grid-cols-2 gap-4">
-          <FormField control={form.control} name="dealerName" render={({ field }) => (
-            <FormItem><FormLabel>Dealer / FFL Name</FormLabel><FormControl><Input {...field} className="bg-card border-border" /></FormControl><FormMessage /></FormItem>
+          <FormField control={form.control} name="tradeName" render={({ field }) => (
+            <FormItem><FormLabel>Trade Name</FormLabel><FormControl><Input {...field} className="bg-card border-border" /></FormControl><FormMessage /></FormItem>
           )} />
-          <FormField control={form.control} name="contactName" render={({ field }) => (
-            <FormItem><FormLabel>Contact Person</FormLabel><FormControl><Input {...field} className="bg-card border-border" /></FormControl><FormMessage /></FormItem>
+          <FormField control={form.control} name="licenseName" render={({ field }) => (
+            <FormItem><FormLabel>License Name</FormLabel><FormControl><Input {...field} className="bg-card border-border" /></FormControl><FormMessage /></FormItem>
           )} />
         </div>
 
@@ -948,9 +842,7 @@ function DealerForm(props: { fflNumber: string; dealerName?: string; email?: str
               <FormLabel>EIN Type <span className="text-xs text-destructive font-normal">*</span></FormLabel>
               <FormControl>
                 <Select onValueChange={field.onChange} value={field.value}>
-                  <SelectTrigger className="bg-card border-border">
-                    <SelectValue placeholder="Select type" />
-                  </SelectTrigger>
+                  <SelectTrigger className="bg-card border-border"><SelectValue placeholder="Select type" /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="dealer">Dealer</SelectItem>
                     <SelectItem value="manufacturer">Manufacturer</SelectItem>
@@ -965,18 +857,18 @@ function DealerForm(props: { fflNumber: string; dealerName?: string; email?: str
           )} />
         </div>
 
-        <FormField control={form.control} name="address" render={({ field }) => (
-          <FormItem><FormLabel>Business Address</FormLabel><FormControl><Input {...field} className="bg-card border-border" /></FormControl><FormMessage /></FormItem>
+        <FormField control={form.control} name="premiseAddress1" render={({ field }) => (
+          <FormItem><FormLabel>Premise Address</FormLabel><FormControl><Input {...field} className="bg-card border-border" /></FormControl><FormMessage /></FormItem>
         )} />
 
         <div className="grid grid-cols-3 gap-4">
-          <FormField control={form.control} name="city" render={({ field }) => (
+          <FormField control={form.control} name="premiseCity" render={({ field }) => (
             <FormItem><FormLabel>City</FormLabel><FormControl><Input {...field} className="bg-card border-border" /></FormControl><FormMessage /></FormItem>
           )} />
-          <FormField control={form.control} name="state" render={({ field }) => (
+          <FormField control={form.control} name="premiseState" render={({ field }) => (
             <FormItem><FormLabel>State</FormLabel><FormControl><Input {...field} className="bg-card border-border" /></FormControl><FormMessage /></FormItem>
           )} />
-          <FormField control={form.control} name="zipCode" render={({ field }) => (
+          <FormField control={form.control} name="premiseZipCode" render={({ field }) => (
             <FormItem><FormLabel>ZIP Code</FormLabel><FormControl><Input {...field} className="bg-card border-border" /></FormControl><FormMessage /></FormItem>
           )} />
         </div>
@@ -984,19 +876,9 @@ function DealerForm(props: { fflNumber: string; dealerName?: string; email?: str
         {/* ── Stocking quantity ── */}
         {orderKind === "stocking" && (
           <div className="p-4 rounded-lg border border-border bg-card space-y-2">
-            <label htmlFor="quantity-select" className="text-sm font-medium">
-              Quantity <span className="text-red-400">*</span>
-            </label>
-            <select
-              id="quantity-select"
-              value={quantityCans}
-              onChange={(e) => setQuantityCans(e.target.value)}
-              className="w-full h-10 rounded-md bg-background border border-border px-3 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
-              required
-            >
-              {[5,10,15,20].map((n) => (
-                <option key={n} value={String(n)}>{n} cans — ${n*60} (${60}/unit)</option>
-              ))}
+            <label htmlFor="quantity-select" className="text-sm font-medium">Quantity <span className="text-red-400">*</span></label>
+            <select id="quantity-select" value={quantityCans} onChange={(e) => setQuantityCans(e.target.value)} className="w-full h-10 rounded-md bg-background border border-border px-3 text-sm focus:outline-none focus:ring-1 focus:ring-primary" required>
+              {[5,10,15,20].map((n) => (<option key={n} value={String(n)}>{n} cans — ${n*60} (${60}/unit)</option>))}
             </select>
           </div>
         )}
@@ -1012,66 +894,28 @@ function DealerForm(props: { fflNumber: string; dealerName?: string; email?: str
           )} />
         )}
 
-        {/* ── File Uploads (all order types) ── */}
+        {/* ── File Uploads ── */}
         <div className="space-y-4 p-4 rounded-lg border border-border bg-card/50">
           <p className="text-sm font-medium">Required Documents</p>
-
-          {/* FFL Upload */}
           <div className="space-y-1">
-            <label className="text-xs font-medium">
-              FFL <span className="text-red-400">*</span>
-            </label>
-            <UploadField
-              id="df-ffl-upload"
-              accept=".pdf,.png,.jpg,.jpeg"
-              file={fflFile}
-              onFileChange={setFflFile}
-            />
+            <label className="text-xs font-medium">FFL <span className="text-red-400">*</span></label>
+            <UploadField id="df-ffl-upload" accept=".pdf,.png,.jpg,.jpeg" file={fflFile} onFileChange={setFflFile} />
           </div>
-
-          {/* FFL has SOT combined checkbox */}
           <label className="flex items-center gap-2 text-sm cursor-pointer">
-            <input
-              type="checkbox"
-              checked={fflHasSot}
-              onChange={(e) => setFflHasSot(e.target.checked)}
-              className="accent-primary"
-            />
+            <input type="checkbox" checked={fflHasSot} onChange={(e) => setFflHasSot(e.target.checked)} className="accent-primary" />
             My FFL has SOT combined on the same page
           </label>
-
-          {/* SOT Upload — required only if FFL does NOT have SOT combined */}
           {!fflHasSot && (
             <div className="space-y-1">
-              <label className="text-xs font-medium">
-                SOT <span className="text-red-400">*</span>
-              </label>
-              <UploadField
-                id="df-sot-upload"
-                accept=".pdf,.png,.jpg,.jpeg"
-                file={sotFile}
-                onFileChange={setSotFile}
-              />
+              <label className="text-xs font-medium">SOT <span className="text-red-400">*</span></label>
+              <UploadField id="df-sot-upload" accept=".pdf,.png,.jpg,.jpeg" file={sotFile} onFileChange={setSotFile} />
             </div>
           )}
         </div>
 
-        {/* ── Submit ── */}
-        <Button
-          type="submit"
-          disabled={submitting}
-          className="w-full font-display text-lg h-12 bg-primary hover:bg-primary/90 cursor-pointer"
-        >
-          {submitting ? (
-            <span className="flex items-center gap-2">
-              <Loader2 className="w-5 h-5 animate-spin" />
-              Submitting...
-            </span>
-          ) : (
-            orderKind === "inquiry" ? "SUBMIT INQUIRY" : orderKind === "demo" ? "REQUEST DEMO INVOICE" : "REQUEST STOCKING INVOICE"
-          )}
+        <Button type="submit" disabled={submitting} className="w-full font-display text-lg h-12 bg-primary hover:bg-primary/90 cursor-pointer">
+          {submitting ? (<span className="flex items-center gap-2"><Loader2 className="w-5 h-5 animate-spin" />Submitting...</span>) : (orderKind === "inquiry" ? "SUBMIT INQUIRY" : orderKind === "demo" ? "REQUEST DEMO INVOICE" : "REQUEST STOCKING INVOICE")}
         </Button>
-
       </form>
     </Form>
   );
@@ -1082,13 +926,13 @@ function DealerForm(props: { fflNumber: string; dealerName?: string; email?: str
 export default function ApplyPage() {
   const [params] = useSearchParams();
   const ffl = params.get("ffl") || "";
-  const dealerName = params.get("name") || "";
+  const tradeName = params.get("name") || "";
   const email = params.get("email") || "";
   const phone = params.get("phone") || "";
-  const address = params.get("address") || "";
-  const city = params.get("city") || "";
-  const state = params.get("state") || "";
-  const zip = params.get("zip") || "";
+  const premiseAddress1 = params.get("address") || "";
+  const premiseCity = params.get("city") || "";
+  const premiseState = params.get("state") || "";
+  const premiseZipCode = params.get("zip") || "";
   const pending = params.get("pending") === "1";
 
   if (!ffl) {
@@ -1113,11 +957,7 @@ export default function ApplyPage() {
       <SiteHeader />
       <section className="pt-24 pb-16">
         <div className="container mx-auto px-6 max-w-3xl">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="text-center mb-8"
-          >
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="text-center mb-8">
             <h1 className="text-4xl font-bold mb-2">
               {pending ? "FFL Review" : "Dealer Portal"}
             </h1>
@@ -1125,16 +965,11 @@ export default function ApplyPage() {
               {pending ? "Submit your FFL for verification" : "Place an order or make an inquiry"}
             </p>
           </motion.div>
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1 }}
-            className="bg-card rounded-lg border border-border p-6 shadow-lg"
-          >
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="bg-card rounded-lg border border-border p-6 shadow-lg">
             {pending ? (
               <PendingUpload fflNumber={ffl} />
             ) : (
-              <DealerForm fflNumber={ffl} dealerName={dealerName} email={email} phone={phone} address={address} city={city} state={state} zip={zip} />
+              <DealerForm fflNumber={ffl} tradeName={tradeName} email={email} phone={phone} premiseAddress1={premiseAddress1} premiseCity={premiseCity} premiseState={premiseState} premiseZipCode={premiseZipCode} />
             )}
           </motion.div>
         </div>

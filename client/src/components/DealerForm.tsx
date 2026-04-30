@@ -10,8 +10,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 
 const dealerFormSchema = z.object({
-  contactName: z.string().min(2, { message: "Contact name is required." }),
-  businessName: z.string().min(2, { message: "Business name is required." }),
+  licenseName: z.string().min(2, { message: "License name is required." }),
+  tradeName: z.string().min(2, { message: "Trade name is required." }),
   email: z.string().email({ message: "Please enter a valid email address." }),
   confirmEmail: z.string().email({ message: "Please confirm your email address." }),
   phone: z.string().min(13, { message: "Phone number is required." }),
@@ -21,10 +21,10 @@ const dealerFormSchema = z.object({
       message: "FFL must be in format X-XX-XXX-XX-XX-XXXXX (15 digits, dashes only)."
     }),
   fflName: z.string().min(2, { message: "FFL name is required." }),
-  address: z.string().min(5, { message: "Address is required." }),
-  city: z.string().min(2, { message: "City is required." }),
-  state: z.string().min(2, { message: "State is required." }),
-  zipCode: z.string().min(5, { message: "ZIP code is required." }),
+  premiseAddress1: z.string().min(5, { message: "Address is required." }),
+  premiseCity: z.string().min(2, { message: "City is required." }),
+  premiseState: z.string().min(2, { message: "State is required." }),
+  premiseZipCode: z.string().min(5, { message: "ZIP code is required." }),
   message: z.string().optional(),
 }).refine((data) => data.email === data.confirmEmail, {
   message: "Email addresses must match.",
@@ -52,17 +52,17 @@ export default function DealerForm() {
   const form = useForm<z.infer<typeof dealerFormSchema>>({
     resolver: zodResolver(dealerFormSchema),
     defaultValues: {
-      contactName: "",
-      businessName: "",
+      licenseName: "",
+      tradeName: "",
       email: "",
       confirmEmail: "",
       phone: "",
       fflNumber: "",
       fflName: "",
-      address: "",
-      city: "",
-      state: "",
-      zipCode: "",
+      premiseAddress1: "",
+      premiseCity: "",
+      premiseState: "",
+      premiseZipCode: "",
       message: "",
     },
   });
@@ -74,17 +74,17 @@ export default function DealerForm() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          contactName: values.contactName,
-          businessName: values.businessName,
+          licenseName: values.licenseName,
+          tradeName: values.tradeName,
           email: values.email,
           phone: values.phone,
           requestType: requestType === 'inquiry' ? 'Dealer Inquiry' : 'Dealer Order',
           fflNumber: values.fflNumber,
           fflName: values.fflName,
-          address: values.address,
-          city: values.city,
-          state: values.state,
-          zipCode: values.zipCode,
+          premiseAddress1: values.premiseAddress1,
+          premiseCity: values.premiseCity,
+          premiseState: values.premiseState,
+          premiseZipCode: values.premiseZipCode,
           message: values.message || "",
         }),
       });

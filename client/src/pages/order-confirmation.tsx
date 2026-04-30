@@ -57,14 +57,14 @@ export default function OrderConfirmationPage() {
   const total = subtotal + tax;
   const isStocking = orderType === "stocking";
 
-  const dealerName = dealerData?.businessName || "Registered Dealer";
-  const dealerContact = dealerData?.contactName || dealerName;
+  const dealerName = dealerData?.tradeName || dealerData?.businessName || "Registered Dealer";
+  const dealerContact = dealerData?.licenseName || dealerName;
   const dealerEmail = dealerData?.email || "";
   const dealerPhone = dealerData?.phone || "";
-  const customerAddress = dealerData?.address || "";
-  const customerCity = dealerData?.city || "";
-  const customerState = dealerData?.state || "";
-  const customerZip = dealerData?.zip || "";
+  const customerAddress = dealerData?.premiseAddress1 || "";
+  const customerCity = dealerData?.premiseCity || "";
+  const customerState = dealerData?.premiseState || "";
+  const customerZip = dealerData?.premiseZipCode || "";
 
   async function handleAccept() {
     if (!accepted) {
@@ -148,12 +148,12 @@ export default function OrderConfirmationPage() {
   // Auto-fill tax form from dealer profile
   useEffect(() => {
     if (!dealerData) return;
-    setTaxBusinessName(dealerData.businessName || "");
-    setTaxAddress(dealerData.address || "");
-    setTaxCity(dealerData.city || "");
-    setTaxState(dealerData.state || "");
-    setTaxZip(dealerData.zip || "");
-    setTaxEin(dealerData.stateTaxId || "");
+    setTaxBusinessName(dealerData.tradeName || dealerData.businessName || "");
+    setTaxAddress(dealerData.premiseAddress1 || "");
+    setTaxCity(dealerData.premiseCity || "");
+    setTaxState(dealerData.premiseState || "");
+    setTaxZip(dealerData.premiseZipCode || "");
+    setTaxEin(dealerData.ein || "");
   }, [dealerData]);
 
   if (loading) {

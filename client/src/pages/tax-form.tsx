@@ -59,15 +59,15 @@ export default function TaxFormPage() {
         const d = data.data;
 
         // Auto-fill ALL dealer info from database (read-only)
-        setDealerName(d.businessName || "");
-        setDealerContact(d.contactName || "");
+        setDealerName(d.tradeName || d.businessName || "");
+        setDealerContact(d.licenseName || d.contactName || "");
         setDealerEmail(d.email || "");
         setDealerPhone(d.phone || "");
-        setCustomerAddress(d.address || "");
-        setCustomerCity(d.city || "");
-        setCustomerState(d.state || "");
-        setCustomerZip(d.zip || "");
-        setStateTaxId(d.stateTaxId || "");
+        setCustomerAddress(d.premiseAddress1 || "");
+        setCustomerCity(d.premiseCity || "");
+        setCustomerState(d.premiseState || "");
+        setCustomerZip(d.premiseZipCode || "");
+        setStateTaxId(d.ein || d.stateTaxId || "");
 
         // Check if tax form already on file
         if (d.hasTaxFormOnFile) {
