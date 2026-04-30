@@ -23,8 +23,36 @@ function parseFFLNumber(rec: Record<string, string>): string {
 function parseZipCode(raw: string): string {
   const digits = raw.trim().replace(/\D/g, "");
   if (digits.length <= 5) return padLeft(digits, 5);
-  // Remove Zip+4 (last 4 digits), then pad to 5
   return padLeft(digits.slice(0, digits.length - 4), 5);
+}
+
+const MONTH_MAP: Record<string, string> = {
+  A: "01", B: "02", C: "03", D: "04", E: "05",
+  F: "06", G: "07", H: "08", J: "09", K: "10",
+  L: "11", M: "12",
+};
+
+// Parse FFL expiration date from the 9th and 10th digits of the FFL number
+// 9th digit = last digit of year (e.g., 8 → 2028)
+// 10th digit = month code (A=Jan through M=Dec)
+// All FFLs expire on the 1st of the month
+// Example: FFL 5-74-493-07-8E-07004 → May 1, 2028
+function parseExpiryDate(fflDigits: string): string | null {
+  if (fflDigits.length < 10) return null;
+  const yearDigit = fflDigits[8];  // 9th digit (0-indexed: 8)
+  const monthCode = fflDigits[9].toUpperCase(); // 10th digit
+  
+  const month = MONTH_MAP[monthCode];
+  if (!month) return null;
+  
+  // Determine year: if digit is '0'-'9', it's 2020-2029 or 2030-2039
+  const currentYear = new Date().getFullYear();
+  const decadeBase = Math.floor(currentYear / 10) * 10;
+  let year = decadeBase + parseInt(yearDigit);
+  // If the derived year is more than 1 year in the past, add 10
+  if (year < currentYear - 1) year += 10;
+  
+  return `${year}-${month}-01`;
 }
 
 export interface FFLRecord {
@@ -36,6 +64,7 @@ export interface FFLRecord {
   premiseState: string;
   premiseZip: string;
   voicePhone: string;
+  fflExpiryDate: string; // YYYY-MM-DD — derived from FFL number digits
 }
 
 // In-memory lookup: normalized FFL -> record
@@ -86,7 +115,7 @@ export async function loadFFLMaster(): Promise<void> {
     }
     fields.push(current.trim());
 
-    if (fields.length < 13) continue;
+    if (fields.length < 17) continue;
 
     const rec: Record<string, string> = {
       LIC_REGN: fields[0],
@@ -101,15 +130,26 @@ export async function loadFFLMaster(): Promise<void> {
       PREMISE_CITY: fields[9].replace(/^"|"$/g, ""),
       PREMISE_STATE: fields[10].replace(/^"|"$/g, ""),
       PREMISE_ZIP_CODE: fields[11],
-      VOICE_PHONE: fields[12] || "",
+      // fields[12] = MAIL_STREET (ignored)
+      // fields[13] = MAIL_CITY (ignored)
+      // fields[14] = MAIL_STATE (ignored)
+      // fields[15] = MAIL_ZIP_CODE (ignored)
+      VOICE_PHONE: fields[16] || "",
     };
+
+    // Skip suppressor-ban states and US territories
+    const state = rec.PREMISE_STATE.toUpperCase();
+    const BANNED_STATES = new Set(["CA", "DE", "HI", "IL", "MA", "NJ", "NY", "RI", "DC"]);
+    const TERRITORIES = new Set(["PR", "GU", "VI", "AS", "MP"]);
+    if (BANNED_STATES.has(state) || TERRITORIES.has(state)) continue;
 
     const fflNumber = parseFFLNumber(rec);
     const normalized = normalizeKey(fflNumber);
     const licenseeName = rec.LICENSE_NAME;
     const businessName = rec.BUSINESS_NAME || rec.LICENSE_NAME;
+    const expiryDate = parseExpiryDate(normalized) || "";
 
-    fflMap.set(normalized, {
+    const record: FFLRecord = {
       fflNumber,
       licenseeName,
       businessName,
@@ -118,7 +158,10 @@ export async function loadFFLMaster(): Promise<void> {
       premiseState: rec.PREMISE_STATE,
       premiseZip: parseZipCode(rec.PREMISE_ZIP_CODE),
       voicePhone: rec.VOICE_PHONE,
-    });
+      fflExpiryDate: expiryDate,
+    };
+
+    fflMap.set(normalized, record);
 
     // Secondary index: REGN-DIST-SEQN (padded) -> record
     // This supports short-format lookup via X-XX-XXXXX
@@ -128,16 +171,7 @@ export async function loadFFLMaster(): Promise<void> {
     const tupleKey = `${regn}-${dist}-${seqn}`;
     // Only store first match per tuple (short format can be ambiguous)
     if (!fflByTuple.has(tupleKey)) {
-      fflByTuple.set(tupleKey, {
-        fflNumber,
-        licenseeName,
-        businessName,
-        premiseStreet: rec.PREMISE_STREET,
-        premiseCity: rec.PREMISE_CITY,
-        premiseState: rec.PREMISE_STATE,
-        premiseZip: parseZipCode(rec.PREMISE_ZIP_CODE),
-        voicePhone: rec.VOICE_PHONE,
-      });
+      fflByTuple.set(tupleKey, record);
     }
   }
   loaded = true;

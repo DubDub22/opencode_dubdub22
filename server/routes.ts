@@ -1794,6 +1794,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           premiseState: csvRecord.premiseState,
           premiseZipCode: csvRecord.premiseZip,
           voicePhone: csvRecord.voicePhone,
+          fflExpiryDate: csvRecord.fflExpiryDate,
           fflRecord: csvRecord,
         });
       }
@@ -4121,7 +4122,7 @@ print(pdf_path)
       // Get submission + dealer info
       const subResult = await pool.query(
         `SELECT s.*, d.business_name, d.contact_name, d.email, d.phone,
-                d.business_address, d.city, d.state, d.zip, d.ffl_license_number
+                d.business_address, d.city, d.state, d.zip, d.ffl_license_number, d.ffl_expiry_date
            FROM submissions s
            LEFT JOIN dealer_submissions ds ON ds.submission_id = s.id
            LEFT JOIN dealers d ON d.id = ds.dealer_id

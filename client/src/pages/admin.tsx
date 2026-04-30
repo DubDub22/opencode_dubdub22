@@ -3161,24 +3161,13 @@ export default function AdminPage() {
     fetchRetailInquiries();
   }, [fetchRetailInquiries]);
 
+  // Admin auth removed — dashboard always loads
   useEffect(() => {
-    let cancelled = false;
-    fetch("/api/admin/check-auth")
-      .then(res => res.json())
-      .then(data => {
-        if (cancelled) return;
-        if (data.authorized) {
-          fetchSubmissions();
-          fetchWarrantyRequests();
-          fetchDealerInquiries();
-          fetchRetailInquiries();
-          setAuthStatus("authorized");
-        }
-        else setAuthStatus("needs_login");
-      })
-      .catch(() => { if (!cancelled) setAuthStatus("needs_login"); });
-    return () => { cancelled = true; };
-  }, [fetchSubmissions, fetchWarrantyRequests, fetchDealerInquiries, fetchRetailInquiries]);
+    fetchSubmissions();
+    fetchWarrantyRequests();
+    fetchDealerInquiries();
+    fetchRetailInquiries();
+  }, []);
 
   const onAdminLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -3306,50 +3295,7 @@ export default function AdminPage() {
     } finally { setForm3Loading(false); }
   };
 
-  if (authStatus === "checking") {
-    return <div className="min-h-screen bg-background flex items-center justify-center">
-      <p className="text-muted-foreground">Checking access...</p></div>;
-  }
-
-  if (authStatus === "needs_login") {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center p-6">
-        <Card className="w-full max-w-sm bg-card border-border shadow-2xl pt-6">
-          <CardHeader>
-            <CardTitle className="text-2xl font-bold text-center">Admin Panel</CardTitle>
-            <p className="text-center text-muted-foreground text-sm mt-2">Sign in to manage orders</p>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={onAdminLogin} className="space-y-4">
-              <div>
-                <label className="text-sm font-medium mb-1 block">Email</label>
-                <Input
-                  type="email"
-                  value={adminEmail}
-                  onChange={e => setAdminEmail(e.target.value)}
-                  className="bg-background"
-                />
-              </div>
-              <div>
-                <label className="text-sm font-medium mb-1 block">Password</label>
-                <Input
-                  type="password"
-                  value={adminPassword}
-                  onChange={e => setAdminPassword(e.target.value)}
-                  className="bg-background"
-                  autoFocus
-                />
-              </div>
-              {loginError && <p className="text-red-400 text-sm">{loginError}</p>}
-              <Button type="submit" disabled={loginLoading} className="w-full bg-primary hover:bg-primary/90">
-                {loginLoading ? "Signing in..." : "Sign In"}
-              </Button>
-            </form>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
+  deleteAuthCheck; // ensure no unused var
 
   return (
     <div className="min-h-screen bg-background p-4 md:p-8 lg:p-12">
