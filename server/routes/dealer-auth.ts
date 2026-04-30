@@ -548,8 +548,9 @@ All documents attached as ZIP. Review in admin: https://dubdub22.com/admin`,
             },
           }).catch((e: any) => console.error("docs_zip_email_error", e));
         }
-          sendViaGmail(emailOpts).catch((e: any) => console.error("register_docs_email_error", e));
-        }
+      } catch (e) {
+        console.error("register_email_setup_error", e);
+      }
 
         // Email 2: Send completed tax form to dealer
         if (dealerEmail && filledTaxFormBase64) {
