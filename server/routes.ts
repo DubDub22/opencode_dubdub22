@@ -1,4 +1,4 @@
-import type { Express } from "express";
+﻿import type { Express } from "express";
 import { createServer, type Server } from "http";
 import fs from "fs";
 import { execSync, execFileSync } from "child_process";
@@ -10,7 +10,7 @@ import { fileURLToPath } from "url";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-/** Cached tax form base64 — read once, used everywhere. Reads at call time (not startup) to avoid esbuild scope rename issues. */
+/** Cached tax form base64 â€” read once, used everywhere. Reads at call time (not startup) to avoid esbuild scope rename issues. */
 function _getTaxFormBase64(): string | null {
   try { return fs.readFileSync(path.join(__dirname, "..", "shared", "multi_state_tax_form.pdf"), "base64"); }
   catch { return null; }
@@ -40,7 +40,7 @@ const BCC_EMAIL = "info@dubdub22.com";
 const GMAIL_TOKEN_PATH = "/home/dubdub/DubDub-Hub/gmail_token.json";
 const ENV_PATH = "/home/dubdub/DubDub-Hub/.env";
 
-// ─────────────────────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // File upload validation helper
 function validateFileUpload(fileName: string, fileData: string, maxSizeMB = 10): string | null {
   if (!fileName || !fileData) return null;
@@ -53,7 +53,7 @@ function validateFileUpload(fileName: string, fileData: string, maxSizeMB = 10):
 }
 
 // Geocoding helper
-// ─────────────────────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 async function geocodeZip(zip: string): Promise<{ lat: number; lng: number; state?: string } | null> {
   try {
@@ -70,9 +70,9 @@ async function geocodeZip(zip: string): Promise<{ lat: number; lng: number; stat
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // OCR / Parse helpers - shared by file-upload routes and parse-* routes
-// ─────────────────────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function parseSotText(text: string): Record<string, string> {
   const parsed: Record<string, string> = {};
@@ -115,7 +115,7 @@ function parseFflText(text: string): Record<string, string> {
   const licMatch = text.match(/(?:License\s*(?:No\.?|Number|#)\s*:?\s*)([8]-\d{5,}(?:-[A-Z])?)/i)
     || text.match(/\b(8-\d{5,}(?:-[A-Z])?)\b/);
   if (licMatch) parsed.fflLicenseNumber = licMatch[1].trim();
-  const typeMatch = text.match(/(?:Type\s*0?\d)\s*[-–]\s*([^\n]+(?:Dealer|Manufacturer|Gunsmith)[^\n]*)/i)
+  const typeMatch = text.match(/(?:Type\s*0?\d)\s*[-â€“]\s*([^\n]+(?:Dealer|Manufacturer|Gunsmith)[^\n]*)/i)
     || text.match(/(Dealer in Firearms|Manufacturer of Firearms|Gunsmith)/i);
   if (typeMatch) { const t = typeMatch[1] || typeMatch[0]; parsed.fflLicenseType = t.trim().slice(0, 80); }
   const expMatch = text.match(/(?:Expires?\s*[:]\s*)(0?\d[-/]0?\d[-/]\d{4})/i)
@@ -426,7 +426,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const webhookUrl = process.env.DISCORD_WEBHOOK_URL;
       if (webhookUrl) {
         const discordPayload = {
-          content: `🔐 **Admin Access Request**\n\nPIN: \`${pin}\`\nIP: \`${ip}\`\n\nValid for 5 minutes. Paste this PIN at dubdub22.com/admin to unlock access.`,
+          content: `ðŸ” **Admin Access Request**\n\nPIN: \`${pin}\`\nIP: \`${ip}\`\n\nValid for 5 minutes. Paste this PIN at dubdub22.com/admin to unlock access.`,
         };
         fetch(webhookUrl, {
           method: "POST",
@@ -659,7 +659,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Stream a document for a submission from FastBound contact
   
-  // GET /api/admin/submissions/:id — fetch single submission with all fields including customer address
+  // GET /api/admin/submissions/:id â€” fetch single submission with all fields including customer address
   app.get("/api/admin/submissions/:id", requireAdmin, async (req, res) => {
     try {
       const { id } = req.params;
@@ -854,7 +854,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         await pool.query(`UPDATE dealers SET has_demo_unit_shipped = true WHERE id = $1`, [dealerId]);
       }
 
-      // ── Upload Form 3 PDF to FastBound contact ──────────────────────────────
+      // â”€â”€ Upload Form 3 PDF to FastBound contact â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
       if (s.ffl_license_number && req.body?.form3Data) {
         try {
           const dateTag = new Date().toISOString().split("T")[0].replace(/-/g, "");
@@ -1007,7 +1007,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // ── Dealers API ───────────────────────────────────────────────────────────
+  // â”€â”€ Dealers API â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   // Public: Dealer map data (no PII - name, city, state, zip, tier, verified, phone)
   // Preferred dealers: show curated phone if submitted, else FFL voicePhone
@@ -1385,7 +1385,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.send(content);
       }
 
-      // Special case: all dealers with FFL or SOT files — full contact info + metadata
+      // Special case: all dealers with FFL or SOT files â€” full contact info + metadata
       if (source === "dealer_files") {
         const result = await pool.query(
           `SELECT d.business_name, d.contact_name, d.email, d.phone,
@@ -1753,7 +1753,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // ── FFL Validate ─────────────────────────────────────────────────────────────
+  // â”€â”€ FFL Validate â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   app.post("/api/ffl/validate", async (req, res) => {
     try {
       const { fflNumber } = req.body;
@@ -1805,7 +1805,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // ── FFL Upload (pending dealer - text only, no file) ─────────────────────────
+  // â”€â”€ FFL Upload (pending dealer - text only, no file) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   app.post("/api/ffl/upload", publicFormLimiter, async (req, res) => {
     try {
       const {
@@ -1921,7 +1921,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           `INSERT INTO dealers (business_name, contact_name, email, phone, ein, ein_type, source, tier)
            VALUES ($1, $2, $3, $4, $5, $6, 'web_form', 'Preferred')
            RETURNING id`,
-          [bizName, contactName, email.toLowerCase(), phone || null, ein || null, einType || null]
+          [resolvedDealerName, contactName, email.toLowerCase(), phone || null, ein || null, einType || null]
         );
         dealerId = newDealer.rows[0].id;
       }
@@ -1934,7 +1934,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       //   );
       // }
 
-      // ── For inquiries: send dealer a confirmation email mirroring Path 1 format, BCC Tom ──
+      // â”€â”€ For inquiries: send dealer a confirmation email mirroring Path 1 format, BCC Tom â”€â”€
       if (isInquiry && email) {
         const taxFormPath = path.join(__dirname, "../shared/multi_state_tax_form.pdf");
         const taxFormBase64 = fs.existsSync(taxFormPath)
@@ -1945,7 +1945,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
 === YOUR SUBMISSION ===
 ${fflNumber ? `FFL Number: ${fflNumber}` : 'FFL: Not provided'}
-Business Name: ${bizName || "N/A"}
+Business Name: ${resolvedDealerName || "N/A"}
 Contact Name: ${contactName || "N/A"}
 Email: ${email}
 Phone: ${phone || "N/A"}
@@ -1955,11 +1955,11 @@ ${message ? `Notes: ${message}` : ''}
 === TAX FORM INSTRUCTIONS ===
 The multi-state tax form is attached to this email. Please follow these steps carefully:
 
-1. DOWNLOAD the attached PDF before filling it out — do NOT fill it out in your browser or email viewer
+1. DOWNLOAD the attached PDF before filling it out â€” do NOT fill it out in your browser or email viewer
 2. OPEN the downloaded PDF in Adobe Acrobat Reader (free) or similar PDF editor
 3. FILL IN all fields: your dealer/business name, address, and EIN
-4. SIGN the form — use the signature tool in your PDF editor, or print, sign by hand, and scan
-5. SAVE the completed PDF — confirm the information and signature are visible and saved properly before attaching it to your reply
+4. SIGN the form â€” use the signature tool in your PDF editor, or print, sign by hand, and scan
+5. SAVE the completed PDF â€” confirm the information and signature are visible and saved properly before attaching it to your reply
 
 NOTE: This process can vary by platform and PDF reader. Some browser-based PDF viewers do NOT save filled-in fields or signatures. If you email the form back blank or unsigned, it means the viewer didn't save your changes. Please use a desktop PDF editor like Adobe Acrobat Reader for best results.
 
@@ -1991,7 +1991,7 @@ DubDub22 Minions`;
         try { await sendViaGmail(emailOpts); } catch (e) { console.error("dealer_inquiry_email_error", e); }
       }
 
-      // ── For orders: send Tom the order details ──
+      // â”€â”€ For orders: send Tom the order details â”€â”€
       const ext = (fflFileName || "").split(".").pop()?.toLowerCase() || "";
       const contentTypeMap: Record<string, string> = {
         pdf: "application/pdf",
@@ -2004,7 +2004,7 @@ DubDub22 Minions`;
         `DubDub22 ${isDemoOrder ? 'Dealer Order (DEMO CAN)' : 'Dealer Order'}`,
         "",
         `Contact: ${contactName}`,
-        `Business: ${bizName}`,
+        `Business: ${resolvedDealerName}`,
         `Email: ${email}`,
         `Phone: ${phone || "N/A"}`,
         fflNumber ? `FFL: ${fflNumber}` : null,
@@ -2024,7 +2024,7 @@ DubDub22 Minions`;
         const dbResult = await storage.createSubmission({
           type: "dealer",
           contactName,
-          businessName: bizName,
+          businessName: resolvedDealerName,
           email,
           phone,
           fflType: (req.body as any).fflType || null,
@@ -2076,9 +2076,9 @@ DubDub22 Minions`;
 
       // Build forms status paragraph for auto-reply
       const formsStatus: string[] = [];
-      if (dealerFormStatus.fflOnFile) formsStatus.push("FFL on file ✓");
-      if (dealerFormStatus.sotOnFile) formsStatus.push("SOT on file ✓");
-      if (dealerFormStatus.taxFormOnFile) formsStatus.push("Tax form on file ✓");
+      if (dealerFormStatus.fflOnFile) formsStatus.push("FFL on file âœ“");
+      if (dealerFormStatus.sotOnFile) formsStatus.push("SOT on file âœ“");
+      if (dealerFormStatus.taxFormOnFile) formsStatus.push("Tax form on file âœ“");
       const missingForms: string[] = [];
       if (!dealerFormStatus.fflOnFile) missingForms.push("a current FFL");
       if (!dealerFormStatus.sotOnFile) missingForms.push("a current SOT");
@@ -2086,10 +2086,10 @@ DubDub22 Minions`;
         ? (_getTaxFormBase64()
             ? `Please use the attached tax form for your resale tax exemption. If available, please also attach a copy of your state-issued sales and use tax permit.
 
-IMPORTANT — Tax Form Note: Download the PDF before filling it out. Do NOT fill it out in your browser or email viewer — many browsers do not save filled fields or signatures. Open the file in Adobe Acrobat Reader (or similar desktop PDF editor), fill in all fields, sign it, save it, and then attach the completed file to your reply.`
+IMPORTANT â€” Tax Form Note: Download the PDF before filling it out. Do NOT fill it out in your browser or email viewer â€” many browsers do not save filled fields or signatures. Open the file in Adobe Acrobat Reader (or similar desktop PDF editor), fill in all fields, sign it, save it, and then attach the completed file to your reply.`
             : `a completed multi-state tax form.
 
-IMPORTANT — Tax Form Note: Download the PDF before filling it out. Do NOT fill it out in your browser or email viewer — many browsers do not save filled fields or signatures. Open the file in Adobe Acrobat Reader (or similar desktop PDF editor), fill in all fields, sign it, save it, and then attach the completed file to your reply.`)
+IMPORTANT â€” Tax Form Note: Download the PDF before filling it out. Do NOT fill it out in your browser or email viewer â€” many browsers do not save filled fields or signatures. Open the file in Adobe Acrobat Reader (or similar desktop PDF editor), fill in all fields, sign it, save it, and then attach the completed file to your reply.`)
         : "";
       const formsParagraph = formsStatus.length > 0
         ? (missingForms.length > 0 || taxFormInstruction
@@ -2142,7 +2142,7 @@ IMPORTANT — Tax Form Note: Download the PDF before filling it out. Do NOT fill
     }
   });
 
-  // ── Dealer Request / Portal Form ───────────────────────────────────────────
+  // â”€â”€ Dealer Request / Portal Form â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   app.get("/api/dealer-request/demo-status", async (req, res) => {
     const { email } = req.query;
     if (!email || typeof email !== "string") {
@@ -2166,10 +2166,10 @@ IMPORTANT — Tax Form Note: Download the PDF before filling it out. Do NOT fill
     try {
       const { requestType, dealerName, contactName, businessName, email, phone, quantityCans, fflFileName, fflFileData, sotFileName, sotFileData, message, orderKind, fflNumber, ein, einType, resaleFileName, resaleFileData, taxFormFileName, taxFormFileData, termsAccepted } = req.body || {};
 
-      const bizName = dealerName || businessName || "";
+      const resolvedDealerName = dealerName || businessName || "";
       const isInquiry = orderKind === "inquiry" || requestType === 'Dealer Inquiry';
-
-      if (!contactName || !bizName || !email) {
+      
+      if (!contactName || !resolvedDealerName || !email) {
         return res.status(400).json({ ok: false, error: "missing_required_fields" });
       }
       if (!isInquiry && !quantityCans) {
@@ -2252,7 +2252,7 @@ IMPORTANT — Tax Form Note: Download the PDF before filling it out. Do NOT fill
           `INSERT INTO dealers (business_name, contact_name, email, phone, ein, ein_type, source, tier)
            VALUES ($1, $2, $3, $4, $5, $6, 'web_form', 'Preferred')
            RETURNING id`,
-          [bizName, contactName, email.toLowerCase(), phone || null, ein || null, einType || null]
+          [resolvedDealerName, contactName, email.toLowerCase(), phone || null, ein || null, einType || null]
         );
         dealerId = newDealer.rows[0].id;
       }
@@ -2265,7 +2265,7 @@ IMPORTANT — Tax Form Note: Download the PDF before filling it out. Do NOT fill
 
 === YOUR SUBMISSION ===
 ${fflNumber ? `FFL Number: ${fflNumber}` : 'FFL: Not provided'}
-Business Name: ${bizName || "N/A"}
+Business Name: ${resolvedDealerName || "N/A"}
 Contact Name: ${contactName || "N/A"}
 Email: ${email}
 Phone: ${phone || "N/A"}
@@ -2275,11 +2275,11 @@ ${message ? `Notes: ${message}` : ''}
 === TAX FORM INSTRUCTIONS ===
 The multi-state tax form is attached to this email. Please follow these steps carefully:
 
-1. DOWNLOAD the attached PDF before filling it out — do NOT fill it out in your browser or email viewer
+1. DOWNLOAD the attached PDF before filling it out â€” do NOT fill it out in your browser or email viewer
 2. OPEN the downloaded PDF in Adobe Acrobat Reader (free) or similar PDF editor
 3. FILL IN all fields: your dealer/business name, address, and EIN
-4. SIGN the form — use the signature tool in your PDF editor, or print, sign by hand, and scan
-5. SAVE the completed PDF — confirm the information and signature are visible and saved properly before attaching it to your reply
+4. SIGN the form â€” use the signature tool in your PDF editor, or print, sign by hand, and scan
+5. SAVE the completed PDF â€” confirm the information and signature are visible and saved properly before attaching it to your reply
 
 NOTE: This process can vary by platform and PDF reader. Some browser-based PDF viewers do NOT save filled-in fields or signatures. If you email the form back blank or unsigned, it means the viewer didn't save your changes. Please use a desktop PDF editor like Adobe Acrobat Reader for best results.
 
@@ -2316,7 +2316,7 @@ DubDub22 Minions`;
         `DubDub22 ${isDemoOrder ? 'Dealer Order (DEMO CAN)' : 'Dealer Order'}`,
         "",
         `Contact: ${contactName}`,
-        `Business: ${bizName}`,
+        `Business: ${resolvedDealerName}`,
         `Email: ${email}`,
         `Phone: ${phone || "N/A"}`,
         fflNumber ? `FFL: ${fflNumber}` : null,
@@ -2335,7 +2335,7 @@ DubDub22 Minions`;
         const dbResult = await storage.createSubmission({
           type: "dealer",
           contactName,
-          businessName: bizName,
+          businessName: resolvedDealerName,
           email,
           phone,
           fflType: null,
@@ -2386,9 +2386,9 @@ DubDub22 Minions`;
 
       // Build forms status paragraph for auto-reply
       const formsStatus: string[] = [];
-      if (dealerFormStatus.fflOnFile) formsStatus.push("FFL on file ✓");
-      if (dealerFormStatus.sotOnFile) formsStatus.push("SOT on file ✓");
-      if (dealerFormStatus.taxFormOnFile) formsStatus.push("Tax form on file ✓");
+      if (dealerFormStatus.fflOnFile) formsStatus.push("FFL on file âœ“");
+      if (dealerFormStatus.sotOnFile) formsStatus.push("SOT on file âœ“");
+      if (dealerFormStatus.taxFormOnFile) formsStatus.push("Tax form on file âœ“");
       const missingForms: string[] = [];
       if (!dealerFormStatus.fflOnFile) missingForms.push("a current FFL");
       if (!dealerFormStatus.sotOnFile) missingForms.push("a current SOT");
@@ -2396,10 +2396,10 @@ DubDub22 Minions`;
         ? (_getTaxFormBase64()
             ? `Please use the attached tax form for your resale tax exemption. If available, please also attach a copy of your state-issued sales and use tax permit.
 
-IMPORTANT — Tax Form Note: Download the PDF before filling it out. Do NOT fill it out in your browser or email viewer — many browsers do not save filled fields or signatures. Open the file in Adobe Acrobat Reader (or similar desktop PDF editor), fill in all fields, sign it, save it, and then attach the completed file to your reply.`
+IMPORTANT â€” Tax Form Note: Download the PDF before filling it out. Do NOT fill it out in your browser or email viewer â€” many browsers do not save filled fields or signatures. Open the file in Adobe Acrobat Reader (or similar desktop PDF editor), fill in all fields, sign it, save it, and then attach the completed file to your reply.`
             : `a completed multi-state tax form.
 
-IMPORTANT — Tax Form Note: Download the PDF before filling it out. Do NOT fill it out in your browser or email viewer — many browsers do not save filled fields or signatures. Open the file in Adobe Acrobat Reader (or similar desktop PDF editor), fill in all fields, sign it, save it, and then attach the completed file to your reply.`)
+IMPORTANT â€” Tax Form Note: Download the PDF before filling it out. Do NOT fill it out in your browser or email viewer â€” many browsers do not save filled fields or signatures. Open the file in Adobe Acrobat Reader (or similar desktop PDF editor), fill in all fields, sign it, save it, and then attach the completed file to your reply.`)
         : "";
       const formsParagraph = formsStatus.length > 0
         ? (missingForms.length > 0 || taxFormInstruction
@@ -2594,7 +2594,7 @@ IMPORTANT — Tax Form Note: Download the PDF before filling it out. Do NOT fill
             `Serial Number: ${serialNumber}`,
             `Description: ${description}`,
             "",
-            "Our team will review your submission and contact you within 1–2 business days.",
+            "Our team will review your submission and contact you within 1â€“2 business days.",
             "",
             "Thank you,",
             "DubDub22 / Double T Tactical",
@@ -2629,7 +2629,7 @@ IMPORTANT — Tax Form Note: Download the PDF before filling it out. Do NOT fill
     }
   });
 
-  // ── Public: Dealer Order / Inquiry ──────────────────────────────────────────
+  // â”€â”€ Public: Dealer Order / Inquiry â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   app.post("/api/retail-order", publicFormLimiter, async (req, res) => {
     try {
       const {
@@ -2664,7 +2664,7 @@ IMPORTANT — Tax Form Note: Download the PDF before filling it out. Do NOT fill
         }
       }
 
-      // Route emails by intent: info → dealerinquiry@dubdub22.com, demo/order → orders@dubdub22.com
+      // Route emails by intent: info â†’ dealerinquiry@dubdub22.com, demo/order â†’ orders@dubdub22.com
       const INQUIRY_EMAIL = "dealerinquiry@dubdub22.com";
       const emailTo = isInfo ? INQUIRY_EMAIL : ORDER_EMAIL;
 
@@ -2795,8 +2795,8 @@ IMPORTANT — Tax Form Note: Download the PDF before filling it out. Do NOT fill
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             content: isInfo
-              ? `💬 **New Dealer Inquiry - ${contactName}**`
-              : `🛒 **New Dealer Order - ${contactName}**`,
+              ? `ðŸ’¬ **New Dealer Inquiry - ${contactName}**`
+              : `ðŸ›’ **New Dealer Order - ${contactName}**`,
             embeds: [{
               title: subjectLine,
               color: isInfo ? 0x666666 : 0xFF6600,
@@ -2820,7 +2820,7 @@ IMPORTANT — Tax Form Note: Download the PDF before filling it out. Do NOT fill
     }
   });
 
-  // ── Public: Submit dealer inquiry ────────────────────────────────────────────
+  // â”€â”€ Public: Submit dealer inquiry â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   app.post("/api/retail-inquiry", publicFormLimiter, async (req, res) => {
     try {
       const { dealerId, contactName, email, phone, message } = req.body || {};
@@ -2942,7 +2942,7 @@ IMPORTANT — Tax Form Note: Download the PDF before filling it out. Do NOT fill
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            content: `📍 **New Retail Inquiry**`,
+            content: `ðŸ“ **New Retail Inquiry**`,
             embeds: [{
               title: `Inquiry re: ${dealer.business_name}`,
               color: 0xFF6600,
@@ -2966,7 +2966,7 @@ IMPORTANT — Tax Form Note: Download the PDF before filling it out. Do NOT fill
     }
   });
 
-  // ── Admin: Dealer Inquiries ─────────────────────────────────────────
+  // â”€â”€ Admin: Dealer Inquiries â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   app.get("/api/admin/retail-inquiries", requireAdmin, async (req, res) => {
     try {
       const { search, status } = req.query;
@@ -3002,7 +3002,7 @@ IMPORTANT — Tax Form Note: Download the PDF before filling it out. Do NOT fill
     }
   });
 
-  // ── Admin: Warranty Requests ─────────────────────────────────────────
+  // â”€â”€ Admin: Warranty Requests â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   app.get("/api/admin/warranty-requests", requireAdmin, async (req, res) => {
     try {
       const { search, status } = req.query;
@@ -3035,7 +3035,7 @@ IMPORTANT — Tax Form Note: Download the PDF before filling it out. Do NOT fill
     }
   });
 
-  // ── Admin: Dealer Inquiries (submissions dealer leads only) ──
+  // â”€â”€ Admin: Dealer Inquiries (submissions dealer leads only) â”€â”€
   app.get("/api/admin/dealer-inquiries", requireAdmin, async (req, res) => {
     try {
       const { search } = req.query;
@@ -3127,7 +3127,7 @@ IMPORTANT — Tax Form Note: Download the PDF before filling it out. Do NOT fill
     }
   });
 
-  // ── Admin: Update Dealer Inquiry Status ───────────────────────────────
+  // â”€â”€ Admin: Update Dealer Inquiry Status â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   app.patch("/api/admin/retail-inquiries/:id", requireAdmin, async (req, res) => {
     try {
       const { status, admin_notes } = req.body;
@@ -3143,7 +3143,7 @@ IMPORTANT — Tax Form Note: Download the PDF before filling it out. Do NOT fill
     }
   });
 
-  // ── Admin: Delete Retail Inquiry ──────────────────────────────────────
+  // â”€â”€ Admin: Delete Retail Inquiry â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   app.delete("/api/admin/retail-inquiries/:id", requireAdmin, async (req, res) => {
     try {
       await pool.query(`DELETE FROM retail_inquiries WHERE id = $1`, [req.params.id]);
@@ -3154,7 +3154,7 @@ IMPORTANT — Tax Form Note: Download the PDF before filling it out. Do NOT fill
     }
   });
 
-  // ── Admin: Update Warranty Request Status ─────────────────────────────
+  // â”€â”€ Admin: Update Warranty Request Status â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   app.patch("/api/admin/warranty-requests/:id", requireAdmin, async (req, res) => {
     try {
       const { status, admin_notes } = req.body;
@@ -3215,9 +3215,9 @@ IMPORTANT — Tax Form Note: Download the PDF before filling it out. Do NOT fill
     }
   });
 
-  // ═══════════════════════════════════════════════════════════════════
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   // TAX FORM UPLOAD & REVIEW
-  // ═══════════════════════════════════════════════════════════════════
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
   // Generate a tax form upload token and email the link to the dealer
   app.post("/api/tax-form/send-upload-link", requireAdmin, async (req, res) => {
@@ -3272,7 +3272,7 @@ IMPORTANT — Tax Form Note: Download the PDF before filling it out. Do NOT fill
           ``,
           `We're ready to process your DubDub22 order and need a copy of your Multi-State Tax Form (or your Certificate of Resale).`,
           ``,
-          `IMPORTANT — Tax Form Note: Download the PDF before filling it out. Do NOT fill it out in your browser or email viewer — many browsers do not save filled fields or signatures. Open the file in Adobe Acrobat Reader (or similar desktop PDF editor), fill in all fields, sign it, and save before uploading.`,
+          `IMPORTANT â€” Tax Form Note: Download the PDF before filling it out. Do NOT fill it out in your browser or email viewer â€” many browsers do not save filled fields or signatures. Open the file in Adobe Acrobat Reader (or similar desktop PDF editor), fill in all fields, sign it, and save before uploading.`,
           ``,
           `Please upload your completed form using the link below:`,
           ``,
@@ -3430,7 +3430,7 @@ IMPORTANT — Tax Form Note: Download the PDF before filling it out. Do NOT fill
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            content: `✅ **Tax Form Accepted** - ${record.dealer_name} (FFL: ${record.ffl_license_number || record.ffl_number})`,
+            content: `âœ… **Tax Form Accepted** - ${record.dealer_name} (FFL: ${record.ffl_license_number || record.ffl_number})`,
             embeds: [{
               color: 0x22c55e,
               fields: [
@@ -3513,7 +3513,7 @@ IMPORTANT — Tax Form Note: Download the PDF before filling it out. Do NOT fill
     }
   });
 
-  // ── Send Invoice ───────────────────────────────────────────────────────────
+  // â”€â”€ Send Invoice â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   app.post("/api/admin/send-invoice", requireAdmin, async (req, res) => {
     try {
       const {
@@ -3625,7 +3625,7 @@ print(pdf_path)
         console.warn("PDF generation failed, continuing without PDF:", e.message);
       }
 
-      // ── Also upload invoice PDF to FastBound contact ───────────────────────
+      // â”€â”€ Also upload invoice PDF to FastBound contact â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
       if (pdfPath && submissionId) {
         try {
           const subRows = await pool.query(
@@ -3675,7 +3675,7 @@ print(pdf_path)
         customerAddress ? `Address: ${customerAddress}` : null,
         [customerCity, customerState, customerZip].filter(Boolean).join(", ") || null,
         ``,
-        `${qty} × ${lineDesc} @ $${unitPrice.toFixed(2)} = $${subtotal.toFixed(2)}`,
+        `${qty} Ã— ${lineDesc} @ $${unitPrice.toFixed(2)} = $${subtotal.toFixed(2)}`,
         isWarranty ? `Sales Tax (8.25%): $${taxAmount.toFixed(2)}` : null,
         ``,
         `TOTAL: $${total.toFixed(2)}`,
@@ -3704,7 +3704,7 @@ print(pdf_path)
     }
   });
 
-  // ── Request Docs ───────────────────────────────────────────────────────────
+  // â”€â”€ Request Docs â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   // Emails the dealer/FFL what documents we still need, attaching the Multi-State Tax Affidavit if missing
   app.post("/api/admin/submissions/:id/request-docs", requireAdmin, async (req, res) => {
     try {
@@ -3751,7 +3751,7 @@ print(pdf_path)
 
       const subject = `Action Required: Additional Documents Needed - DubDub22 Order`;
       const taxFormWarning = !hasStateTax ? (
-        `\n\nIMPORTANT — Tax Form Note: Download the PDF before filling it out. Do NOT fill it out in your browser or email viewer — many browsers do not save filled fields or signatures. Open the file in Adobe Acrobat Reader (or similar desktop PDF editor), fill in all fields, sign it, and save before attaching to your reply.`
+        `\n\nIMPORTANT â€” Tax Form Note: Download the PDF before filling it out. Do NOT fill it out in your browser or email viewer â€” many browsers do not save filled fields or signatures. Open the file in Adobe Acrobat Reader (or similar desktop PDF editor), fill in all fields, sign it, and save before attaching to your reply.`
       ) : "";
 
       const text = [
@@ -3759,7 +3759,7 @@ print(pdf_path)
         "",
         "Thank you for your order with Double T Tactical / DubDub22. Before we can process and ship your order, we need the following additional documents:",
         "",
-        ...missing.map(m => `  • ${m}`),
+        ...missing.map(m => `  â€¢ ${m}`),
         "",
         "Please reply to this email with the requested documents at your earliest convenience. You can also email them directly to docs@dubdub22.com.",
         taxFormWarning,
@@ -3792,7 +3792,7 @@ print(pdf_path)
     }
   });
 
-  // ── Form 3 Submitted ──────────────────────────────────────────────────────────
+  // â”€â”€ Form 3 Submitted â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   app.post("/api/admin/submissions/:id/form3-submitted", requireAdmin, async (req, res) => {
     try {
       const { id } = req.params;
@@ -3824,7 +3824,7 @@ print(pdf_path)
       const hasSot = !!(s.sot_file_name && s.sot_file_data) || !!(s.dealer_sot_file_name);
       const hasStateTax = !!(s.state_tax_file_name && s.state_tax_file_data) || !!(s.dealer_state_tax_file_name);
 
-      // FFL and SOT must already be on file before Form 3 can be submitted — only check for missing tax docs
+      // FFL and SOT must already be on file before Form 3 can be submitted â€” only check for missing tax docs
       const missing: string[] = [];
       if (!hasStateTax) missing.push("a completed Multi-State Tax Affidavit");
 
@@ -3836,7 +3836,7 @@ print(pdf_path)
         "",
         missing.length > 0 ? `We are still missing the following documents:` : "All required documents are on file.",
         missing.length > 0 ? "" : null,
-        ...missing.map(m => `  • ${m}`),
+        ...missing.map(m => `  â€¢ ${m}`),
         "",
         `Upon Form 3 Approval, your invoice will be sent to manage payment prior to shipment.`,
         "",
@@ -3901,7 +3901,7 @@ print(pdf_path)
         text: [
           `Hi ${name},`,
           ``,
-          `Thanks for reaching out to DubDub22. We've received your message and will get back to you within 1–2 business days.`,
+          `Thanks for reaching out to DubDub22. We've received your message and will get back to you within 1â€“2 business days.`,
           ``,
           `Here's a copy of what you submitted:`,
           ``,
@@ -3920,8 +3920,8 @@ print(pdf_path)
     }
   });
 
-  // ── Retail Orders ──────────────────────────────────────────────────────────
-  // GET /api/admin/retail-orders — list all retail orders
+  // â”€â”€ Retail Orders â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // GET /api/admin/retail-orders â€” list all retail orders
   app.get("/api/admin/retail-orders", requireAdmin, async (_req, res) => {
     try {
       const rows = await pool.query(`
@@ -3939,7 +3939,7 @@ print(pdf_path)
     }
   });
 
-  // POST /api/admin/retail-orders — create a retail order (no invoice yet)
+  // POST /api/admin/retail-orders â€” create a retail order (no invoice yet)
   app.post("/api/admin/retail-orders", requireAdmin, async (req, res) => {
     try {
       const { customerName, customerEmail, customerPhone, quantity } = req.body || {};
@@ -3965,7 +3965,7 @@ print(pdf_path)
     }
   });
 
-  // PATCH /api/admin/retail-orders/:id — update status, dates, notes
+  // PATCH /api/admin/retail-orders/:id â€” update status, dates, notes
   app.patch("/api/admin/retail-orders/:id", requireAdmin, async (req, res) => {
     try {
       const { id } = req.params;
@@ -3996,7 +3996,7 @@ print(pdf_path)
     }
   });
 
-  // POST /api/admin/retail-orders/:id/send-invoice — generate PDF and email to customer
+  // POST /api/admin/retail-orders/:id/send-invoice â€” generate PDF and email to customer
   app.post("/api/admin/retail-orders/:id/send-invoice", requireAdmin, async (req, res) => {
     try {
       const { id } = req.params;
@@ -4061,7 +4061,7 @@ print(pdf_path)
         order.retail_customer_email ? `Email: ${order.retail_customer_email}` : null,
         order.retail_customer_phone ? `Phone: ${order.retail_customer_phone}` : null,
         ``,
-        `${order.quantity} × DUBDUB22 SUPPRESSOR @ $${order.unit_price.toFixed(2)} = $${order.subtotal.toFixed(2)}`,
+        `${order.quantity} Ã— DUBDUB22 SUPPRESSOR @ $${order.unit_price.toFixed(2)} = $${order.subtotal.toFixed(2)}`,
         `Sales Tax (${(order.tax_rate * 100).toFixed(2)}%): $${order.tax_amount.toFixed(2)}`,
         ``,
         `TOTAL: $${order.total_amount.toFixed(2)}`,
@@ -4092,7 +4092,7 @@ print(pdf_path)
     }
   });
 
-  // ── FastBound: Get inventory items (DubDub22 suppressors)
+  // â”€â”€ FastBound: Get inventory items (DubDub22 suppressors)
   app.get("/api/admin/fastbound/inventory", requireAdmin, async (req, res) => {
     try {
       const limit = req.query.limit ? parseInt(req.query.limit as string) : 100;
@@ -4108,7 +4108,7 @@ print(pdf_path)
     }
   });
 
-  // ── FastBound: Assign serials & create pending disposition ─────────────
+  // â”€â”€ FastBound: Assign serials & create pending disposition â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   app.post("/api/admin/submissions/:id/fastbound-pending", requireAdmin, async (req, res) => {
     try {
       const { id } = req.params;
@@ -4162,7 +4162,7 @@ print(pdf_path)
     }
   });
 
-  // ── FastBound: Commit disposition after Form 3 approved ────────────────
+  // â”€â”€ FastBound: Commit disposition after Form 3 approved â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   app.post("/api/admin/submissions/:id/fastbound-commit", requireAdmin, async (req, res) => {
     try {
       const { id } = req.params;
@@ -4184,7 +4184,7 @@ print(pdf_path)
     }
   });
 
-  // ── ShipStation: Create label ─────────────────────────────────────────
+  // â”€â”€ ShipStation: Create label â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   app.post("/api/admin/submissions/:id/shipstation-label", requireAdmin, async (req, res) => {
     try {
       const { id } = req.params;
@@ -4226,7 +4226,7 @@ print(pdf_path)
     }
   });
 
-  // ── Form 3 Approved: Full workflow ───────────────────────────────────
+  // â”€â”€ Form 3 Approved: Full workflow â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   app.post("/api/admin/submissions/:id/form3-approved", requireAdmin, async (req, res) => {
     try {
       const { id } = req.params;
