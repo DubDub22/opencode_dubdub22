@@ -123,23 +123,20 @@ export default function DealerDashboardPage() {
           </motion.div>
 
           {/* ── Status Cards ──────────────────────────────────────── */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-            <StatusCard
-              label="FFL"
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
+            <DocStatusCard
+              label="FFL License"
               onFile={profile.fflOnFile}
-              detail={profile.fflLicenseNumber || "Not provided"}
               expiry={profile.fflExpiryDate}
+              type="ffl"
+              dealerId={profile.id}
             />
-            <StatusCard
-              label="SOT"
+            <DocStatusCard
+              label="SOT License"
               onFile={profile.sotOnFile}
-              detail={profile.einType === "2" ? "Manufacturer" : "Dealer"}
               expiry={profile.sotExpiryDate}
-            />
-            <StatusCard
-              label="Tax Form"
-              onFile={profile.taxFormOnFile}
-              detail={profile.ein || "Not provided"}
+              type="sot"
+              dealerId={profile.id}
             />
           </div>
 
@@ -180,14 +177,13 @@ export default function DealerDashboardPage() {
               <CardHeader>
                 <CardTitle className="text-lg flex items-center gap-2">
                   <Upload className="w-5 h-5 text-primary" />
-                  Document Upload
+                  Actions
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-2">
-                <ActionLink href={`/apply?ffl=${profile.fflLicenseNumber || ""}`} label="Upload FFL/SOT Documents" />
-                <ActionLink href="/dealer/tax-form" label="Complete Multi-State Tax Form" />
-                <ActionLink href="/upload-tax-form" label="Upload State Tax ID Document" />
                 <ActionLink href="/dealer/order" label="Place New Order" />
+                <ActionLink href="/dealer/tax-form" label="Complete Tax Form" />
+                <AdditionalUpload dealerName={profile.businessName} />
               </CardContent>
             </Card>
 
@@ -230,32 +226,139 @@ export default function DealerDashboardPage() {
   );
 }
 
-function StatusCard({ label, onFile, detail, expiry }: {
-  label: string;
-  onFile: boolean;
-  detail: string;
-  expiry?: string;
+function getExpiryStatus(expiry: string | undefined): "green" | "amber" | "red" {
+  if (!expiry) return "red";
+  const d = new Date(expiry + (expiry.length === 10 ? "T00:00:00" : ""));
+  if (isNaN(d.getTime())) return "red";
+  const now = new Date();
+  if (d < now) return "red";
+  const daysLeft = Math.ceil((d.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+  if (daysLeft <= 90) return "amber";
+  return "green";
+}
+
+function DocStatusCard({ label, onFile, expiry, type, dealerId }: {
+  label: string; onFile: boolean; expiry?: string; type: "ffl" | "sot"; dealerId: string;
 }) {
+  const status = onFile ? getExpiryStatus(expiry) : "red";
+  const colors = { green: "border-green-500/50 bg-green-500/5", amber: "border-yellow-500/50 bg-yellow-500/5", red: "border-red-500/50 bg-red-500/5" };
+  const icons = { green: CheckCircle, amber: Clock, red: XCircle };
+  const iconColors = { green: "text-green-500", amber: "text-yellow-500", red: "text-red-500" };
+  const labels = { green: "Current", amber: "Expiring Soon", red: onFile ? "Expired" : "Not on File" };
+  const Icon = icons[status];
+  const [showUpload, setShowUpload] = useState(false);
+  const [file, setFile] = useState(null);
+  const [newExpiry, setNewExpiry] = useState("");
+  const [sotYear, setSotYear] = useState("");
+  const [uploading, setUploading] = useState(false);
+  const { toast } = useToast();
+
+  const needsUpload = status === "red" || status === "amber";
+
+  async function doUpload() {
+    if (!file) return;
+    const exp = type === "ffl" ? newExpiry : `07/01/${sotYear}`;
+    if (type === "ffl" && !newExpiry) { toast({ title: "Expiration required", variant: "destructive" }); return; }
+    if (type === "sot" && !sotYear) { toast({ title: "SOT year required", variant: "destructive" }); return; }
+    setUploading(true);
+    try {
+      const b64 = await new Promise(resolve => { const r = new FileReader(); r.onload = () => resolve(r.result.split(",")[1]); r.readAsDataURL(file); });
+      const resp = await fetch("/api/dealer/upload-document-renewal", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fileData: b64, fileName: file.name, documentType: type, newExpiry: exp }),
+      });
+      const d = await resp.json();
+      if (d.ok) { toast({ title: "Uploaded" }); window.location.reload(); }
+      else toast({ title: "Error", description: d.error, variant: "destructive" });
+    } catch { toast({ title: "Error", variant: "destructive" }); }
+    finally { setUploading(false); }
+  }
+
   return (
-    <Card className={onFile ? "border-green-500/30" : "border-red-500/30"}>
+    <Card className={colors[status]}>
       <CardContent className="p-4">
         <div className="flex items-center justify-between mb-2">
           <span className="text-sm font-medium">{label}</span>
-          {onFile ? (
-            <CheckCircle className="w-5 h-5 text-green-500" />
-          ) : (
-            <XCircle className="w-5 h-5 text-red-500" />
-          )}
+          <div className="flex items-center gap-1">
+            <Icon className={`w-5 h-5 ${iconColors[status]}`} />
+            <span className={`text-xs font-medium ${iconColors[status]}`}>{labels[status]}</span>
+          </div>
         </div>
-        <p className="text-sm text-muted-foreground">{detail}</p>
-        {expiry && (
-          <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
-            <Clock className="w-3 h-3" />
-            Expires: {expiry}
-          </p>
+        {expiry && <p className="text-xs text-muted-foreground mb-1">Expires: {expiry}</p>}
+        {!onFile && <p className="text-xs text-muted-foreground mb-2">No document on file</p>}
+        
+        {needsUpload && !showUpload && (
+          <Button size="sm" variant="outline" onClick={() => setShowUpload(true)} className="w-full mt-1 text-xs">
+            <Upload className="w-3 h-3 mr-1" /> Upload New {type.toUpperCase()}
+          </Button>
+        )}
+
+        {showUpload && (
+          <div className="mt-2 space-y-2">
+            <FileDrop file={file} setFile={setFile} />
+            {type === "ffl" && (
+              <Input type="date" value={newExpiry} onChange={e => setNewExpiry(e.target.value)} placeholder="New expiration date" className="bg-background h-8 text-xs" />
+            )}
+            {type === "sot" && (
+              <select value={sotYear} onChange={e => setSotYear(e.target.value)} className="w-full h-8 rounded-md border border-border bg-background px-2 text-xs">
+                <option value="">Select SOT year...</option>
+                {[2025,2026,2027,2028,2029,2030].map(y => <option key={y} value={y}>{y}</option>)}
+              </select>
+            )}
+            <div className="flex gap-2">
+              <Button size="sm" onClick={doUpload} disabled={uploading || !file} className="text-xs h-7 flex-1">
+                {uploading ? <Loader2 className="w-3 h-3 animate-spin" /> : "Upload"}
+              </Button>
+              <Button size="sm" variant="ghost" onClick={() => setShowUpload(false)} className="text-xs h-7">Cancel</Button>
+            </div>
+          </div>
         )}
       </CardContent>
     </Card>
+  );
+}
+
+function AdditionalUpload({ dealerName }: { dealerName: string }) {
+  const [file, setFile] = useState(null);
+  const [uploading, setUploading] = useState(false);
+  const { toast } = useToast();
+
+  async function doUpload() {
+    if (!file) return;
+    setUploading(true);
+    try {
+      const b64 = await new Promise(resolve => { const r = new FileReader(); r.onload = () => resolve(r.result.split(",")[1]); r.readAsDataURL(file); });
+      const resp = await fetch("/api/dealer/upload-misc", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fileData: b64, fileName: file.name, dealerName }),
+      });
+      const d = await resp.json();
+      if (d.ok) { toast({ title: "File sent to docs@" }); setFile(null); }
+      else toast({ title: "Error", description: d.error, variant: "destructive" });
+    } catch { toast({ title: "Error", variant: "destructive" }); }
+    finally { setUploading(false); }
+  }
+
+  return (
+    <div className="border-t border-border pt-2 mt-2">
+      <p className="text-xs text-muted-foreground mb-2">Additional File Upload — sends to docs@dubdub22.com</p>
+      <FileDrop file={file} setFile={setFile} />
+      {file && (
+        <Button size="sm" onClick={doUpload} disabled={uploading} className="w-full mt-1 text-xs h-7">
+          {uploading ? <Loader2 className="w-3 h-3 animate-spin" /> : "Send to docs@"}
+        </Button>
+      )}
+    </div>
+  );
+}
+
+function FileDrop({ file, setFile }: { file: File | null; setFile: (f: File | null) => void }) {
+  return (
+    <label className={`flex items-center justify-center border-2 border-dashed rounded p-2 cursor-pointer text-xs transition-colors ${file ? "border-green-500/50 bg-green-500/5" : "border-border hover:border-primary/40 bg-card"}`}
+      onDragOver={e => { e.preventDefault() }} onDrop={e => { e.preventDefault(); const f = e.dataTransfer.files?.[0]; if (f) setFile(f); }}>
+      <input type="file" accept=".pdf,.png,.jpg,.jpeg" className="sr-only" onChange={e => setFile(e.target.files?.[0] || null)} />
+      {file ? <span className="text-green-500">{file.name}</span> : <span className="text-muted-foreground"><Upload className="w-3 h-3 inline mr-1" />Drop file or click</span>}
+    </label>
   );
 }
 
