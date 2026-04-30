@@ -227,7 +227,7 @@ export default function DealerDashboardPage() {
 
 function getExpiryStatus(expiry: string | undefined): "green" | "amber" | "red" {
   if (!expiry) return "red";
-  const d = new Date(expiry + (expiry.length === 10 ? "T00:00:00" : ""));
+  const d = new Date(expiry + (expiry.length === 10 ? "T23:59:59" : ""));
   if (isNaN(d.getTime())) return "red";
   const now = new Date();
   if (d < now) return "red";
@@ -256,7 +256,7 @@ function DocStatusCard({ label, onFile, expiry, type, detail }: {
 
   async function doUpload() {
     if (!file) return;
-    const exp = type === "ffl" ? newExpiry : `07/01/${sotYear}`;
+    const exp = type === "ffl" ? newExpiry : `06/30/${sotYear}`;
     if (type === "ffl" && !newExpiry) { toast({ title: "Expiration required", variant: "destructive" }); return; }
     if (type === "sot" && !sotYear) { toast({ title: "SOT year required", variant: "destructive" }); return; }
     setUploading(true);
