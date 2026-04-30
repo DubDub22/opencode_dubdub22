@@ -3073,10 +3073,6 @@ function FFLUpdatePanel() {
       setStatus("idle");
     }
   }
-        }
-      }).catch(() => {});
-    }).catch(() => {});
-  }, []);
 
   async function doUpdate() {
     if (!url.trim()) return;
