@@ -561,54 +561,6 @@ All documents attached as ZIP. Review in admin: https://dubdub22.com/admin`,
         console.error("register_email_setup_error", e);
       }
 
-        // Email 2: Send completed tax form to dealer
-        if (dealerEmail && filledTaxFormBase64) {
-          sendViaGmail({
-            to: dealerEmail,
-            from: "docs@dubdub22.com",
-            subject: "COMPLETED TAX FORM",
-            text: "FOR YOUR RECORDS. WE NOW HAVE ALL DOCS NECESSARY TO COMPLETE YOUR ACCOUNT SETUP. THANK YOU, DUBDUB22",
-            attachment: {
-              filename: `multi_state_tax_form_${companyName.replace(/[^a-zA-Z0-9]/g, "_")}.pdf`,
-              base64Data: filledTaxFormBase64,
-              contentType: "application/pdf",
-            },
-          }).then(() => console.log("dealer_tax_email_sent", dealerEmail))
-            .catch((e: any) => console.error("register_dealer_email_error", e));
-        }
-        // Email 3: Send FFL document to docs@
-        if (fflFileData && fflFileName) {
-          sendViaGmail({
-            to: "docs@dubdub22.com",
-            from: "docs@dubdub22.com",
-            subject: `FFL DOCUMENT - ${companyName}`,
-            text: `FFL License for ${companyName} (${fflNumber})`,
-            attachment: { filename: fflFileName, base64Data: fflFileData, contentType: "application/pdf" },
-          }).catch((e: any) => console.error("register_ffl_email_error", e));
-        }
-
-        // Email 4: Send SOT document to docs@
-        if (sotFileData && sotFileName) {
-          sendViaGmail({
-            to: "docs@dubdub22.com",
-            from: "docs@dubdub22.com",
-            subject: `SOT DOCUMENT - ${companyName}`,
-            text: `SOT License for ${companyName} (${fflNumber})`,
-            attachment: { filename: sotFileName, base64Data: sotFileData, contentType: "application/pdf" },
-          }).catch((e: any) => console.error("register_sot_email_error", e));
-        }
-
-        // Email 5: Send state tax ID document to docs@
-        if (stateDocFileData && stateDocFileName) {
-          sendViaGmail({
-            to: "docs@dubdub22.com",
-            from: "docs@dubdub22.com",
-            subject: `STATE TAX DOCUMENT - ${companyName}`,
-            text: `State Tax ID Document for ${companyName} (${fflNumber})`,
-            attachment: { filename: stateDocFileName, base64Data: stateDocFileData, contentType: "application/pdf" },
-          }).catch((e: any) => console.error("register_statedoc_email_error", e));
-        }
-
       return res.json({ ok: true, dealerId, fieldsEdited: fieldsEdited || [] });
     } catch (err: any) {
       console.error("dealer_register_full_error", err);
