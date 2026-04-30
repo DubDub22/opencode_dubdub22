@@ -441,7 +441,7 @@ function SubmissionsTab({
             onArchive={() => setArchiveTarget(sub)}
             onDelete={() => { console.log("delete card clicked", sub.id); setDeleteTarget(sub); }}
             onPaid={() => setPaidTarget(sub)}
-            onFastBoundPending={() => { setFastBoundTarget(sub); setSerialInput(""); }}
+            onFastBoundPending={() => openFastBoundDialog(sub)}
             onForm3Approved={() => setForm3Target(sub)} />)}
       </div>
 
@@ -468,7 +468,7 @@ function SubmissionsTab({
                 onRequestDocs={() => setRequestDocsTarget(sub)}
                 onForm3Submitted={() => setForm3SubmittedTarget(sub)}
                 onPaid={() => setPaidTarget(sub)}
-                onFastBoundPending={() => { setFastBoundTarget(sub); setSerialInput(""); }}
+            onFastBoundPending={() => openFastBoundDialog(sub)}
                 onForm3Approved={() => setForm3Target(sub)} />)}
           </tbody>
         </table>
@@ -3353,6 +3353,8 @@ export default function AdminPage() {
     } catch { toast({ title: "Error", description: "Could not delete.", variant: "destructive" }); }
     finally { setRetailInquiryDeleteTarget(null); }
   };
+
+  const openFastBoundDialog = (sub: Submission) => { setFastBoundTarget(sub); setSerialInput(""); setAvailableSerials([]); };
 
   const handleFastBoundPending = async () => {
     if (!fastBoundTarget || !serialInput.trim()) return;
