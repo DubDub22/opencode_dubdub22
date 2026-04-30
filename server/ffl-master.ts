@@ -32,6 +32,21 @@ const MONTH_MAP: Record<string, string> = {
   L: "11", M: "12",
 };
 
+// FFL types that CAN deal in NFA items (suppressors)
+const NFA_ELIGIBLE_TYPES = new Set(["01", "02", "07", "08", "09", "10", "11"]);
+const BANNED_TYPES = new Set(["03", "06"]); // C&R and Ammo Mfr — cannot deal NFA
+
+// Map FFL type to FastBound EIN type
+function fflTypeToEinType(fflType: string): string {
+  // 01=Dealer, 02=Pawnbroker, 09=Destructive Device Dealer → EIN 3 (Dealer)
+  if (["01", "02", "09"].includes(fflType)) return "3";
+  // 07=Firearms Mfr, 10=DD Mfr → EIN 2 (Manufacturer)
+  if (["07", "10"].includes(fflType)) return "2";
+  // 08=Importer, 11=DD Importer → EIN 1 (Importer)
+  if (["08", "11"].includes(fflType)) return "1";
+  return "3"; // default to Dealer
+}
+
 // Parse FFL expiration date from the 9th and 10th digits of the FFL number
 // 9th digit = last digit of year (e.g., 8 → 2028)
 // 10th digit = month code (A=Jan through M=Dec)
@@ -65,6 +80,8 @@ export interface FFLRecord {
   premiseZip: string;
   voicePhone: string;
   fflExpiryDate: string; // YYYY-MM-DD — derived from FFL number digits
+  fflType: string;       // "01", "02", "07", "08", "09", "10", "11" — NFA-eligible types
+  einType: string;       // "1" (Importer), "2" (Manufacturer), "3" (Dealer)
 }
 
 // In-memory lookup: normalized FFL -> record
@@ -138,16 +155,21 @@ export async function loadFFLMaster(): Promise<void> {
     };
 
     // Skip suppressor-ban states and US territories
-    const state = rec.PREMISE_STATE.toUpperCase();
+    const fflState = rec.PREMISE_STATE.toUpperCase();
     const BANNED_STATES = new Set(["CA", "DE", "HI", "IL", "MA", "NJ", "NY", "RI", "DC"]);
     const TERRITORIES = new Set(["PR", "GU", "VI", "AS", "MP"]);
-    if (BANNED_STATES.has(state) || TERRITORIES.has(state)) continue;
+    if (BANNED_STATES.has(fflState) || TERRITORIES.has(fflState)) continue;
+
+    // Skip FFL types that cannot deal in NFA items (03=C&R, 06=Ammo Mfr)
+    const fflType = rec.LIC_TYPE.trim();
+    if (BANNED_TYPES.has(fflType)) continue;
 
     const fflNumber = parseFFLNumber(rec);
     const normalized = normalizeKey(fflNumber);
     const licenseeName = rec.LICENSE_NAME;
     const businessName = rec.BUSINESS_NAME || rec.LICENSE_NAME;
     const expiryDate = parseExpiryDate(normalized) || "";
+    const einType = fflTypeToEinType(fflType);
 
     const record: FFLRecord = {
       fflNumber,
@@ -159,6 +181,8 @@ export async function loadFFLMaster(): Promise<void> {
       premiseZip: parseZipCode(rec.PREMISE_ZIP_CODE),
       voicePhone: rec.VOICE_PHONE,
       fflExpiryDate: expiryDate,
+      fflType,
+      einType,
     };
 
     fflMap.set(normalized, record);

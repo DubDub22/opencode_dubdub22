@@ -59,6 +59,7 @@ function Step1FFL({ onNext }: { onNext: (data: Step1Data) => void }) {
           state: data.premiseState || "",
           zip: data.premiseZipCode || "",
           fflExpiry: data.fflExpiryDate || "",
+          einType: data.einType || "3",
         }));
         setFound(true);
       } else {
@@ -157,13 +158,14 @@ function Step1FFL({ onNext }: { onNext: (data: Step1Data) => void }) {
             <Input value={form.ein} onChange={e => update("ein", e.target.value)} placeholder="XX-XXXXXXX" className={inputClass} />
           </div>
           <div>
-            <label className={labelClass}>EIN Type *</label>
+            <label className={labelClass}>EIN Type * (from FFL type)</label>
             <select value={form.einType} onChange={e => update("einType", e.target.value)} className="w-full h-10 rounded-md border border-border bg-background px-3 py-2 text-sm">
-              <option value="3">Dealer</option>
-              <option value="2">Manufacturer</option>
-              <option value="1">Importer</option>
+              <option value="3">3 - Dealer (FFL 01, 02, 09)</option>
+              <option value="2">2 - Manufacturer (FFL 07, 10)</option>
+              <option value="1">1 - Importer (FFL 08, 11)</option>
             </select>
           </div>
+          {found && <p className="text-xs text-muted-foreground">Auto-detected from FFL type in ATF database</p>}
           <div>
             <label className={labelClass}>Address {edits.has("address") && <AlertTriangle className="w-3 h-3 inline text-yellow-500" />}</label>
             <Input value={form.address} onChange={e => { update("address", e.target.value); markEdit("address"); }} className={inputClass} />

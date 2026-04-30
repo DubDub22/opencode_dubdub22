@@ -1795,6 +1795,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           premiseZipCode: csvRecord.premiseZip,
           voicePhone: csvRecord.voicePhone,
           fflExpiryDate: csvRecord.fflExpiryDate,
+          fflType: csvRecord.fflType,
+          einType: csvRecord.einType,
           fflRecord: csvRecord,
         });
       }
