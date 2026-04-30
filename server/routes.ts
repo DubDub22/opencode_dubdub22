@@ -3949,7 +3949,7 @@ print(pdf_path)
     try {
       const limit = req.query.limit ? parseInt(req.query.limit as string) : 100;
       const items = await searchInventoryItems({
-        manufacturer: "DOUBLE TACTICAL",
+        manufacturer: process.env.FASTBOUND_MANUFACTURER || "DOUBLE TACTICAL",
         model: "DubDub22",
         limit,
       });
