@@ -322,6 +322,10 @@ export function registerDealerAuthRoutes(app: Express) {
         return res.status(400).json({ ok: false, error: "missing_required" });
       }
 
+      // Auto-format EIN: "123456789" -> "12-3456789"
+      const rawEin = (ein || "").replace(/[^0-9]/g, "");
+      const formattedEin = rawEin.length === 9 ? rawEin.slice(0,2) + "-" + rawEin.slice(2) : (ein || null);
+
       // Hash password if provided
       let passwordHash = null;
       if (password && password.length >= 8) {
@@ -337,7 +341,7 @@ export function registerDealerAuthRoutes(app: Express) {
         phone: phone || null,
         fflLicenseNumber: fflNumber,
         fflExpiryDate: fflExpiry || null,
-        ein: ein || null,
+        ein: formattedEin,
         einType: einType || "3",
         businessAddress: address || null,
         city: city || null,
@@ -420,12 +424,9 @@ export function registerDealerAuthRoutes(app: Express) {
         );
       }
 
-      // 5. Create FastBound contact (non-blocking, skip EIN if invalid)
+      // 5. Create FastBound contact (non-blocking)
       try {
         const { createOrUpdateContact } = await import("../fastbound.js");
-        // Only send EIN if it looks valid (XX-XXXXXXX or 9 digits)
-        const cleanEin = (ein || "").replace(/[^0-9]/g, "");
-        const hasValidEin = cleanEin.length === 9;
         await createOrUpdateContact({
           fflNumber: fflNumber,
           fflExpires: fflExpiry || undefined,
@@ -436,8 +437,8 @@ export function registerDealerAuthRoutes(app: Express) {
           premiseState: state || "",
           premiseZipCode: zip || "",
           phone: phone || undefined,
-          ein: hasValidEin ? ein : undefined,
-          einType: hasValidEin ? (einType || undefined) : undefined,
+          ein: formattedEin || undefined,
+          einType: formattedEin ? (einType || undefined) : undefined,
           email: email || undefined,
         });
         console.log("fastbound_contact_created", { fflNumber, companyName });
