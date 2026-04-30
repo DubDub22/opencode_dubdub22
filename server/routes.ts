@@ -347,6 +347,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Load FFL master list
   await loadFFLMaster();
 
+  // Setup session BEFORE any route registrations (needed for auth)
+  if (!process.env.SESSION_SECRET) {
+    console.error('FATAL: SESSION_SECRET environment variable is required');
+    process.exit(1);
+  }
+  app.use(session({
+    secret: process.env.SESSION_SECRET,
+    resave: false,
+    saveUninitialized: false,
+    cookie: { secure: false, httpOnly: true, sameSite: "lax", maxAge: 7 * 24 * 60 * 60 * 1000 }
+  }));
+
   // Register "In The Wild" routes (YouTube + submission system)
   registerWildRoutes(app);
 
@@ -381,217 +393,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Trust proxy for secure cookies
   app.set('trust proxy', 1);
 
-  // Setup simple session for admin
-  if (!process.env.SESSION_SECRET) {
-    console.error('FATAL: SESSION_SECRET environment variable is required');
-    process.exit(1);
-  }
-
-  app.use(session({
-    secret: process.env.SESSION_SECRET,
-    resave: false,
-    saveUninitialized: false,
-    cookie: { secure: false, httpOnly: true, sameSite: "lax", maxAge: 7 * 24 * 60 * 60 * 1000 }
-  }));
-
   const publicFormLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 10, message: { ok: false, error: "Too many requests" } });
-
-  // Get client IP from request
-  const getClientIp = (req: any): string => {
-    return (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim()
-      || req.headers['x-real-ip'] as string
-      || req.socket?.remoteAddress
-      || '';
-  };
-
-  // --- PIN-based auth endpoints ---
-
-  // Request a PIN (posted to Discord webhook)
-  app.post("/api/admin/request-pin", async (req, res) => {
-    try {
-      const ip = getClientIp(req);
-
-      // Rate limit: one PIN request per 60 seconds per IP
-      const recent = await pool.query(
-        `SELECT id FROM admin_pin_requests WHERE ip_address = $1 AND created_at > NOW() - INTERVAL '60 seconds'`,
-        [ip]
-      );
-      if (recent.rows.length > 0) {
-        return res.status(429).json({ ok: false, error: "Please wait 60 seconds before requesting another PIN." });
-      }
-
-      // Generate 6-digit PIN
-      const pin = Math.floor(100000 + Math.random() * 900000).toString();
-      const pinHash = createHash('sha256').update(pin).digest('hex');
-      const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 min
-
-      await pool.query(
-        `INSERT INTO admin_pin_requests (pin_hash, ip_address, expires_at) VALUES ($1, $2, $3)`,
-        [pinHash, ip, expiresAt]
-      );
-
-      // Post to Discord webhook
-      const webhookUrl = process.env.DISCORD_WEBHOOK_URL;
-      if (webhookUrl) {
-        const discordPayload = {
-          content: `ðŸ” **Admin Access Request**\n\nPIN: \`${pin}\`\nIP: \`${ip}\`\n\nValid for 5 minutes. Paste this PIN at dubdub22.com/admin to unlock access.`,
-        };
-        fetch(webhookUrl, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(discordPayload),
-        }).catch(() => {});
-      }
-
-      return res.json({ ok: true, message: "PIN sent to #general channel." });
-    } catch (err: any) {
-      return res.status(500).json({ ok: false, error: err?.message || "server_error" });
-    }
-
-
-  // Generate filled tax form PDF
-  app.post("/api/admin/tax-form/generate", requireAdmin, async (req, res) => {
-    try {
-      const { businessName, ein, address, city, state, zip } = req.body || {};
-      if (!businessName || !ein) {
-        return res.status(400).json({ ok: false, error: "Business Name and EIN required" });
-      }
-
-      // Dynamic import pdf-lib (requires: npm install pdf-lib)
-      const { PDFDocument, rgb, StandardFonts } = await import("pdf-lib");
-
-      // Create a new PDF
-      const pdfDoc = await PDFDocument.create();
-      const page = pdfDoc.addPage([612, 792]); // US Letter
-      const { height } = page.getSize();
-      const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
-      const boldFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
-
-      let y = height - 50;
-      const leftX = 50;
-      const lineHeight = 25;
-
-      // Title
-      page.drawText("MULTI-STATE TAX AFFIDAVIT", {
-        x: leftX, y, size: 18, font: boldFont, color: rgb(0, 0, 0),
-      });
-      y -= 40;
-
-      // Business Name
-      page.drawText("Business Name:", { x: leftX, y, size: 12, font: boldFont, color: rgb(0, 0, 0) });
-      page.drawText(businessName, { x: leftX + 120, y, size: 12, font, color: rgb(0, 0, 0) });
-      y -= lineHeight;
-
-      // EIN
-      page.drawText("EIN:", { x: leftX, y, size: 12, font: boldFont, color: rgb(0, 0, 0) });
-      page.drawText(ein, { x: leftX + 50, y, size: 12, font, color: rgb(0, 0, 0) });
-      y -= lineHeight;
-
-      // Address
-      page.drawText("Address:", { x: leftX, y, size: 12, font: boldFont, color: rgb(0, 0, 0) });
-      page.drawText(address || "", { x: leftX + 80, y, size: 12, font, color: rgb(0, 0, 0) });
-      y -= lineHeight;
-
-      // City, State, Zip
-      page.drawText("City:", { x: leftX, y, size: 12, font: boldFont, color: rgb(0, 0, 0) });
-      page.drawText(city || "", { x: leftX + 50, y, size: 12, font, color: rgb(0, 0, 0) });
-      page.drawText("State:", { x: leftX + 200, y, size: 12, font: boldFont, color: rgb(0, 0, 0) });
-      page.drawText(state || "", { x: leftX + 250, y, size: 12, font, color: rgb(0, 0, 0) });
-      page.drawText("Zip:", { x: leftX + 320, y, size: 12, font: boldFont, color: rgb(0, 0, 0) });
-      page.drawText(zip || "", { x: leftX + 355, y, size: 12, font, color: rgb(0, 0, 0) });
-      y -= lineHeight * 2;
-
-      // Declaration
-      const declaration = [
-        "I hereby certify that the above-named business is exempt from sales tax in the",
-        "states listed above, and that this exemption applies to the purchase of NFA items.",
-        "",
-        "This form is provided for dealer convenience and must be kept on file for",
-        "audit purposes.",
-      ];
-      for (const line of declaration) {
-        page.drawText(line, { x: leftX, y, size: 10, font, color: rgb(0, 0, 0) });
-        y -= 18;
-      }
-
-      y -= 20;
-      page.drawText(`Generated: ${new Date().toLocaleDateString()}`, {
-        x: leftX, y, size: 10, font, color: rgb(0.5, 0.5, 0.5),
-      });
-
-      const pdfBytes = await pdfDoc.save();
-      const pdfBase64 = Buffer.from(pdfBytes).toString("base64");
-
-      return res.json({
-        ok: true,
-        pdfBase64,
-        filename: `tax_form_${businessName.replace(/[^a-zA-Z0-9]/g, "_")}.pdf`,
-      });
-    } catch (err: any) {
-      console.error("tax_form_generate_error", err);
-      return res.status(500).json({ ok: false, error: err.message });
-    }
-  });
-  });
-
-  // Verify PIN and whitelist IP
-  app.post("/api/admin/verify-pin", async (req, res) => {
-    try {
-      const { pin } = req.body;
-      if (!pin || !/^\d{6}$/.test(pin)) {
-        return res.status(400).json({ ok: false, error: "invalid_pin_format" });
-      }
-
-      const ip = getClientIp(req);
-      const pinHash = createHash('sha256').update(pin).digest('hex');
-
-      // Check for recent failed attempts (brute force protection)
-      const recentFail = await pool.query(
-        `SELECT COUNT(*) as cnt FROM admin_failed_attempts WHERE ip_address = $1 AND attempted_at > NOW() - INTERVAL '15 minutes'`,
-        [ip]
-      );
-      if (parseInt(recentFail.rows[0]?.cnt || '0') >= 5) {
-        return res.status(429).json({ ok: false, error: "Too many failed attempts. Wait 15 minutes." });
-      }
-
-      // Find valid PIN for this IP that hasn't expired
-      const result = await pool.query(
-        `SELECT id FROM admin_pin_requests WHERE pin_hash = $1 AND ip_address = $2 AND expires_at > NOW()`,
-        [pinHash, ip]
-      );
-
-      if (result.rows.length === 0) {
-        // Record failed attempt
-        await pool.query(`INSERT INTO admin_failed_attempts (ip_address) VALUES ($1)`, [ip]);
-        return res.status(401).json({ ok: false, error: "invalid_or_expired_pin" });
-      }
-
-      // PIN is valid - delete it and whitelist the IP for 7 days
-      await pool.query(`DELETE FROM admin_pin_requests WHERE id = $1`, [result.rows[0].id]);
-      const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
-      await pool.query(
-        `INSERT INTO admin_ip_whitelist (ip_address, expires_at) VALUES ($1, $2)
-         ON CONFLICT (ip_address) DO UPDATE SET expires_at = $2, whitelisted_at = NOW()`,
-        [ip, expiresAt]
-      );
-
-      (req.session as any).isAdmin = true;
-      return res.json({ ok: true, expiresAt: expiresAt.toISOString() });
-    } catch (err: any) {
-      return res.status(500).json({ ok: false, error: err?.message || "server_error" });
-    }
-  });
-
-  // Check if current IP is whitelisted (used on page load)
-  app.get("/api/admin/check-auth", async (req, res) => {
-    return res.json({ ok: true, authorized: true });
-  });
-
-  app.post("/api/admin/logout", (req, res) => {
-    req.session.destroy(() => {
-      res.json({ ok: true });
-    });
-  });
 
   const requireAdmin = (req: any, res: any, next: any) => {
     // Temp: no auth required
