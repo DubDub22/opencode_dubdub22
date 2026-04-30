@@ -587,7 +587,6 @@ All documents attached as ZIP. Review in admin: https://dubdub22.com/admin`,
             ).catch((e: any) => console.error("fastbound_zip_upload_error", e));
           }
         }
-        }
       } catch (e) {
         console.error("register_email_setup_error", e);
       }
