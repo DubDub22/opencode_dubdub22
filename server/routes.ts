@@ -594,13 +594,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   const requireAdmin = (req: any, res: any, next: any) => {
-    if (req.session?.isAdmin) {
-      return next();
-    }
-    return res.status(403).json({ ok: false, error: "unauthorized" });
+    // Temp: no auth required
+    return next();
   };
-  // Export for backward compatibility
-  app.use((req: any, _res: any, next: any) => { req.requireAdmin = () => requireAdmin; next(); });
 
   app.get("/api/admin/submissions", requireAdmin, async (req, res) => {
     try {
