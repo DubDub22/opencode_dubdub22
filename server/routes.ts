@@ -4118,7 +4118,7 @@ print(pdf_path)
       // Clean up temp
       try { fs.unlinkSync(tmpPath); } catch {}
 
-      return res.json({ ok: true, output: result });
+      return res.json({ ok: true, output: result, note: "CSV saved. Restart server to load new data." });
     } catch (err: any) {
       console.error("update_ffl_error", err);
       return res.status(500).json({ ok: false, error: err.stderr || err.stdout || err.message });
