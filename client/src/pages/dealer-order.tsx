@@ -58,10 +58,10 @@ export default function DealerOrderPage() {
   const sotExpired = profile.sotExpiryDate && new Date(profile.sotExpiryDate + "T23:59:59") < new Date();
   const canOrder = !fflExpired && !sotExpired && profile.fflOnFile && profile.sotOnFile;
 
-  const demoPrice = 0;
   const unitPrice = 60;
-  const subtotal = orderType === "demo" ? 0 : quantity * unitPrice;
-  const shipping = orderType === "demo" ? 0 : 10;
+  const qty = orderType === "demo" ? 1 : quantity;
+  const subtotal = qty * unitPrice;
+  const shipping = 10;
   const total = subtotal + shipping;
 
   if (submitted) return (
@@ -119,7 +119,7 @@ export default function DealerOrderPage() {
             <input type="radio" name="type" checked={orderType === "demo"} onChange={() => setOrderType("demo")} className="mt-1 accent-primary" />
             <div>
               <span className="font-medium">Demo Unit</span>
-              <span className="text-green-500 ml-2 text-sm font-medium">FREE</span>
+              <span className="text-muted-foreground ml-2 text-sm">$60 + $10 shipping</span>
               <p className="text-xs text-muted-foreground mt-1">1 suppressor for evaluation. Limit 1 per dealer.</p>
               {profile.hasDemoUnitShipped && <p className="text-xs text-red-400 mt-1">You have already received a demo unit.</p>}
             </div>
