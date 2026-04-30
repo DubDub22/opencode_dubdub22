@@ -121,22 +121,19 @@ export async function createOrUpdateContact(
 
   const contact: any = {
     fflNumber: dealer.fflNumber,
-    // Required by FastBound when providing FFL number:
     fflExpires: dealer.fflExpires || undefined,
     licenseName: dealer.licenseName || dealer.tradeName || undefined,
-    // Only send these if you want to override FastBound's auto-populated values:
     tradeName: dealer.tradeName || undefined,
     premiseAddress1: dealer.premiseAddress1 || undefined,
     premiseCity: dealer.premiseCity || undefined,
     premiseState: dealer.premiseState || undefined,
     premiseZipCode: dealer.premiseZipCode || undefined,
     premiseCountry: dealer.premiseCountry || "US",
-    // Fields NOT auto-populated by FastBound — must send explicitly:
-    phoneNumber: dealer.phone || undefined,
-    emailAddress: dealer.email || undefined,
-    sotein: dealer.ein || undefined,
-    sotClass: dealer.einType || undefined,
-  };
+    // These are NOT accepted by FastBound for FFL contacts via API:
+    // phone and emailAddress are silently ignored. FastBound only
+    // auto-populates phone through its FFL EZ Check button in the UI.
+    // Email must be stored in the notes field.
+    ...(dealer.email ? { notes: `Email: ${dealer.email} | Phone: ${dealer.phone || "N/A"}` } : {}),
 
   // For Sole Proprietor: FastBound auto-populates licenseName as "LAST, FIRST"
   // For LLC: licenseName will be the LLC name, tradeName may be empty
