@@ -327,6 +327,52 @@ export function registerDealerAuthRoutes(app: Express) {
       return res.status(500).json({ ok: false, error: "order_failed" });
     }
   });
+
+  // ── Upload renewed FFL/SOT with new expiration ────────────────────
+  app.post("/api/dealer/upload-document-renewal", requireDealerAuth, async (req, res) => {
+    try {
+      const { fileData, fileName, documentType, newExpiry } = req.body || {};
+      if (!fileData || !fileName || !documentType || !newExpiry) {
+        return res.status(400).json({ ok: false, error: "missing_fields" });
+      }
+      const dealerId = req.session!.dealerId!;
+      const updates: Record<string, any> = { updatedAt: new Date().toISOString() };
+      if (documentType === "ffl") {
+        updates.fflFileName = fileName; updates.fflFileData = fileData;
+        updates.fflOnFile = true; updates.fflExpiryDate = newExpiry;
+      } else if (documentType === "sot") {
+        updates.sotFileName = fileName; updates.sotFileData = fileData;
+        updates.sotOnFile = true; updates.sotExpiryDate = newExpiry;
+      } else {
+        return res.status(400).json({ ok: false, error: "invalid_type" });
+      }
+      await db.update(dealers).set(updates as any).where(eq(dealers.id, dealerId));
+      return res.json({ ok: true });
+    } catch (err: any) {
+      return res.status(500).json({ ok: false, error: "upload_failed" });
+    }
+  });
+
+  // ── Misc file upload → emails docs@ ───────────────────────────────
+  app.post("/api/dealer/upload-misc", requireDealerAuth, async (req, res) => {
+    try {
+      const { fileData, fileName, dealerName } = req.body || {};
+      if (!fileData || !fileName) return res.status(400).json({ ok: false, error: "missing_fields" });
+      try {
+        const { sendViaGmail } = await import("../routes.js");
+        await sendViaGmail({
+          to: "docs@dubdub22.com", from: "docs@dubdub22.com",
+          subject: `DOC CHANGE - ${dealerName || "Dealer"}`,
+          text: `Additional document from ${dealerName || "Dealer"}: ${fileName}`,
+          attachment: { filename: fileName, base64Data: fileData, contentType: "application/pdf" },
+        });
+      } catch {}
+      return res.json({ ok: true });
+    } catch (err: any) {
+      return res.status(500).json({ ok: false, error: "upload_failed" });
+    }
+  });
+
   // ── Full registration (both steps at once) ──────────────────────────
   app.post("/api/dealer/register-full", async (req, res) => {
     try {
