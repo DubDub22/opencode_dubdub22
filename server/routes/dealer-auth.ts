@@ -411,15 +411,16 @@ export function registerDealerAuthRoutes(app: Express) {
             const sigBytes = Buffer.from(signatureDataUrl.replace(/^data:image\/\w+;base64,/, ""), "base64");
             const sigImage = await pdfDoc.embedPng(sigBytes);
             const pages = pdfDoc.getPages();
-            const page = pages[pages.length - 1];
-            const { width } = page.getSize();
-            // Place signature near the Authorized Signature field (bottom-left area of form)
+            const page = pages[0]; // signature is on first page
+            // Place signature image at the exact position of the "Authorized Signature" field
             page.drawImage(sigImage, {
-              x: 50,
-              y: 175,
-              width: 200,
-              height: 50,
+              x: 242,
+              y: 110,
+              width: 279,
+              height: 40,
             });
+            // Clear the text field since we're placing an image instead
+            try { form.getTextField("Authorized Signature").setText(""); } catch {}
             // Also set signature text as fallback
             try { form.getTextField("Authorized Signature").setText(licenseName || companyName || ""); } catch {}
           } catch (sigErr) {
@@ -428,6 +429,11 @@ export function registerDealerAuthRoutes(app: Express) {
           }
         } else {
           try { form.getTextField("Authorized Signature").setText(licenseName || companyName || ""); } catch {}
+        }
+
+        // Remove extra pages (keep only page 1)
+        while (pdfDoc.getPageCount() > 1) {
+          pdfDoc.removePage(1); // remove pages after the first
         }
 
         const filledPdf = await pdfDoc.save();

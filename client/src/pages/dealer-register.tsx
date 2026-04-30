@@ -169,16 +169,8 @@ export default function DealerRegister() {
               <div key={i} className="flex gap-2 mb-2">
                 <Input value={e.state} disabled={i===0} className={`${i===0?"bg-muted/30":"bg-background"} w-16 text-center font-bold`}/>
                 <Input value={e.taxId} onChange={ev=>{const n=[...taxIds];n[i]={...n[i],taxId:ev.target.value};setTaxIds(n)}} placeholder={`${e.state||"XX"} tax ID`} className={ic}/>
-                {i>0 && <button onClick={()=>setTaxIds(prev=>prev.filter((_,idx)=>idx!==i))} className="text-red-400 shrink-0"><X className="w-5 h-5"/></button>}
               </div>
             ))}
-            <div className="flex gap-2 mt-1">
-              <select value="" onChange={e=>{if(e.target.value){setTaxIds(prev=>[...prev,{state:e.target.value,taxId:""}]);e.target.value=""}}} className="h-9 rounded-md border border-border bg-background px-2 text-sm w-20">
-                <option value="">+</option>
-                {["AL","AK","AZ","AR","CO","CT","DE","FL","GA","ID","IL","IN","IA","KS","KY","LA","ME","MD","MI","MN","MS","MO","MT","NE","NV","NH","NM","NC","ND","OH","OK","OR","PA","RI","SC","SD","TN","UT","VT","VA","WA","WV","WI","WY"].filter(s=>!taxIds.some(e=>e.state===s)).map(s=><option key={s} value={s}>{s}</option>)}
-              </select>
-              <Input placeholder="Tax ID for additional state" className={`${ic} h-9`} onChange={()=>{}} onKeyDown={e=>{if(e.key==="Enter"&&e.target.value.trim()){setTaxIds(prev=>[...prev,{state:e.target.previousSibling?.value||"",taxId:e.target.value.trim()}]);e.target.value=""}}}/>
-            </div>
           </div>
         </CardContent>
       </Card>
