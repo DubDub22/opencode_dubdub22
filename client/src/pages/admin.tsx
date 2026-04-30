@@ -3074,26 +3074,6 @@ function FFLUpdatePanel() {
     }
   }
 
-  async function doUpdate() {
-    if (!url.trim()) return;
-    setStatus("loading");
-    setOutput("");
-    try {
-      const resp = await fetch("/api/admin/update-ffl", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url: url.trim() }),
-      });
-      const data = await resp.json();
-      setOutput(data.output || data.error || "Done");
-      setStatus("done");
-      setOverdue(false);
-    } catch (e: any) {
-      setOutput(e.message);
-      setStatus("idle");
-    }
-  }
-
   return (
     <Card className={`${overdue ? "border-red-500/50 bg-red-500/5" : "bg-card/30"} border-border transition-colors`}>
       <CardContent className="p-3">
