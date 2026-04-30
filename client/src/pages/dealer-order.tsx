@@ -138,7 +138,7 @@ export default function DealerOrderPage() {
             <div className="flex items-center gap-3 pl-7">
               <span className="text-sm">Quantity:</span>
               <select value={quantity} onChange={e => setQuantity(parseInt(e.target.value))} className="h-10 rounded-md border border-border bg-background px-3 py-2 text-sm">
-                {[1,2,3,4,5,10,15,20,25,30,40,50,75,100].map(n => <option key={n} value={n}>{n} units — ${(n * unitPrice).toFixed(2)}</option>)}
+                {[5,10,15,20].map(n => <option key={n} value={n}>{n} units — ${(n * unitPrice).toFixed(2)}</option>)}
               </select>
             </div>
           )}
