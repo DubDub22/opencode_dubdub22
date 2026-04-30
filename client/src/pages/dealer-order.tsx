@@ -54,6 +54,10 @@ export default function DealerOrderPage() {
   if (loading) return <div className="min-h-screen bg-background flex items-center justify-center"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>;
   if (!profile) return null;
 
+  const fflExpired = profile.fflExpiryDate && new Date(profile.fflExpiryDate + "T23:59:59") < new Date();
+  const sotExpired = profile.sotExpiryDate && new Date(profile.sotExpiryDate + "T23:59:59") < new Date();
+  const canOrder = !fflExpired && !sotExpired && profile.fflOnFile && profile.sotOnFile;
+
   const demoPrice = 0;
   const unitPrice = 60;
   const subtotal = orderType === "demo" ? 0 : quantity * unitPrice;
@@ -84,6 +88,18 @@ export default function DealerOrderPage() {
       </div>
 
       <h1 className="text-3xl font-display font-bold">Place Order</h1>
+
+      {!canOrder && (
+        <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-4 text-sm">
+          <p className="font-medium text-red-400 mb-1">Ordering is blocked</p>
+          <ul className="list-disc list-inside text-muted-foreground space-y-1">
+            {fflExpired && <li>Your FFL has expired. Please upload a renewed FFL from your dashboard.</li>}
+            {sotExpired && <li>Your SOT has expired. Please upload a renewed SOT from your dashboard.</li>}
+            {!profile.fflOnFile && <li>No FFL document on file.</li>}
+            {!profile.sotOnFile && <li>No SOT document on file.</li>}
+          </ul>
+        </div>
+      )}
 
       {/* Dealer Info Summary */}
       <Card>
@@ -145,8 +161,8 @@ export default function DealerOrderPage() {
         <span>I understand that all NFA rules apply. Suppressors must be transferred on an approved ATF Form 3 (dealer-to-dealer) or Form 4 (individual). The buyer is responsible for all transfer taxes and compliance. Orders subject to availability.</span>
       </label>
 
-      <Button onClick={handleSubmit} disabled={submitting || !termsAccepted} className="w-full font-display text-lg h-12 bg-primary hover:bg-primary/90">
-        {submitting ? <Loader2 className="w-5 h-5 animate-spin" /> : orderType === "demo" ? "Request Demo Unit" : `Place Order — $${total.toFixed(2)}`}
+      <Button onClick={handleSubmit} disabled={submitting || !termsAccepted || !canOrder} className="w-full font-display text-lg h-12 bg-primary hover:bg-primary/90">
+        {submitting ? <Loader2 className="w-5 h-5 animate-spin" /> : !canOrder ? "Order Blocked — Expired Documents" : orderType === "demo" ? "Request Demo Unit" : `Place Order — $${total.toFixed(2)}`}
       </Button>
     </section></div>
   );
