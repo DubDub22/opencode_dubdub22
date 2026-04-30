@@ -98,7 +98,7 @@ export default function DealerRegister() {
 
       <Card><CardHeader><CardTitle className="text-lg"><Search className="w-5 h-5 inline mr-2 text-primary"/>FFL Lookup</CardTitle></CardHeader>
         <CardContent>
-          <div className="flex gap-2"><Input value={fflInput} onChange={e=>setFflInput(e.target.value)} placeholder="FFL number (X-XX-XXX-XX-XX-XXXXX)" className={ic}/><Button onClick={lookup} disabled={looking} variant="outline">{looking?<Loader2 className="w-4 h-4 animate-spin"/>:"Lookup"}</Button></div>
+           <div className="flex gap-2"><Input value={fflInput} onChange={e=>setFflInput(e.target.value)} onKeyDown={e=>{if(e.key==="Enter")lookup()}} placeholder="FFL number (X-XX-XXX-XX-XX-XXXXX)" className={ic}/><Button onClick={lookup} disabled={looking} variant="outline">{looking?<Loader2 className="w-4 h-4 animate-spin"/>:"Lookup"}</Button></div>
           {found && <p className="text-sm text-green-500 mt-2"><CheckCircle className="w-4 h-4 inline mr-1"/>Data loaded from ATF database</p>}
         </CardContent>
       </Card>
