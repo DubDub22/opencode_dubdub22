@@ -131,11 +131,11 @@ export async function createOrUpdateContact(
     premiseState: dealer.premiseState || undefined,
     premiseZipCode: dealer.premiseZipCode || undefined,
     premiseCountry: dealer.premiseCountry || "US",
-    phone: dealer.phone || undefined,
     // Fields NOT auto-populated by FastBound — must send explicitly:
-    ein: dealer.ein || undefined,
-    ...(dealer.einType ? { einType: dealer.einType } : {}),
-    ...(dealer.email ? { notes: `Email: ${dealer.email}` } : {}),
+    phoneNumber: dealer.phone || undefined,
+    emailAddress: dealer.email || undefined,
+    sotein: dealer.ein || undefined,
+    sotClass: dealer.einType || undefined,
   };
 
   // For Sole Proprietor: FastBound auto-populates licenseName as "LAST, FIRST"
