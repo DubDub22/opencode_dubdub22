@@ -1,0 +1,154 @@
+import React, { useState, useEffect } from "react";
+import SiteHeader from "@/components/SiteHeader";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { useToast } from "@/hooks/use-toast";
+import { Loader2, ShoppingCart, Package, ShieldCheck, Building2, Mail, Phone, MapPin, ArrowLeft } from "lucide-react";
+
+export default function DealerOrderPage() {
+  const { toast } = useToast();
+  const [profile, setProfile] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [orderType, setOrderType] = useState("stocking");
+  const [quantity, setQuantity] = useState(5);
+  const [termsAccepted, setTermsAccepted] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/dealer/auth/me")
+      .then(r => r.json())
+      .then(data => {
+        if (data.ok) setProfile(data.dealer);
+        else window.location.href = "/dealer/login";
+      })
+      .catch(() => window.location.href = "/dealer/login")
+      .finally(() => setLoading(false));
+  }, []);
+
+  async function handleSubmit() {
+    if (!termsAccepted) { toast({ title: "Terms required", description: "Please accept the terms and conditions.", variant: "destructive" }); return; }
+    if (orderType === "demo" && profile?.hasDemoUnitShipped) { toast({ title: "Demo already shipped", description: "You have already received a demo unit.", variant: "destructive" }); return; }
+    setSubmitting(true);
+    try {
+      const resp = await fetch("/api/dealer/place-order", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orderType, quantity: orderType === "demo" ? 1 : quantity, termsAccepted: true }),
+      });
+      const data = await resp.json();
+      if (data.ok) {
+        setSubmitted(true);
+        toast({ title: "Order Submitted!", description: `Your ${orderType === "demo" ? "demo request" : "stocking order"} has been received.` });
+      } else {
+        toast({ title: "Error", description: data.error || "Order failed", variant: "destructive" });
+      }
+    } catch {
+      toast({ title: "Error", description: "Connection error", variant: "destructive" });
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  if (loading) return <div className="min-h-screen bg-background flex items-center justify-center"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>;
+  if (!profile) return null;
+
+  const demoPrice = 0;
+  const unitPrice = 99;
+  const subtotal = orderType === "demo" ? 0 : quantity * unitPrice;
+  const shipping = orderType === "demo" ? 0 : 15;
+  const total = subtotal + shipping;
+
+  if (submitted) return (
+    <div className="min-h-screen bg-background"><SiteHeader/>
+    <section className="pt-24 pb-16 max-w-xl mx-auto px-6 text-center">
+      <div className="bg-card border border-border rounded-lg p-8">
+        <ShieldCheck className="w-16 h-16 text-green-500 mx-auto mb-4" />
+        <h1 className="text-2xl font-display font-bold mb-2">Order Submitted</h1>
+        <p className="text-muted-foreground mb-6">Your order has been received and will be reviewed shortly. You'll receive a confirmation email.</p>
+        <Button onClick={() => window.location.href = "/dealer/dashboard"} variant="outline" className="font-display">
+          <ArrowLeft className="w-4 h-4 mr-2" /> Back to Dashboard
+        </Button>
+      </div>
+    </section></div>
+  );
+
+  return (
+    <div className="min-h-screen bg-background text-foreground"><SiteHeader/>
+    <section className="pt-24 pb-16 max-w-xl mx-auto px-6 space-y-6">
+      <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
+        <a href="/dealer/dashboard" className="hover:text-primary"><ArrowLeft className="w-4 h-4 inline mr-1"/>Dashboard</a>
+        <span>/</span>
+        <span className="text-foreground">Place Order</span>
+      </div>
+
+      <h1 className="text-3xl font-display font-bold">Place Order</h1>
+
+      {/* Dealer Info Summary */}
+      <Card>
+        <CardContent className="p-4 grid grid-cols-2 gap-2 text-sm">
+          <div className="flex items-center gap-2"><Building2 className="w-4 h-4 text-muted-foreground"/><span className="font-medium">{profile.businessName}</span></div>
+          <div className="flex items-center gap-2"><Mail className="w-4 h-4 text-muted-foreground"/><span>{profile.email}</span></div>
+          <div className="flex items-center gap-2"><Phone className="w-4 h-4 text-muted-foreground"/><span>{profile.phone || "N/A"}</span></div>
+          <div className="flex items-center gap-2"><MapPin className="w-4 h-4 text-muted-foreground"/><span>{[profile.city, profile.state].filter(Boolean).join(", ")}</span></div>
+        </CardContent>
+      </Card>
+
+      {/* Order Type */}
+      <Card>
+        <CardHeader><CardTitle className="text-lg"><ShoppingCart className="w-5 h-5 inline mr-2 text-primary"/>Order Type</CardTitle></CardHeader>
+        <CardContent className="space-y-4">
+          <label className={`flex items-start gap-3 p-3 border rounded-lg cursor-pointer transition-colors ${orderType === "demo" ? "border-primary bg-primary/5" : "border-border hover:border-primary/30"}`}>
+            <input type="radio" name="type" checked={orderType === "demo"} onChange={() => setOrderType("demo")} className="mt-1 accent-primary" />
+            <div>
+              <span className="font-medium">Demo Unit</span>
+              <span className="text-green-500 ml-2 text-sm font-medium">FREE</span>
+              <p className="text-xs text-muted-foreground mt-1">1 suppressor for evaluation. Limit 1 per dealer.</p>
+              {profile.hasDemoUnitShipped && <p className="text-xs text-red-400 mt-1">You have already received a demo unit.</p>}
+            </div>
+          </label>
+
+          <label className={`flex items-start gap-3 p-3 border rounded-lg cursor-pointer transition-colors ${orderType === "stocking" ? "border-primary bg-primary/5" : "border-border hover:border-primary/30"}`}>
+            <input type="radio" name="type" checked={orderType === "stocking"} onChange={() => { setOrderType("stocking"); setQuantity(5); }} className="mt-1 accent-primary" />
+            <div>
+              <span className="font-medium">Stocking Order</span>
+              <span className="text-muted-foreground ml-2 text-sm">${unitPrice}/unit</span>
+              <p className="text-xs text-muted-foreground mt-1">Minimum 5 units. Quantities in multiples of 5.</p>
+            </div>
+          </label>
+
+          {orderType === "stocking" && (
+            <div className="flex items-center gap-3 pl-7">
+              <span className="text-sm">Quantity:</span>
+              <Input type="number" min={5} step={5} value={quantity} onChange={e => {
+                const v = parseInt(e.target.value) || 5;
+                setQuantity(Math.max(5, Math.round(v / 5) * 5));
+              }} className="w-24 bg-background text-center" />
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Order Summary */}
+      <Card>
+        <CardHeader><CardTitle className="text-lg"><Package className="w-5 h-5 inline mr-2 text-primary"/>Order Summary</CardTitle></CardHeader>
+        <CardContent className="space-y-2 text-sm">
+          <div className="flex justify-between"><span>{orderType === "demo" ? "1x Demo Unit" : `${quantity}x DubDub22 @ $${unitPrice}/ea`}</span><span>${subtotal.toFixed(2)}</span></div>
+          <div className="flex justify-between"><span>Shipping</span><span>{orderType === "demo" ? "FREE" : `$${shipping.toFixed(2)}`}</span></div>
+          <div className="flex justify-between font-bold text-base border-t border-border pt-2 mt-2"><span>Total</span><span className="text-primary">${total.toFixed(2)}</span></div>
+        </CardContent>
+      </Card>
+
+      {/* Terms */}
+      <label className="flex items-start gap-2 text-sm cursor-pointer">
+        <input type="checkbox" checked={termsAccepted} onChange={e => setTermsAccepted(e.target.checked)} className="mt-0.5 accent-primary" />
+        <span>I understand that all NFA rules apply. Suppressors must be transferred on an approved ATF Form 3 (dealer-to-dealer) or Form 4 (individual). The buyer is responsible for all transfer taxes and compliance. Orders subject to availability.</span>
+      </label>
+
+      <Button onClick={handleSubmit} disabled={submitting || !termsAccepted} className="w-full font-display text-lg h-12 bg-primary hover:bg-primary/90">
+        {submitting ? <Loader2 className="w-5 h-5 animate-spin" /> : orderType === "demo" ? "Request Demo Unit" : `Place Order — $${total.toFixed(2)}`}
+      </Button>
+    </section></div>
+  );
+}

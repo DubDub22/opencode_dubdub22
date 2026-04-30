@@ -272,8 +272,61 @@ export function registerDealerAuthRoutes(app: Express) {
     }
   });
 
-  // ── Upload dealer document (FFL, SOT, Tax) ───────────────────────────────
-  app.post("/api/dealer/upload-document", requireDealerAuth, async (req, res) => {
+  // ── Place order ────────────────────────────────────────────────────
+  app.post("/api/dealer/place-order", requireDealerAuth, async (req, res) => {
+    try {
+      const { orderType, quantity } = req.body || {};
+      if (!orderType || !quantity) return res.status(400).json({ ok: false, error: "missing_fields" });
+
+      const dealerId = req.session!.dealerId!;
+      const dealerResult = await db.select().from(dealers).where(eq(dealers.id, dealerId)).limit(1);
+      if (dealerResult.length === 0) return res.status(404).json({ ok: false, error: "dealer_not_found" });
+
+      const dealer = dealerResult[0];
+
+      if (orderType === "demo" && dealer.hasDemoUnitShipped) {
+        return res.status(400).json({ ok: false, error: "demo_already_shipped" });
+      }
+
+      const orderTypeLabel = orderType === "demo" ? "demo_order" : "dealer_order";
+      const qty = orderType === "demo" ? 1 : parseInt(quantity) || 5;
+      const unitPrice = orderType === "demo" ? 0 : 99;
+      const subtotal = qty * unitPrice;
+      const shipping = orderType === "demo" ? 0 : 15;
+
+      // Create submission
+      const subResult = await pool.query(
+        `INSERT INTO submissions (type, contact_name, business_name, email, phone, quantity, ffl_license_number, customer_address, customer_city, customer_state, customer_zip, created_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, CURRENT_TIMESTAMP) RETURNING id`,
+        [orderTypeLabel, dealer.contactName, dealer.businessName, dealer.email, dealer.phone,
+         String(qty), dealer.fflLicenseNumber, dealer.businessAddress, dealer.city, dealer.state, dealer.zip]
+      );
+      const submissionId = subResult.rows[0].id;
+
+      // Link dealer to submission
+      await pool.query(
+        `INSERT INTO dealer_submissions (dealer_id, submission_id, order_type, quantity) VALUES ($1, $2, $3, $4)`,
+        [dealerId, submissionId, orderTypeLabel, String(qty)]
+      );
+
+      // Create dealer order record
+      await pool.query(
+        `INSERT INTO dealer_orders (dealer_id, quantity, unit_price, subtotal, shipping_cost, total_amount, status, created_at)
+         VALUES ($1, $2, $3, $4, $5, $6, 'pending', CURRENT_TIMESTAMP)`,
+        [dealerId, qty, unitPrice, subtotal, shipping, subtotal + shipping]
+      );
+
+      // Mark demo shipped if demo order
+      if (orderType === "demo") {
+        await db.update(dealers).set({ hasDemoUnitShipped: true } as any).where(eq(dealers.id, dealerId));
+      }
+
+      return res.json({ ok: true, submissionId, orderType: orderTypeLabel });
+    } catch (err: any) {
+      console.error("dealer_place_order_error", err);
+      return res.status(500).json({ ok: false, error: "order_failed" });
+    }
+  });
     try {
       const { fileName, fileData, documentType } = req.body || {};
       if (!fileName || !fileData || !documentType) {
