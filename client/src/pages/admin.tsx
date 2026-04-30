@@ -664,14 +664,7 @@ function SubmissionRow({ sub, onArchive, onDelete, onRequestDocs, onForm3Submitt
           </div>
         ) : (
           <div className="space-y-1">
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-7 text-xs whitespace-nowrap border-blue-600 text-blue-600 hover:bg-blue-50"
-              onClick={onRequestDocs}
-            >
-              Request Docs
-            </Button>
+          </div>
             <Button
               variant="outline"
               size="sm"
@@ -3666,53 +3659,6 @@ export default function AdminPage() {
       </AlertDialog>
 
       <ShipDialog sub={shipTarget} open={!!shipTarget} onClose={() => setShipTarget(null)} />
-      <PaidDialog sub={paidTarget} open={!!paidTarget} onClose={() => setPaidTarget(null)} onPaid={fetchSubmissions} />
-      <InvoiceDialog sub={invoiceTarget} open={!!invoiceTarget} onClose={() => setInvoiceTarget(null)} />
-
-      <Dialog open={!!requestDocsTarget} onOpenChange={(o) => { if (!o) setRequestDocsTarget(null); }}>
-        <DialogContent className="bg-card border-border max-w-md">
-          <DialogHeader>
-            <DialogTitle>Request Documents</DialogTitle>
-            <DialogDescription className="text-sm text-muted-foreground">
-              Send an email to {requestDocsTarget?.email} requesting missing documents.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-3 py-2">
-            <p className="text-sm font-medium">The following will be requested:</p>
-            <ul className="text-sm space-y-1 list-disc pl-5">
-              {requestDocsTarget && !requestDocsTarget.dealerFflFileData && !requestDocsTarget.fflFileData && <li>FFL (Federal Firearms License)</li>}
-              {requestDocsTarget && !requestDocsTarget.dealerSotFileData && !requestDocsTarget.sotFileData && <li>SOT (Special Occupational Tax)</li>}
-              {requestDocsTarget && !requestDocsTarget.dealerStateTaxFileData && !requestDocsTarget.stateTaxFileData && <li>Multi-State Tax Affidavit <span className="text-blue-600 font-medium">(will be attached)</span></li>}
-            </ul>
-            {requestDocsTarget && !requestDocsTarget.dealerStateTaxFileData && !requestDocsTarget.stateTaxFileData && (
-              <p className="text-xs text-muted-foreground">The Multi-State Tax Affidavit PDF will be attached to the email automatically.</p>
-            )}
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setRequestDocsTarget(null)}>Cancel</Button>
-            <Button
-              onClick={async () => {
-                if (!requestDocsTarget) return;
-                setRequestDocsSaving(true);
-                try {
-                  const res = await fetch(`/api/admin/submissions/${requestDocsTarget.id}/request-docs`, { method: "POST" });
-                  const data = await res.json();
-                  if (!res.ok) throw new Error(data.error || "Failed");
-                  toast({ title: "Email Sent!", description: data.missing ? `${data.missing} item(s) requested.` : "All docs already on file." });
-                  setRequestDocsTarget(null);
-                } catch {
-                  toast({ title: "Error Sending Email", variant: "destructive" });
-                } finally {
-                  setRequestDocsSaving(false);
-                }
-              }}
-              disabled={requestDocsSaving}
-            >
-              {requestDocsSaving ? "Sending..." : "Send Email"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
       <Dialog open={!!form3SubmittedTarget} onOpenChange={(o) => { if (!o) setForm3SubmittedTarget(null); }}>
         <DialogContent className="bg-card border-border max-w-md">
