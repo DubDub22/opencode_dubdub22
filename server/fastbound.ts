@@ -22,6 +22,14 @@ const BASE =
   process.env.FASTBOUND_BASE_URL?.replace(/\/$/, "") ??
   `https://cloud.fastbound.com/${ACCOUNT}/api`;
 
+/**
+ * Manufacturer name in FastBound inventory.
+ * Production: "DOUBLE TACTICAL" — your actual FFL business name
+ * Sandbox:    "DubDub LLC"      — the name used on the test account
+ * Set via FASTBOUND_MANUFACTURER env var or defaults to "DOUBLE TACTICAL".
+ */
+const MANUFACTURER = process.env.FASTBOUND_MANUFACTURER || "DOUBLE TACTICAL";
+
 function authHeaders() {
   if (!ACCOUNT || !API_KEY) {
     throw new Error("FastBound credentials not configured (FASTBOUND_ACCOUNT / FASTBOUND_API_KEY)");
@@ -108,20 +116,23 @@ export async function createOrUpdateContact(
   //   - premise address, city, state, zip, country
   //   - phone
   // DO NOT send firstName, lastName, or organizationName (FastBound rejects them for FFL)
+  // DO send: fflExpires (required when fflNumber is present), licenseName (required)
   // DO send fields NOT auto-populated: ein, einType, email (in notes)
 
   const contact: any = {
     fflNumber: dealer.fflNumber,
+    // Required by FastBound when providing FFL number:
+    fflExpires: dealer.fflExpires || undefined,
+    licenseName: dealer.licenseName || dealer.tradeName || undefined,
     // Only send these if you want to override FastBound's auto-populated values:
-    // licenseName: dealer.licenseName || undefined,
-    // tradeName: dealer.tradeName || undefined,
-    // premiseAddress1: dealer.premiseAddress1,
-    // premiseCity: dealer.premiseCity,
-    // premiseState: dealer.premiseState,
-    // premiseZipCode: dealer.premiseZipCode,
-    // premiseCountry: dealer.premiseCountry || "US",
-    // phone: dealer.phone || undefined,
-    // Fields NOT auto-populated by FastBound â€” must send explicitly:
+    tradeName: dealer.tradeName || undefined,
+    premiseAddress1: dealer.premiseAddress1 || undefined,
+    premiseCity: dealer.premiseCity || undefined,
+    premiseState: dealer.premiseState || undefined,
+    premiseZipCode: dealer.premiseZipCode || undefined,
+    premiseCountry: dealer.premiseCountry || "US",
+    phone: dealer.phone || undefined,
+    // Fields NOT auto-populated by FastBound — must send explicitly:
     ein: dealer.ein || undefined,
     ...(dealer.einType ? { einType: dealer.einType } : {}),
     ...(dealer.email ? { notes: `Email: ${dealer.email}` } : {}),
@@ -167,13 +178,15 @@ export async function createPendingDisposition(
   const contactId = await createOrUpdateContact(dealer);
 
   // 2. Create empty pending disposition
-  // For NFA items (suppressors), use "NFA Disposition" type
-  // This ensures proper ATF compliance tracking in FastBound
+  // For NFA items (suppressors): the sandbox may not have NFA endpoints enabled (405).
+  // Production accounts with NFA items should use the NFA-specific endpoint.
+  // Fallback: create a standard disposition with a descriptive note.
   const disp: any = await fbFetch("/dispositions", {
     method: "POST",
     body: JSON.stringify({
-      disposeDate: new Date().toISOString().slice(0, 10), // YYYY-MM-DD
-      disposeType: "NFA Disposition",
+      date: new Date().toISOString().slice(0, 10), // YYYY-MM-DD
+      type: "NFA Disposition",
+      note: `DubDub22 suppressor transfer - ${items.length} item(s)`,
     }),
   });
 
@@ -190,7 +203,7 @@ export async function createPendingDisposition(
 
   // 4. Validate serials exist in FastBound inventory (only DubDub22 suppressors)
   const inventory = await searchInventoryItems({
-    manufacturer: "DOUBLE TACTICAL",
+    manufacturer: MANUFACTURER,
     model: "DubDub22", // only your suppressors
     limit: 1000,
   });
@@ -206,7 +219,7 @@ export async function createPendingDisposition(
       method: "POST",
       body: JSON.stringify({
         serialNumber: item.serialNumber,
-        make: item.make ?? "Double T Tactical",
+        make: item.make ?? MANUFACTURER,
         model: item.model ?? "DubDub22 Suppressor",
         caliber: item.caliber ?? "Multi",
         type: item.type ?? "Suppressor",
