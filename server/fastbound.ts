@@ -13,6 +13,7 @@
  */
 
 import { pool } from "./db";
+import { createHash } from "crypto";
 
 const ACCOUNT = process.env.FASTBOUND_ACCOUNT;
 const API_KEY = process.env.FASTBOUND_API_KEY;
@@ -481,4 +482,74 @@ export async function downloadContactAttachment(contactId: string, attachmentId:
 
   const arrayBuffer = await res.arrayBuffer();
   return Buffer.from(arrayBuffer);
+}
+
+/**
+ * Create a completed NFA transfer using the FastBound Transfer API (v1).
+ * Call this AFTER ATF Form 3 is approved.
+ *
+ * One API call: disposition + contact + items + tracking.
+ * Docs: https://github.com/FastBound/Support/tree/main/samples/transfers
+ */
+export async function createTransfer(options: {
+  transferorFFL: string;
+  transfereeFFL: string;
+  items: Array<{
+    manufacturer: string;
+    model: string;
+    caliber: string;
+    type: string;
+    serial: string;
+  }>;
+  trackingNumber?: string;
+  note?: string;
+  transfereeEmails?: string[];
+}): Promise<{ idempotencyKey: string; statusCode: number }> {
+  const { transferorFFL, transfereeFFL, items, trackingNumber, note, transfereeEmails = [] } = options;
+  const today = new Date().toISOString().slice(0, 10);
+
+  const idempotencyKey = createHash("sha256")
+    .update([today, transferorFFL, transfereeFFL, trackingNumber || "", ...items.map(i => i.serial)].join("\n"))
+    .digest("hex");
+
+  const payload = {
+    $schema: "https://schemas.fastbound.org/transfers-push-v1.json",
+    idempotency_key: idempotencyKey,
+    transferor: transferorFFL,
+    transferee: transfereeFFL,
+    transferee_emails: transfereeEmails,
+    tracking_number: trackingNumber || null,
+    acquire_type: "Purchase",
+    note: note || `DubDub22 suppressor transfer — ${items.length} item(s)`,
+    items: items.map(i => ({
+      manufacturer: i.manufacturer,
+      importer: null,
+      country: "US",
+      model: i.model,
+      caliber: i.caliber,
+      type: i.type,
+      serial: i.serial,
+      sku: null,
+      mpn: "DubDub22",
+      upc: null,
+      barrelLength: null,
+      overallLength: null,
+      cost: 60,
+      price: 60,
+      condition: "New",
+      note: null,
+    })),
+  };
+
+  const url = `https://cloud.fastbound.com/${ACCOUNT}/api/transfers`;
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { ...authHeaders() },
+    body: JSON.stringify(payload),
+  });
+
+  const body = await res.text();
+  if (!res.ok) throw new Error(`FastBound Transfer ${res.status} — ${body}`);
+
+  return { idempotencyKey, statusCode: res.status };
 }
