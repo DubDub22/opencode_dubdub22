@@ -298,6 +298,14 @@ export function registerDealerAuthRoutes(app: Express) {
       );
       const submissionId = subResult.rows[0].id;
 
+      // Generate order/invoice numbers
+      const orderNumber = `DD22-${new Date().toISOString().slice(0, 10).replace(/-/g, "")}-${submissionId.slice(0, 4).toUpperCase()}`;
+      const invoiceNumber = `INV-${orderNumber}`;
+      await pool.query(
+        `UPDATE submissions SET order_number = $1, invoice_number = $2 WHERE id = $3`,
+        [orderNumber, invoiceNumber, submissionId]
+      );
+
       // Link dealer to submission
       await pool.query(
         `INSERT INTO dealer_submissions (dealer_id, submission_id, order_type, quantity) VALUES ($1, $2, $3, $4)`,
@@ -318,8 +326,22 @@ export function registerDealerAuthRoutes(app: Express) {
 
       // Auto-create pending NFA disposition in FastBound (non-blocking)
       try {
-        const { createPendingDisposition } = await import("../fastbound.js");
-        await createPendingDisposition({
+        const { createPendingDisposition, findContactByFFL } = await import("../fastbound.js");
+
+        // If dealer was registered before we stored FastBound contact IDs,
+        // look it up now and save it for future use
+        let contactId = dealer.fastboundContactId || undefined;
+        if (!contactId && dealer.fflLicenseNumber) {
+          contactId = await findContactByFFL(dealer.fflLicenseNumber) || undefined;
+          if (contactId) {
+            await db.update(dealers)
+              .set({ fastboundContactId: contactId })
+              .where(eq(dealers.id, dealerId));
+            console.log("fastbound_backfill_contact", { dealerId, contactId, ffl: dealer.fflLicenseNumber });
+          }
+        }
+
+        const result = await createPendingDisposition({
           fflNumber: dealer.fflLicenseNumber || "",
           fflExpires: dealer.fflExpiryDate || undefined,
           licenseName: dealer.contactName || dealer.businessName || "",
@@ -331,8 +353,14 @@ export function registerDealerAuthRoutes(app: Express) {
           phone: dealer.phone || undefined,
           ein: dealer.ein || undefined,
           einType: dealer.einType || undefined,
-        }, [], dealer.fastboundContactId || undefined); // Empty items — you assign serials manually in FastBound
-        console.log("fastbound_pending_created", { fflNumber: dealer.fflLicenseNumber, orderType: orderTypeLabel });
+        }, [], contactId, { quantity: qty, orderNumber, invoiceNumber });
+        if (result?.id) {
+          await pool.query(
+            `UPDATE submissions SET fastbound_disposition_id = $1 WHERE id = $2`,
+            [result.id, submissionId]
+          );
+        }
+        console.log("fastbound_pending_created", { fflNumber: dealer.fflLicenseNumber, orderType: orderTypeLabel, contactId, dispositionId: result?.id, orderNumber });
       } catch (e) {
         console.error("fastbound_pending_create_error", e);
       }

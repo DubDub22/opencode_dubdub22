@@ -51,9 +51,11 @@ async function fbFetch(path: string, init?: RequestInit) {
   });
   if (!res.ok) {
     const body = await res.text().catch(() => "");
-    throw new Error(`FastBound ${res.status} ${path} â€“ ${body}`);
+    throw new Error(`FastBound ${res.status} ${path} – ${body}`);
   }
-  return res.json();
+  const text = await res.text();
+  if (!text?.trim()) return null; // sandbox sometimes returns 200 with empty body
+  return JSON.parse(text);
 }
 
 // â”€â”€ Types â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -159,12 +161,20 @@ export async function createOrUpdateContact(
       method: "POST",
       body: JSON.stringify(contact),
     });
-    return res.id;
+    if (res?.id) return res.id;
+    // Sandbox sometimes returns 200 with empty body — contact was created, find it
+    if (dealer.fflNumber) {
+      const refound = await findContactByFFL(dealer.fflNumber);
+      if (refound) return refound;
+    }
+    throw new Error("FastBound contact creation returned empty response");
   } catch (err: any) {
     // If contact already exists, FastBound returns 400. Find it and return the ID.
-    if (err.message?.includes("already exists") || err.message?.includes("400")) {
-      const existing = await findContactByFFL(dealer.fflNumber);
-      if (existing) return existing;
+    if (err.message?.includes("already exists") || err.message?.includes("400") || err.message?.includes("empty response")) {
+      if (dealer.fflNumber) {
+        const existing = await findContactByFFL(dealer.fflNumber);
+        if (existing) return existing;
+      }
       throw err; // re-throw if we still can't find it
     }
     throw err;
@@ -185,6 +195,7 @@ export async function createPendingDisposition(
   dealer: FastBoundContact,
   items: FastBoundItem[],
   existingContactId?: string,
+  opts?: { quantity?: number; orderNumber?: string; invoiceNumber?: string },
 ): Promise<CreateDispositionResult> {
   // 1. Map SOT license type to FastBound's EIN Type (1=Importer, 2=Manufacturer, 3=Dealer)
   const einTypeMap: Record<string, string> = {
@@ -199,45 +210,45 @@ export async function createPendingDisposition(
   // 2. Get FFL contact — use existing ID if available, otherwise find/create
   const contactId = existingContactId || await createOrUpdateContact(dealer);
 
-  // 2. Create empty pending disposition
-  // For NFA items (suppressors): the sandbox may not have NFA endpoints enabled (405).
-  // Production accounts with NFA items should use the NFA-specific endpoint.
-  // Fallback: create a standard disposition with a descriptive note.
-  const disp: any = await fbFetch("/dispositions", {
+  // 3. Create pending NFA disposition
+  const today = new Date().toISOString().slice(0, 10);
+  const disp: any = await fbFetch("/Dispositions/NFA", {
     method: "POST",
     body: JSON.stringify({
-      date: new Date().toISOString().slice(0, 10), // YYYY-MM-DD
-      type: "NFA Disposition",
-      note: `DubDub22 suppressor transfer - ${items.length} item(s)`,
+      date: today,
+      submissionDate: today,
+      type: "NFA/Form 3",
+      externalId: opts?.orderNumber || undefined,
+      purchaseOrderNumber: opts?.orderNumber || "",
+      invoiceNumber: opts?.invoiceNumber || "",
+      generateTTSN: true,
+      note: `DubDub22 — Order ${opts?.orderNumber || "N/A"} — ${opts?.quantity || items.length} suppressor(s) — FFL: ${dealer.fflNumber}`,
     }),
   });
 
   const dispositionId = disp.id;
   if (!dispositionId) throw new Error("No disposition ID returned from FastBound");
 
-  // 3. Attach dealer contact by ID
-  await fbFetch(`/dispositions/${dispositionId}/contact`, {
-    method: "POST",
-    body: JSON.stringify({
-      contactId: contactId,
-    }),
+  // Attach dealer contact via dedicated NFA endpoint
+  await fbFetch(`/Dispositions/${dispositionId}/AttachContact/${contactId}`, {
+    method: "PUT",
   });
+  console.log("[fb] contact attached to NFA disposition", dispositionId);
 
-  // 4. Validate serials exist in FastBound inventory (only DubDub22 suppressors)
-  const inventory = await searchInventoryItems({
-    manufacturer: MANUFACTURER,
-    model: "DubDub22", // only your suppressors
-    limit: 1000,
-  });
-  const inventorySerials = new Set(inventory.map((i: any) => i.serialNumber));
+  // 4. Add items if serials provided
+  if (items.length > 0) {
+    const inventory = await searchInventoryItems({
+      manufacturer: MANUFACTURER,
+      model: "DubDub22",
+      limit: 1000,
+    });
+    const inventorySerials = new Set(inventory.map((i: any) => i.serialNumber));
 
-  // 5. Add items (serials) one by one
-  for (const item of items) {
-    // Warn if serial not found in inventory (but still try to add)
-    if (!inventorySerials.has(item.serialNumber)) {
-      console.warn(`Serial ${item.serialNumber} not found in FastBound inventory`);
-    }
-    await fbFetch(`/dispositions/${dispositionId}/items`, {
+    for (const item of items) {
+      if (!inventorySerials.has(item.serialNumber)) {
+        console.warn(`Serial ${item.serialNumber} not found in FastBound inventory`);
+      }
+      await fbFetch(`/dispositions/${dispositionId}/items`, {
       method: "POST",
       body: JSON.stringify({
         serialNumber: item.serialNumber,
@@ -248,7 +259,8 @@ export async function createPendingDisposition(
         ...(item.acquisitionId ? { acquisitionId: item.acquisitionId } : {}),
       }),
     });
-  }
+    }
+   }
 
   return { id: dispositionId, status: "pending" };
 }
@@ -408,11 +420,24 @@ export async function findContactByFFL(fflNumber: string): Promise<string | null
     const contacts = Array.isArray(res) ? res : res.data || res.contacts || [];
     console.log("[fb] findContactByFFL search for", fflNumber, "returned", contacts.length, "results");
     if (contacts.length > 0) {
-      console.log("[fb] first contact keys:", Object.keys(contacts[0]));
+      console.log("[fb] first 3 contact FFLs:", contacts.slice(0, 3).map((c: any) => ({
+        id: c.id,
+        fflNumber: c.fflNumber,
+        externalId: c.externalId,
+        tradeName: c.tradeName,
+      })));
     }
+    // Match with normalized FFL (strip all non-alphanumeric for comparison)
+    const normalizedSearch = fflNumber.replace(/[^A-Za-z0-9]/g, "").toLowerCase();
     const match = contacts.find(
-      (c: any) => c.fflNumber === fflNumber || c.ffl === fflNumber || c.ffl_number === fflNumber,
+      (c: any) => {
+        const cFfl = (c.fflNumber || c.ffl || c.ffl_number || c.externalId || "").replace(/[^A-Za-z0-9]/g, "").toLowerCase();
+        if (!cFfl) return false; // skip contacts with no FFL number
+        return cFfl === normalizedSearch || cFfl.includes(normalizedSearch) || normalizedSearch.includes(cFfl);
+      },
     );
+    if (match) console.log("[fb] found match:", match.id, match.fflNumber || match.externalId);
+    else console.log("[fb] no match found among", contacts.length, "contacts");
     return match?.id ?? null;
   } catch {
     return null;
@@ -460,12 +485,12 @@ export async function searchInventoryItems(params: {
   // Always filter by your manufacturer to only show DubDub22 suppressors
   query.set("manufacturer", params.manufacturer || "DOUBLE TACTICAL");
   if (params.model) query.set("model", params.model);
-  query.set("dispositionId", "null"); // Only items in inventory (not disposed)
   if (params.limit) query.set("limit", String(params.limit));
   query.set("openOnly", "true"); // Only open (not deleted) items
 
   const res: any = await fbFetch(`/items?${query.toString()}`);
-  return res.data || res || [];
+  const result = res?.data || (Array.isArray(res) ? res : res?.items || []);
+  return Array.isArray(result) ? result : [];
 }
 
 /**

@@ -60,6 +60,10 @@ export const submissions = pgTable("submissions", {
   customerZip: text("customer_zip"),
   archived: boolean("archived").default(false).notNull(),
   archived_from: text("archived_from"),
+  // Order tracking
+  orderNumber: text("order_number"),
+  invoiceNumber: text("invoice_number"),
+  fastboundDispositionId: text("fastbound_disposition_id"),
   createdAt: text("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
 });
 
