@@ -331,7 +331,7 @@ export function registerDealerAuthRoutes(app: Express) {
           phone: dealer.phone || undefined,
           ein: dealer.ein || undefined,
           einType: dealer.einType || undefined,
-        }, []); // Empty items — you assign serials manually in FastBound
+        }, [], dealer.fastboundContactId || undefined); // Empty items — you assign serials manually in FastBound
         console.log("fastbound_pending_created", { fflNumber: dealer.fflLicenseNumber, orderType: orderTypeLabel });
       } catch (e) {
         console.error("fastbound_pending_create_error", e);
@@ -608,6 +608,12 @@ Questions? Email orders@dubdub22.com
           email: email || undefined,
         });
         console.log("fastbound_contact_created", { fflNumber, companyName, fbContactId });
+        // Store FastBound contact ID on dealer record for future lookups
+        if (fbContactId) {
+          await db.update(dealers)
+            .set({ fastboundContactId: fbContactId })
+            .where(eq(dealers.id, dealerId));
+        }
       } catch (e) {
         console.error("fastbound_contact_create_error", e);
       }

@@ -184,6 +184,7 @@ export async function createOrUpdateContact(
 export async function createPendingDisposition(
   dealer: FastBoundContact,
   items: FastBoundItem[],
+  existingContactId?: string,
 ): Promise<CreateDispositionResult> {
   // 1. Map SOT license type to FastBound's EIN Type (1=Importer, 2=Manufacturer, 3=Dealer)
   const einTypeMap: Record<string, string> = {
@@ -195,8 +196,8 @@ export async function createPendingDisposition(
     dealer.einType = einTypeMap[dealer.einType] || dealer.einType;
   }
 
-  // 2. Create or get FFL contact in FastBound
-  const contactId = await createOrUpdateContact(dealer);
+  // 2. Get FFL contact — use existing ID if available, otherwise find/create
+  const contactId = existingContactId || await createOrUpdateContact(dealer);
 
   // 2. Create empty pending disposition
   // For NFA items (suppressors): the sandbox may not have NFA endpoints enabled (405).

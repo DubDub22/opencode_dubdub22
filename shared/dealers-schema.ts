@@ -65,6 +65,9 @@ export const dealers = pgTable("dealers", {
   passwordResetExpires: text("password_reset_expires"),
   tier: text("tier").default("Standard"),
 
+  // FastBound integration
+  fastboundContactId: text("fastbound_contact_id"),
+
   // Metadata
   notes: text("notes"),
   sourceSubmissionId: text("source_submission_id"), // first submission that created this dealer
