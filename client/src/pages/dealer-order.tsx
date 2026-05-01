@@ -116,15 +116,16 @@ export default function DealerOrderPage() {
       <Card>
         <CardHeader><CardTitle className="text-lg"><ShoppingCart className="w-5 h-5 inline mr-2 text-primary"/>Order Type</CardTitle></CardHeader>
         <CardContent className="space-y-4">
-          <label className={`flex items-start gap-3 p-3 border rounded-lg cursor-pointer transition-colors ${orderType === "demo" ? "border-primary bg-primary/5" : "border-border hover:border-primary/30"}`}>
-            <input type="radio" name="type" checked={orderType === "demo"} onChange={() => setOrderType("demo")} className="mt-1 accent-primary" />
-            <div>
-              <span className="font-medium">Demo Unit</span>
-              <span className="text-muted-foreground ml-2 text-sm">$60 + $10 shipping</span>
-              <p className="text-xs text-muted-foreground mt-1">1 suppressor for evaluation. Limit 1 per dealer.</p>
-              {profile.hasDemoUnitShipped && <p className="text-xs text-red-400 mt-1">You have already received a demo unit.</p>}
-            </div>
-          </label>
+          {!profile.hasDemoUnitShipped && (
+            <label className={`flex items-start gap-3 p-3 border rounded-lg cursor-pointer transition-colors ${orderType === "demo" ? "border-primary bg-primary/5" : "border-border hover:border-primary/30"}`}>
+              <input type="radio" name="type" checked={orderType === "demo"} onChange={() => setOrderType("demo")} className="mt-1 accent-primary" />
+              <div>
+                <span className="font-medium">Demo Unit</span>
+                <span className="text-muted-foreground ml-2 text-sm">$60 + $10 shipping</span>
+                <p className="text-xs text-muted-foreground mt-1">1 suppressor for evaluation. Limit 1 per dealer.</p>
+              </div>
+            </label>
+          )}
 
           <label className={`flex items-start gap-3 p-3 border rounded-lg cursor-pointer transition-colors ${orderType === "stocking" ? "border-primary bg-primary/5" : "border-border hover:border-primary/30"}`}>
             <input type="radio" name="type" checked={orderType === "stocking"} onChange={() => { setOrderType("stocking"); setQuantity(5); }} className="mt-1 accent-primary" />
