@@ -221,7 +221,6 @@ export async function createPendingDisposition(
       externalId: opts?.orderNumber || undefined,
       purchaseOrderNumber: opts?.orderNumber || "",
       invoiceNumber: opts?.invoiceNumber || "",
-      generateTTSN: true,
       note: `DubDub22 — Order ${opts?.orderNumber || "N/A"} — ${opts?.quantity || items.length} suppressor(s) — FFL: ${dealer.fflNumber}`,
     }),
   });
@@ -237,30 +236,20 @@ export async function createPendingDisposition(
 
   // 4. Add items if serials provided
   if (items.length > 0) {
-    const inventory = await searchInventoryItems({
-      manufacturer: MANUFACTURER,
-      model: "DubDub22",
-      limit: 1000,
-    });
-    const inventorySerials = new Set(inventory.map((i: any) => i.serialNumber));
-
-    for (const item of items) {
-      if (!inventorySerials.has(item.serialNumber)) {
-        console.warn(`Serial ${item.serialNumber} not found in FastBound inventory`);
-      }
-      await fbFetch(`/dispositions/${dispositionId}/items`, {
+    await fbFetch(`/Dispositions/${dispositionId}/Items`, {
       method: "POST",
-      body: JSON.stringify({
-        serialNumber: item.serialNumber,
-        make: item.make ?? MANUFACTURER,
-        model: item.model ?? "DubDub22 Suppressor",
-        caliber: item.caliber ?? "Multi",
-        type: item.type ?? "Suppressor",
-        ...(item.acquisitionId ? { acquisitionId: item.acquisitionId } : {}),
-      }),
+      body: JSON.stringify(
+        items.map(item => ({
+          serialNumber: item.serialNumber,
+          make: item.make ?? MANUFACTURER,
+          model: item.model ?? "DubDub22 Suppressor",
+          caliber: item.caliber ?? "Multi",
+          type: item.type ?? "Suppressor",
+          ...(item.acquisitionId ? { acquisitionId: item.acquisitionId } : {}),
+        }))
+      ),
     });
-    }
-   }
+  }
 
   return { id: dispositionId, status: "pending" };
 }
@@ -393,17 +382,17 @@ export async function commitDisposition(
   dispositionId: string,
   trackingNumber: string,
 ): Promise<void> {
-  // Add tracking to disposition (FastBound stores shipment info)
-  await fbFetch(`/dispositions/${dispositionId}`, {
-    method: "PATCH",
+  // Update disposition with tracking via PUT
+  await fbFetch(`/Dispositions/${dispositionId}`, {
+    method: "PUT",
     body: JSON.stringify({
-      trackingNumber,
+      shipmentTrackingNumber: trackingNumber,
       shippedDate: new Date().toISOString().slice(0, 10),
     }),
   });
 
   // Commit the disposition
-  await fbFetch(`/dispositions/${dispositionId}/commit`, {
+  await fbFetch(`/Dispositions/${dispositionId}/Commit`, {
     method: "POST",
   });
 }
@@ -488,7 +477,7 @@ export async function searchInventoryItems(params: {
   if (params.limit) query.set("limit", String(params.limit));
   query.set("openOnly", "true"); // Only open (not deleted) items
 
-  const res: any = await fbFetch(`/items?${query.toString()}`);
+  const res: any = await fbFetch(`/Items?${query.toString()}`);
   const result = res?.data || (Array.isArray(res) ? res : res?.items || []);
   return Array.isArray(result) ? result : [];
 }

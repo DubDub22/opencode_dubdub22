@@ -4079,42 +4079,64 @@ print(pdf_path)
     try {
       const { id } = req.params;
 
-      // 1. Create ShipStation label
-      const labelRes = await fetch(`${req.protocol}://${req.get("host")}/api/admin/submissions/${id}/shipstation-label`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ weightOz: 10, packageCode: "medium_flat_rate_box" }),
-      });
-      if (!labelRes.ok) throw new Error("ShipStation label creation failed");
-      const label = await labelRes.json();
-
-      // 2. Commit FastBound disposition with tracking
-      const commitRes = await fetch(`${req.protocol}://${req.get("host")}/api/admin/submissions/${id}/fastbound-commit`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ trackingNumber: label.trackingNumber }),
-      });
-      if (!commitRes.ok) throw new Error("FastBound commit failed");
-
-      // 3. Email dealer (packing list + tracking)
-      const subResult = await pool.query(`SELECT * FROM submissions WHERE id = $1`, [id]);
+      // 1. Get submission + dealer info
+      const subResult = await pool.query(
+        `SELECT s.*, d.business_name, d.contact_name, d.email, d.phone,
+                d.business_address, d.city, d.state, d.zip, d.ffl_license_number
+           FROM submissions s
+           LEFT JOIN dealer_submissions ds ON ds.submission_id = s.id
+           LEFT JOIN dealers d ON d.id = ds.dealer_id
+          WHERE s.id = $1 LIMIT 1`,
+        [id]
+      );
       const sub = subResult.rows[0];
-      if (sub?.email) {
+      if (!sub) return res.status(404).json({ ok: false, error: "Submission not found" });
+
+      // Don't ship twice
+      if (sub.tracking_number) {
+        return res.status(400).json({ ok: false, error: "Order already shipped" });
+      }
+
+      // 2. Create ShipStation label
+      const label = await createLabel({
+        name: sub.contact_name || "",
+        companyName: sub.business_name || undefined,
+        phone: sub.phone || "",
+        addressLine1: sub.business_address || sub.customer_address || "",
+        city: sub.city || sub.customer_city || "",
+        state: sub.state || sub.customer_state || "",
+        postalCode: sub.zip || sub.customer_zip || "",
+      }, { weightOz: 10, packageCode: "medium_flat_rate_box" });
+
+      await saveLabelInfo(id, label);
+
+      // 3. Commit FastBound disposition with tracking
+      const dispositionId = await getDispositionId(id);
+      if (dispositionId) {
+        await commitDisposition(dispositionId, label.trackingNumber);
+      }
+
+      // 4. Email dealer with tracking + order info
+      if (sub.email) {
+        const orderNum = sub.order_number || id.slice(0, 8);
+        const invNum = sub.invoice_number || `INV-${orderNum}`;
         try {
           await sendViaGmail({
             to: sub.email,
             bcc: BCC_EMAIL,
             from: `DubDub22 Orders <orders@dubdub22.com>`,
-            subject: `Your DubDub22 Order Has Shipped`,
+            subject: `Your DubDub22 Order Has Shipped — ${orderNum}`,
             text: [
               `Dear ${sub.contact_name || "Dealer"},`,
               ``,
               `Your DubDub22 suppressor order has shipped!`,
               ``,
+              `Order: ${orderNum}`,
+              `Invoice: ${invNum}`,
               `Tracking: ${label.trackingNumber}`,
               `Carrier: USPS Priority Mail`,
               ``,
-              `Please retain this email for your records.`,
+              `Invoice is Net 30. Please remit payment upon receipt of invoice.`,
               ``,
               `- Double T Tactical / DubDub22`,
             ].join("\n"),
@@ -4122,7 +4144,7 @@ print(pdf_path)
         } catch (e) { console.error("form3_dealer_email_error", e); }
       }
 
-      return res.json({ ok: true, trackingNumber: label.trackingNumber, labelPdfUrl: label.labelPdfUrl });
+      return res.json({ ok: true, trackingNumber: label.trackingNumber, orderNumber: sub.order_number });
     } catch (err: any) {
       console.error("form3_approved_error", err);
       return res.status(500).json({ ok: false, error: err.message });
