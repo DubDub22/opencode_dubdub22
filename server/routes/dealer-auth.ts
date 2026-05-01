@@ -322,6 +322,27 @@ export function registerDealerAuthRoutes(app: Express) {
         await db.update(dealers).set({ hasDemoUnitShipped: true } as any).where(eq(dealers.id, dealerId));
       }
 
+      // Auto-create pending NFA disposition in FastBound (non-blocking)
+      try {
+        const { createPendingDisposition } = await import("../fastbound.js");
+        await createPendingDisposition({
+          fflNumber: dealer.fflLicenseNumber || "",
+          fflExpires: dealer.fflExpiryDate || undefined,
+          licenseName: dealer.contactName || dealer.businessName || "",
+          tradeName: dealer.businessName || "",
+          premiseAddress1: dealer.businessAddress || "",
+          premiseCity: dealer.city || "",
+          premiseState: dealer.state || "",
+          premiseZipCode: dealer.zip || "",
+          phone: dealer.phone || undefined,
+          ein: dealer.ein || undefined,
+          einType: dealer.einType || undefined,
+        }, []); // Empty items — you assign serials manually in FastBound
+        console.log("fastbound_pending_created", { fflNumber: dealer.fflLicenseNumber, orderType: orderTypeLabel });
+      } catch (e) {
+        console.error("fastbound_pending_create_error", e);
+      }
+
       // Send order confirmation email
       try {
         const { sendViaGmail } = await import("../routes.js");
