@@ -31,6 +31,7 @@ import {
   addItemsToDisposition,
   uploadDealerDocumentsToFastBound,
   findContactByFFL, listContactAttachments, downloadContactAttachment,
+  searchInventoryItems,
 } from "./fastbound";
 import { createLabel, saveLabelInfo } from "./shipstation";
 
@@ -3946,7 +3947,7 @@ print(pdf_path)
     try {
       const limit = req.query.limit ? parseInt(req.query.limit as string) : 100;
       const items = await searchInventoryItems({
-        manufacturer: process.env.FASTBOUND_MANUFACTURER || "DOUBLE TACTICAL",
+        manufacturer: process.env.FASTBOUND_MANUFACTURER || "DubDub LLC",
         model: "DubDub22",
         limit,
       });

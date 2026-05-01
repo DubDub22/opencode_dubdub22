@@ -202,8 +202,27 @@ export async function createPendingDisposition(
   // Get FFL contact — use existing ID if available, otherwise find/create
   const contactId = existingContactId || await createOrUpdateContact(dealer);
 
-  // Create fully-formed pending NFA disposition in ONE call
+  // If no items, use 2-step flow (CreateAsPending requires at least 1 item)
   const today = new Date().toISOString().slice(0, 10);
+  if (items.length === 0) {
+    const disp: any = await fbFetch("/Dispositions/NFA", {
+      method: "POST",
+      body: JSON.stringify({
+        date: today,
+        submissionDate: today,
+        type: "NFA/Form 3",
+        externalId: opts?.orderNumber || undefined,
+        purchaseOrderNumber: opts?.orderNumber || "",
+        invoiceNumber: opts?.invoiceNumber || "",
+        note: `DubDub22 — Order ${opts?.orderNumber || "N/A"} — ${opts?.quantity || items.length} suppressor(s) — FFL: ${dealer.fflNumber}`,
+      }),
+    });
+    if (!disp?.id) throw new Error("No disposition ID returned from FastBound");
+    await fbFetch(`/Dispositions/${disp.id}/AttachContact/${contactId}`, { method: "PUT" });
+    return { id: disp.id, status: "pending" };
+  }
+
+  // Create fully-formed pending NFA disposition in ONE call (items provided)
   const disp: any = await fbFetch("/Dispositions/CreateAsPending", {
     method: "POST",
     body: JSON.stringify({

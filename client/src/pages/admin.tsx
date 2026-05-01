@@ -441,7 +441,7 @@ function SubmissionsTab({
             onArchive={() => setArchiveTarget(sub)}
             onDelete={() => { console.log("delete card clicked", sub.id); setDeleteTarget(sub); }}
             onPaid={() => setPaidTarget(sub)}
-            onFastBoundPending={() => openFastBoundDialog(sub)}
+            onFastBoundPending={() => { setFastBoundTarget(sub); setSerialInput(""); }}
             onForm3Approved={() => setForm3Target(sub)} />)}
       </div>
 
@@ -468,7 +468,7 @@ function SubmissionsTab({
                 onRequestDocs={() => setRequestDocsTarget(sub)}
                 onForm3Submitted={() => setForm3SubmittedTarget(sub)}
                 onPaid={() => setPaidTarget(sub)}
-            onFastBoundPending={() => openFastBoundDialog(sub)}
+            onFastBoundPending={() => { setFastBoundTarget(sub); setSerialInput(""); }}
                 onForm3Approved={() => setForm3Target(sub)} />)}
           </tbody>
         </table>
@@ -3165,6 +3165,14 @@ export default function AdminPage() {
   const [fastBoundLoading, setFastBoundLoading] = useState(false);
   const [form3Loading, setForm3Loading] = useState(false);
 
+  const fetchFBInventory = useCallback(async () => {
+    try {
+      const res = await fetch("/api/admin/fastbound/inventory?limit=200");
+      const data = await res.json();
+      if (data.ok) setAvailableSerials(data.items || []);
+    } catch { /* non-critical */ }
+  }, []);
+
   const fetchSubmissions = useCallback(async (tabOverride?: string) => {
     const activeTab = tabOverride ?? tab;
     try {
@@ -3265,6 +3273,7 @@ export default function AdminPage() {
     fetchWarrantyRequests();
     fetchDealerInquiries();
     fetchRetailInquiries();
+    fetchFBInventory();
   }, []);
 
   const onAdminLogin = async (e: React.FormEvent) => {
@@ -3712,7 +3721,7 @@ export default function AdminPage() {
       </Dialog>
 
       {/* FastBound: Assign Serials & Create Pending Disposition */}
-      <Dialog open={!!fastBoundTarget} onOpenChange={(o) => { if (!o) { setFastBoundTarget(null); setSerialInput(""); setAvailableSerials([]); } }}>
+      <Dialog open={!!fastBoundTarget} onOpenChange={(o) => { if (!o) { setFastBoundTarget(null); setSerialInput(""); } }}>
         <DialogContent className="bg-card border-border max-w-md">
           <DialogHeader>
             <DialogTitle>FastBound: Assign Serials</DialogTitle>
@@ -3722,38 +3731,51 @@ export default function AdminPage() {
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3 py-2">
-            {availableSerials.length === 0 && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={async () => {
-                  try {
-                    const res = await fetch(`/api/admin/fastbound/inventory?limit=${fastBoundTarget?.quantity || 10}`);
-                    const data = await res.json();
-                    setAvailableSerials(data.items || []);
-                  } catch (e) { console.error("Failed to fetch inventory", e); }
-                }}
-                className="mb-2"
-              >
-                Load Available Serials
-              </Button>
-            )}
-            {availableSerials.length > 0 && (
-              <select
-                multiple
-                value={serialInput.split(",").filter(Boolean)}
-                onChange={(e) => {
-                  const selected = Array.from(e.target.selectedOptions, (opt) => opt.value);
-                  setSerialInput(selected.join(","));
-                }}
-                className="w-full h-32 bg-background border rounded p-2 text-sm"
-              >
-                {availableSerials.map((item: any) => (
-                  <option key={item.id} value={item.id}>
-                    {item.serialNumber} {item.model ? `(${item.model})` : ""}
-                  </option>
-                ))}
-              </select>
+            {availableSerials.length > 0 ? (
+              <>
+                <div className="flex gap-2 flex-wrap">
+                  <Button variant="outline" size="sm" onClick={() => {
+                    const qty = fastBoundTarget?.quantity ? parseInt(fastBoundTarget.quantity) : availableSerials.length;
+                    const firstN = availableSerials.slice(0, qty).map((i: any) => i.id);
+                    setSerialInput(firstN.join(","));
+                  }}>
+                    First {fastBoundTarget?.quantity || availableSerials.length}
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={() => {
+                    setSerialInput(availableSerials.map((i: any) => i.id).join(","));
+                  }}>
+                    Select All
+                  </Button>
+                  <Button variant="ghost" size="sm" onClick={() => setSerialInput("")} className="text-muted-foreground">
+                    Clear
+                  </Button>
+                  <span className="text-xs text-muted-foreground self-center ml-auto">
+                    {serialInput ? `${serialInput.split(",").filter(Boolean).length} selected` : ""}
+                  </span>
+                </div>
+                <div className="max-h-48 overflow-y-auto border rounded">
+                  {availableSerials.map((item: any) => {
+                    const checked = serialInput.includes(item.id);
+                    return (
+                      <label key={item.id} className={`flex items-center gap-2 px-3 py-1.5 text-sm cursor-pointer hover:bg-secondary/30 ${checked ? "bg-primary/10" : ""}`}>
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() => {
+                            const ids = serialInput.split(",").filter(Boolean);
+                            setSerialInput(checked ? ids.filter(id => id !== item.id).join(",") : [...ids, item.id].join(","));
+                          }}
+                          className="accent-primary"
+                        />
+                        <span className="font-mono text-xs">{item.serial || item.serialNumber}</span>
+                        {item.model && <span className="text-muted-foreground">({item.model})</span>}
+                      </label>
+                    );
+                  })}
+                </div>
+              </>
+            ) : (
+              <p className="text-sm text-muted-foreground">Loading inventory...</p>
             )}
             <p className="text-xs text-muted-foreground">
               Hold Ctrl/Cmd to select multiple. This creates a pending disposition in FastBound.
