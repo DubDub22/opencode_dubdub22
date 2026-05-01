@@ -441,7 +441,7 @@ function SubmissionsTab({
             onArchive={() => setArchiveTarget(sub)}
             onDelete={() => { console.log("delete card clicked", sub.id); setDeleteTarget(sub); }}
             onPaid={() => setPaidTarget(sub)}
-            onFastBoundPending={() => setFastBoundTarget(sub)}
+            onFastBoundPending={() => setFB(sub)}
             onForm3Approved={() => setForm3Target(sub)} />)}
       </div>
 
@@ -468,7 +468,7 @@ function SubmissionsTab({
                 onRequestDocs={() => setRequestDocsTarget(sub)}
                 onForm3Submitted={() => setForm3SubmittedTarget(sub)}
                 onPaid={() => setPaidTarget(sub)}
-                onFastBoundPending={() => setFastBoundTarget(sub)}
+                onFastBoundPending={() => setFB(sub)}
                 onForm3Approved={() => setForm3Target(sub)} />)}
           </tbody>
         </table>
@@ -3169,14 +3169,15 @@ export default function AdminPage() {
   const [retailInquiryStatus, setRetailInquiryStatus] = useState("all");
 
   // FastBound & Form 3 state
-  const [fastBoundTarget, setFastBoundTarget] = useState<Submission | null>(null);
+  const [fbTarget, _setFBTarget] = useState<Submission | null>(null);
+  const setFB = _setFBTarget;
   const [form3Target, setForm3Target] = useState<Submission | null>(null);
   const [serialInput, setSerialInput] = useState("");
   const [availableSerials, setAvailableSerials] = useState<any[]>([]);
   const [fastBoundLoading, setFastBoundLoading] = useState(false);
   const [form3Loading, setForm3Loading] = useState(false);
 
-  function openFastBoundDialog(sub: Submission) { setFastBoundTarget(sub); setSerialInput(""); setAvailableSerials([]); }
+  function openFastBoundDialog(sub: Submission) { setFB(sub); setSerialInput(""); setAvailableSerials([]); }
 
   const fetchSubmissions = useCallback(async (tabOverride?: string) => {
     const activeTab = tabOverride ?? tab;
@@ -3367,11 +3368,11 @@ export default function AdminPage() {
   };
 
   const handleFastBoundPending = async () => {
-    if (!fastBoundTarget || !serialInput.trim()) return;
+    if (!fbTarget || !serialInput.trim()) return;
     setFastBoundLoading(true);
     try {
       const serials = serialInput.split(",").map(s => s.trim()).filter(Boolean);
-      const res = await fetch(`/api/admin/submissions/${fastBoundTarget.id}/fastbound-pending`, {
+      const res = await fetch(`/api/admin/submissions/${fbTarget.id}/fastbound-pending`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ serialNumbers: serials }),
@@ -3379,7 +3380,7 @@ export default function AdminPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "FastBound error");
       toast({ title: "Pending Disposition Created", description: `ID: ${data.dispositionId}` });
-      setFastBoundTarget(null);
+      setFB(null);
       setSerialInput("");
       fetchSubmissions();
     } catch (err: any) {
@@ -3719,12 +3720,12 @@ export default function AdminPage() {
       </Dialog>
 
       {/* FastBound: Assign Serials & Create Pending Disposition */}
-      <Dialog open={!!fastBoundTarget} onOpenChange={(o) => { if (!o) { setFastBoundTarget(null); setSerialInput(""); setAvailableSerials([]); } }}>
+      <Dialog open={!!fbTarget} onOpenChange={(o) => { if (!o) { setFB(null); setSerialInput(""); setAvailableSerials([]); } }}>
         <DialogContent className="bg-card border-border max-w-md">
           <DialogHeader>
             <DialogTitle>FastBound: Assign Serials</DialogTitle>
             <DialogDescription className="text-sm text-muted-foreground">
-              Select serial numbers for {fastBoundTarget?.contactName} (Qty: {fastBoundTarget?.quantity || "1"}).
+              Select serial numbers for {fbTarget?.contactName} (Qty: {fbTarget?.quantity || "1"}).
               Only DubDub22 suppressors in FastBound inventory shown.
             </DialogDescription>
           </DialogHeader>
@@ -3735,7 +3736,7 @@ export default function AdminPage() {
                 size="sm"
                 onClick={async () => {
                   try {
-                    const res = await fetch(`/api/admin/fastbound/inventory?limit=${fastBoundTarget?.quantity || 10}`);
+                    const res = await fetch(`/api/admin/fastbound/inventory?limit=${fbTarget?.quantity || 10}`);
                     const data = await res.json();
                     setAvailableSerials(data.items || []);
                   } catch (e) { console.error("Failed to fetch inventory", e); }
@@ -3767,7 +3768,7 @@ export default function AdminPage() {
             </p>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => { setFastBoundTarget(null); setSerialInput(""); setAvailableSerials([]); }}>Cancel</Button>
+            <Button variant="outline" onClick={() => { setFB(null); setSerialInput(""); setAvailableSerials([]); }}>Cancel</Button>
             <Button
               onClick={handleFastBoundPending}
               disabled={fastBoundLoading || !serialInput.trim()}
