@@ -229,6 +229,24 @@ export async function createPendingDisposition(
 }
 
 /**
+ * Add items to an existing pending disposition.
+ */
+export async function addItemsToDisposition(
+  dispositionId: string,
+  items: FastBoundItem[],
+): Promise<void> {
+  await fbFetch(`/Dispositions/${dispositionId}/Items`, {
+    method: "POST",
+    body: JSON.stringify({
+      items: items.map(item => ({
+        id: item.id,
+        price: item.price ?? 0,
+      })),
+    }),
+  });
+}
+
+/**
  * Upload a document (FFL, SOT, tax form) to a FastBound contact.
  * Accepts base64 data or Buffer.
  * Returns the attachment ID.

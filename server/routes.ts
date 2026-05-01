@@ -28,6 +28,7 @@ import { loadFFLMaster, validateFFL } from "./ffl-master";
 import {
   createPendingDisposition, commitDisposition,
   saveDispositionId, getDispositionId,
+  addItemsToDisposition,
   uploadDealerDocumentsToFastBound,
   findContactByFFL, listContactAttachments, downloadContactAttachment,
 } from "./fastbound";
@@ -3996,8 +3997,21 @@ print(pdf_path)
 
       const items = ids.map((fbId: string) => ({ id: fbId, price: 0 }));
       const usedSerials = serialNumbers || [];
-      const result = await createPendingDisposition(dealer, items);
-      await saveDispositionId(id, result.id);
+
+      // Check if disposition already exists from dealer order
+      const existingDispId = sub.fastbound_disposition_id;
+      let dispositionId = existingDispId;
+
+      if (existingDispId) {
+        // Add items to existing pending disposition
+        await addItemsToDisposition(existingDispId, items);
+        console.log("[fb] added", items.length, "items to existing disposition", existingDispId);
+      } else {
+        // No existing disposition — create new one
+        const result = await createPendingDisposition(dealer, items);
+        dispositionId = result.id;
+        await saveDispositionId(id, result.id);
+      }
 
       // Update submission with serial numbers
       await pool.query(
