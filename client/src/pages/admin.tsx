@@ -441,7 +441,7 @@ function SubmissionsTab({
             onArchive={() => setArchiveTarget(sub)}
             onDelete={() => { console.log("delete card clicked", sub.id); setDeleteTarget(sub); }}
             onPaid={() => setPaidTarget(sub)}
-            onFastBoundPending={() => setFB(sub)}
+                onFastBoundPending={() => handleFB(sub)}
             onForm3Approved={() => setForm3Target(sub)} />)}
       </div>
 
@@ -468,7 +468,7 @@ function SubmissionsTab({
                 onRequestDocs={() => setRequestDocsTarget(sub)}
                 onForm3Submitted={() => setForm3SubmittedTarget(sub)}
                 onPaid={() => setPaidTarget(sub)}
-                onFastBoundPending={() => setFB(sub)}
+            onFastBoundPending={() => handleFB(sub)}
                 onForm3Approved={() => setForm3Target(sub)} />)}
           </tbody>
         </table>
@@ -3169,8 +3169,12 @@ export default function AdminPage() {
   const [retailInquiryStatus, setRetailInquiryStatus] = useState("all");
 
   // FastBound & Form 3 state
-  const [fbTarget, _setFBTarget] = useState<Submission | null>(null);
-  const setFB = _setFBTarget;
+  const [fbTarget, setFB] = useState<Submission | null>(null);
+  const handleFB = useCallback((sub: Submission) => {
+    setFB(sub);
+    setSerialInput("");
+    setAvailableSerials([]);
+  }, []);
   const [form3Target, setForm3Target] = useState<Submission | null>(null);
   const [serialInput, setSerialInput] = useState("");
   const [availableSerials, setAvailableSerials] = useState<any[]>([]);
