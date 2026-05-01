@@ -154,12 +154,21 @@ export async function createOrUpdateContact(
   // For LLC: licenseName will be the LLC name, tradeName may be empty
   // We send both to ensure FastBound has the data (it will use auto-populated values if present)
 
-  const res: any = await fbFetch("/contacts", {
-    method: "POST",
-    body: JSON.stringify(contact),
-  });
-
-  return res.id;
+  try {
+    const res: any = await fbFetch("/contacts", {
+      method: "POST",
+      body: JSON.stringify(contact),
+    });
+    return res.id;
+  } catch (err: any) {
+    // If contact already exists, FastBound returns 400. Find it and return the ID.
+    if (err.message?.includes("already exists") || err.message?.includes("400")) {
+      const existing = await findContactByFFL(dealer.fflNumber);
+      if (existing) return existing;
+      throw err; // re-throw if we still can't find it
+    }
+    throw err;
+  }
 }
 
 /**
@@ -395,8 +404,13 @@ export async function findContactByFFL(fflNumber: string): Promise<string | null
     const res: any = await fbFetch(
       `/contacts?search=${encodeURIComponent(fflNumber)}&limit=5`,
     );
-    const match = (res.data || res).find(
-      (c: any) => c.fflNumber === fflNumber || c.ffl === fflNumber,
+    const contacts = Array.isArray(res) ? res : res.data || res.contacts || [];
+    console.log("[fb] findContactByFFL search for", fflNumber, "returned", contacts.length, "results");
+    if (contacts.length > 0) {
+      console.log("[fb] first contact keys:", Object.keys(contacts[0]));
+    }
+    const match = contacts.find(
+      (c: any) => c.fflNumber === fflNumber || c.ffl === fflNumber || c.ffl_number === fflNumber,
     );
     return match?.id ?? null;
   } catch {
