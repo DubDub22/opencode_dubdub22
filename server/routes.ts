@@ -350,8 +350,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Setup session middleware BEFORE any route registrations
   app.use(session({
     secret: process.env.SESSION_SECRET || "dev-secret",
-    resave: false,
-    saveUninitialized: false,
+    resave: true,
+    saveUninitialized: true,
     cookie: { secure: false, httpOnly: true, sameSite: "lax", maxAge: 7 * 24 * 60 * 60 * 1000 }
   }));
 
