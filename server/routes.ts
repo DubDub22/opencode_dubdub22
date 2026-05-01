@@ -3636,18 +3636,14 @@ print(pdf_path)
         "",
         `Your Form 3 has been submitted to prepare for shipment.`,
         "",
-        missing.length > 0 ? `We are still missing the following documents:` : "All required documents are on file.",
-        missing.length > 0 ? "" : null,
-        ...missing.map(m => `  â€¢ ${m}`),
-        "",
-        `Upon Form 3 Approval, your invoice will be sent to manage payment prior to shipment.`,
+        `Upon Form 3 Approval, you will be invoiced Net 30 and receive a tracking number for your shipment.`,
         "",
         "Thank you for choosing Double T Tactical / DubDub22.",
         "",
         `- Double T Tactical`,
         `DubDub22 / Double T Tactical`,
         `docs@dubdub22.com`,
-      ].filter(l => l !== null).join("\n");
+      ].join("\n");
 
       await sendViaGmail({
         to: email,
