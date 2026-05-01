@@ -55,12 +55,13 @@ export default function DealerDashboardPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch("/api/dealer/auth/me")
+    const token = localStorage.getItem("dubdub_token");
+    fetch("/api/dealer/auth/me", { headers: { "x-auth-token": token || "" } })
       .then(r => r.json())
       .then(data => {
         if (data.ok) {
           setProfile(data.dealer);
-          return fetch("/api/dealer/orders");
+          return fetch("/api/dealer/orders", { headers: { "x-auth-token": token || "" } });
         } else {
           window.location.href = "/dealer/login";
           return null;

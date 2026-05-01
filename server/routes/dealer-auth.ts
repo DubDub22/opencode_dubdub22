@@ -1,6 +1,20 @@
 import type { Express, Request, Response, NextFunction } from "express";
 import bcrypt from "bcryptjs";
 import { db, pool } from "../db";
+import crypto from "crypto";
+
+// Simple token store
+const tokens = new Map<string, { dealerId: string; email: string }>();
+
+export function requireDealerAuth(req: Request, res: Response, next: NextFunction) {
+  const token = (req.headers["x-auth-token"] || req.query.token) as string;
+  if (!token) return res.status(401).json({ ok: false, error: "authentication_required" });
+  const data = tokens.get(token);
+  if (!data) return res.status(401).json({ ok: false, error: "invalid_token" });
+  (req as any).dealerId = data.dealerId;
+  (req as any).dealerEmail = data.email;
+  next();
+}
 import { dealers } from "@shared/dealers-schema";
 import { eq } from "drizzle-orm";
 import fs from "fs";
@@ -73,11 +87,12 @@ export function registerDealerAuthRoutes(app: Express) {
         tier: "Standard",
       }).returning({ id: dealers.id });
 
-      req.session!.dealerId = dealer.id;
-      req.session!.dealerEmail = dealer.email;
+      const token = crypto.randomBytes(24).toString("hex");
+      tokens.set(token, { dealerId: dealer.id, email: dealer.email });
 
       return res.json({
         ok: true,
+        token,
         dealer: {
           id: dealer.id,
           email: dealer.email,

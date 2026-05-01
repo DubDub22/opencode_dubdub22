@@ -33,9 +33,10 @@ export default function DealerOrderPage() {
     if (orderType === "demo" && profile?.hasDemoUnitShipped) { toast({ title: "Demo already shipped", description: "You have already received a demo unit.", variant: "destructive" }); return; }
     setSubmitting(true);
     try {
+      const token = localStorage.getItem("dubdub_token");
       const resp = await fetch("/api/dealer/place-order", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "x-auth-token": token || "" },
         body: JSON.stringify({ orderType, quantity: orderType === "demo" ? 1 : quantity, termsAccepted: true }),
       });
       const data = await resp.json();

@@ -27,6 +27,7 @@ export default function DealerLoginPage() {
       });
       const data = await resp.json();
       if (data.ok) {
+        localStorage.setItem("dubdub_token", data.token);
         window.location.href = "/dealer/dashboard";
       } else {
         toast({ title: "Login failed", description: data.error === "invalid_credentials" ? "Invalid email or password" : (data.message || "Please try again"), variant: "destructive" });
