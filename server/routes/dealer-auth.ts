@@ -73,6 +73,41 @@ export function registerDealerAuthRoutes(app: Express) {
         tier: "Standard",
       }).returning({ id: dealers.id });
 
+  });
+
+  // ── Login ────────────────────────────────────────────────────────────────
+  app.post("/api/dealer/auth/login", async (req, res) => {
+    try {
+      const { email, password } = req.body || {};
+      if (!email || !password) {
+        return res.status(400).json({ ok: false, error: "missing_credentials" });
+      }
+
+      const result = await db.select({
+        id: dealers.id,
+        email: dealers.email,
+        passwordHash: dealers.passwordHash,
+        businessName: dealers.businessName,
+        verified: dealers.verified,
+      })
+        .from(dealers)
+        .where(eq(dealers.email, email.toLowerCase()))
+        .limit(1);
+
+      if (result.length === 0) {
+        return res.status(401).json({ ok: false, error: "invalid_credentials" });
+      }
+
+      const dealer = result[0];
+      const valid = await bcrypt.compare(password, dealer.passwordHash || "");
+      if (!valid) {
+        return res.status(401).json({ ok: false, error: "invalid_credentials" });
+      }
+
+      await db.update(dealers)
+        .set({ lastLoginAt: new Date().toISOString() })
+        .where(eq(dealers.id, dealer.id));
+
       const token = crypto.randomBytes(24).toString("hex");
       tokens.set(token, { dealerId: dealer.id, email: dealer.email });
 
