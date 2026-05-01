@@ -25,20 +25,6 @@ import { PDFDocument, rgb, StandardFonts } from "pdf-lib";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const TAX_FORM_PATH = path.resolve(__dirname, "..", "shared", "multi_state_tax_form.pdf");
 
-declare module "express-session" {
-  interface SessionData {
-    dealerId?: string;
-    dealerEmail?: string;
-  }
-}
-
-export function requireDealerAuth(req: Request, res: Response, next: NextFunction) {
-  if (!req.session?.dealerId) {
-    return res.status(401).json({ ok: false, error: "authentication_required" });
-  }
-  next();
-}
-
 export function registerDealerAuthRoutes(app: Express) {
   // ── Register ─────────────────────────────────────────────────────────────
   app.post("/api/dealer/auth/register", async (req, res) => {
