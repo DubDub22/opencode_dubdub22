@@ -74,54 +74,6 @@ export function registerDealerAuthRoutes(app: Express) {
       }).returning({ id: dealers.id });
 
       req.session!.dealerId = dealer.id;
-      req.session!.dealerEmail = email.toLowerCase();
-
-      return res.json({ ok: true, dealerId: dealer.id });
-    } catch (err: any) {
-      console.error("dealer_register_error", err);
-      return res.status(500).json({ ok: false, error: "registration_failed" });
-    }
-  });
-
-  // ── Login ────────────────────────────────────────────────────────────────
-  app.post("/api/dealer/auth/login", async (req, res) => {
-    try {
-      const { email, password } = req.body || {};
-      if (!email || !password) {
-        return res.status(400).json({ ok: false, error: "missing_credentials" });
-      }
-
-      const result = await db.select({
-        id: dealers.id,
-        email: dealers.email,
-        passwordHash: dealers.passwordHash,
-        businessName: dealers.businessName,
-        verified: dealers.verified,
-      })
-        .from(dealers)
-        .where(eq(dealers.email, email.toLowerCase()))
-        .limit(1);
-
-      if (result.length === 0) {
-        return res.status(401).json({ ok: false, error: "invalid_credentials" });
-      }
-
-      const dealer = result[0];
-      const valid = await bcrypt.compare(password, dealer.passwordHash || "");
-      if (!valid) {
-        return res.status(401).json({ ok: false, error: "invalid_credentials" });
-      }
-
-      // Update last login
-      await db.update(dealers)
-        .set({ lastLoginAt: new Date().toISOString() })
-        .where(eq(dealers.id, dealer.id));
-
-      if (!req.session) {
-        console.error("login_no_session");
-        return res.status(500).json({ ok: false, error: "session_not_available" });
-      }
-      req.session.dealerId = dealer.id;
       req.session!.dealerEmail = dealer.email;
 
       return res.json({
@@ -262,7 +214,7 @@ export function registerDealerAuthRoutes(app: Express) {
          WHERE ds.dealer_id = $1
          ORDER BY s.created_at DESC
          LIMIT 50`,
-        [req.session!.dealerId]
+        [req.session!.dealerId!]
       );
 
       return res.json({ ok: true, orders: result.rows });

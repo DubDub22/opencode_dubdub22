@@ -352,8 +352,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     secret: process.env.SESSION_SECRET || "dev-secret",
     resave: true,
     saveUninitialized: true,
-    name: "dubdub.sid",
-    cookie: { secure: false, httpOnly: true, sameSite: "lax", maxAge: 7 * 24 * 60 * 60 * 1000, path: "/" }
+    cookie: { secure: false, httpOnly: true, sameSite: "strict", maxAge: 7 * 24 * 60 * 60 * 1000 }
   }));
 
   // Register "In The Wild" routes (YouTube + submission system)
