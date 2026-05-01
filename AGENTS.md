@@ -33,7 +33,11 @@
 - `client/src/pages/dealer-register.tsx` — dealer registration
 
 ## Dev Environment
-- Linode at 45.33.121.147, dev on port 5002
-- SSH into Linode, `cd /path/to/repo && git pull && npm install && npm run build && pm2 restart`
-- PM2 process: `dubdub-suppressor` runs `dist/index.js`
-- Deploy script: `deploy.sh`
+- **Linode**: `ssh linode-dubdub22` (alias in `~/.ssh/config`, key at `~/.ssh/dubdub22`)
+- **Dev URL**: http://45.33.121.147:5002
+- **Production**: runs as user `dubdub` at `/home/dubdub/DubDubSuppressor/dist/index.js` port 5001
+- **Dev repo path**: `/home/dubdub/opencode_dubdub22` (clone of this repo)
+- **Production repo path**: `/home/dubdub/DubDubSuppressor` (old `doublettactical/DubDubSuppressor`)
+- **Dev server start**: `su - dubdub -c 'cd /home/dubdub/opencode_dubdub22; set -a; source .env; set +a; nohup npx tsx server/index-dev.ts > /tmp/dev-server.log 2>&1 &'`
+- **Dev server restart**: `pkill -f 'tsx server/index-dev.ts'; su - dubdub -c 'cd /home/dubdub/opencode_dubdub22; set -a; source .env; set +a; nohup npx tsx server/index-dev.ts > /tmp/dev-server.log 2>&1 &'`
+- **Deploy dev changes to prod**: copy `.env` from prod, build dev, restart prod PM2
