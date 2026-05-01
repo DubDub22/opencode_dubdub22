@@ -441,7 +441,7 @@ function SubmissionsTab({
             onArchive={() => setArchiveTarget(sub)}
             onDelete={() => { console.log("delete card clicked", sub.id); setDeleteTarget(sub); }}
             onPaid={() => setPaidTarget(sub)}
-            setFB={setFB}
+            onFastBoundPending={() => { setFastBoundTarget(sub); setSerialInput(""); }}
             onForm3Approved={() => setForm3Target(sub)} />)}
       </div>
 
@@ -468,7 +468,7 @@ function SubmissionsTab({
                 onRequestDocs={() => setRequestDocsTarget(sub)}
                 onForm3Submitted={() => setForm3SubmittedTarget(sub)}
                 onPaid={() => setPaidTarget(sub)}
-                setFB={setFB}
+                onFastBoundPending={() => { setFastBoundTarget(sub); setSerialInput(""); }}
                 onForm3Approved={() => setForm3Target(sub)} />)}
           </tbody>
         </table>
@@ -477,10 +477,9 @@ function SubmissionsTab({
   );
 }
 
-function SubmissionCard({ sub, onArchive, onDelete, onPaid, setFB, onForm3Approved }: {
-  sub: Submission;
-  onArchive: () => void; onDelete: () => void; onPaid: () => void;
-  setFB: (s: Submission) => void; onForm3Approved?: () => void;
+function SubmissionCard({ sub, onArchive, onDelete, onPaid, onFastBoundPending, onForm3Approved }: {
+  sub: Submission; onArchive: () => void; onDelete: () => void; onPaid: () => void;
+  onFastBoundPending?: () => void; onForm3Approved?: () => void;
 }) {
   return (
     <div className={`border border-border rounded-lg p-3 bg-card hover:bg-secondary/5 ${sub.archived ? "opacity-60 bg-secondary/5" : ""}`}>
@@ -565,12 +564,12 @@ function SubmissionCard({ sub, onArchive, onDelete, onPaid, setFB, onForm3Approv
           </div>
           ) : (
             <div className="space-y-1">
-              {!sub.trackingNumber && setFB && (
+              {!sub.trackingNumber && onFastBoundPending && (
                 <Button
                   variant="outline"
                   size="sm"
                   className="w-full h-8 text-xs border-blue-600 text-blue-600 hover:bg-blue-50"
-                  onClick={() => setFB(sub)}
+                  onClick={onFastBoundPending}
                   title="Assign serials & create FastBound pending disposition"
                 >
                   FB Pending
@@ -597,11 +596,10 @@ function SubmissionCard({ sub, onArchive, onDelete, onPaid, setFB, onForm3Approv
   );
 }
 
-function SubmissionRow({ sub, onArchive, onDelete, onRequestDocs, onForm3Submitted, onPaid, setFB, onForm3Approved }: {
-  sub: Submission;
-  onArchive: () => void; onDelete: () => void;
+function SubmissionRow({ sub, onArchive, onDelete, onRequestDocs, onForm3Submitted, onPaid, onFastBoundPending, onForm3Approved }: {
+  sub: Submission; onArchive: () => void; onDelete: () => void;
   onRequestDocs: () => void; onForm3Submitted?: () => void; onPaid: () => void;
-  setFB: (s: Submission) => void; onForm3Approved?: () => void;
+  onFastBoundPending?: () => void; onForm3Approved?: () => void;
 }) {
   return (
     <tr className={`border-b border-border hover:bg-secondary/10 ${sub.archived ? "opacity-50" : ""}`}>
@@ -666,17 +664,7 @@ function SubmissionRow({ sub, onArchive, onDelete, onRequestDocs, onForm3Submitt
           </div>
         ) : (
           <div className="space-y-1">
-            {!sub.trackingNumber && onFastBoundPending && (
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-7 text-xs whitespace-nowrap border-blue-600 text-blue-600 hover:bg-blue-50"
-                onClick={onFastBoundPending}
-                title="Assign serials & create FastBound pending disposition"
-              >
-                FB Pending
-              </Button>
-            )}
+          </div>
             <Button
               variant="outline"
               size="sm"
@@ -685,7 +673,7 @@ function SubmissionRow({ sub, onArchive, onDelete, onRequestDocs, onForm3Submitt
                 : "border-purple-600 text-purple-600 hover:bg-purple-50"
               }`}
               onClick={sub.form3SubmittedAt ? undefined : onForm3Submitted}
-              title={sub.form3SubmittedAt ? "Form 3 Submitted" : "Send Form 3 Submitted email"}
+              title={sub.form3SubmittedAt ? "Form 3 already submitted" : "Send Form 3 Submitted email"}
             >
               {sub.form3SubmittedAt ? "✓ Form 3 Submitted" : "Form 3 Pending"}
             </Button>
@@ -703,12 +691,12 @@ function SubmissionRow({ sub, onArchive, onDelete, onRequestDocs, onForm3Submitt
               {sub.trackingNumber && (
                 <span className="text-xs text-green-600 font-medium">✓ Shipped + Invoiced</span>
               )}
-              {!sub.trackingNumber && setFB && (
+              {!sub.trackingNumber && onFastBoundPending && (
                 <Button
                   variant="outline"
                   size="sm"
                   className="h-7 text-xs whitespace-nowrap border-blue-600 text-blue-600 hover:bg-blue-50"
-                  onClick={() => setFB(sub)}
+                  onClick={onFastBoundPending}
                   title="Assign serials & create FastBound pending disposition"
                 >
                   FB Pending
@@ -3171,15 +3159,12 @@ export default function AdminPage() {
   const [retailInquiryStatus, setRetailInquiryStatus] = useState("all");
 
   // FastBound & Form 3 state
-  const [fbTarget, setFB] = useState<Submission | null>(null);
-  // using setForm3Target pattern — same structure that works for other buttons
+  const [fastBoundTarget, setFastBoundTarget] = useState<Submission | null>(null);
   const [form3Target, setForm3Target] = useState<Submission | null>(null);
   const [serialInput, setSerialInput] = useState("");
   const [availableSerials, setAvailableSerials] = useState<any[]>([]);
   const [fastBoundLoading, setFastBoundLoading] = useState(false);
   const [form3Loading, setForm3Loading] = useState(false);
-
-  function openFastBoundDialog(sub: Submission) { setFB(sub); setSerialInput(""); setAvailableSerials([]); }
 
   const fetchSubmissions = useCallback(async (tabOverride?: string) => {
     const activeTab = tabOverride ?? tab;
@@ -3370,11 +3355,11 @@ export default function AdminPage() {
   };
 
   const handleFastBoundPending = async () => {
-    if (!fbTarget || !serialInput.trim()) return;
+    if (!fastBoundTarget || !serialInput.trim()) return;
     setFastBoundLoading(true);
     try {
       const serials = serialInput.split(",").map(s => s.trim()).filter(Boolean);
-      const res = await fetch(`/api/admin/submissions/${fbTarget.id}/fastbound-pending`, {
+      const res = await fetch(`/api/admin/submissions/${fastBoundTarget.id}/fastbound-pending`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ serialNumbers: serials }),
@@ -3382,7 +3367,7 @@ export default function AdminPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "FastBound error");
       toast({ title: "Pending Disposition Created", description: `ID: ${data.dispositionId}` });
-      setFB(null);
+      setFastBoundTarget(null);
       setSerialInput("");
       fetchSubmissions();
     } catch (err: any) {
@@ -3722,12 +3707,12 @@ export default function AdminPage() {
       </Dialog>
 
       {/* FastBound: Assign Serials & Create Pending Disposition */}
-      <Dialog open={!!fbTarget} onOpenChange={(o) => { if (!o) { setFB(null); setSerialInput(""); setAvailableSerials([]); } }}>
+      <Dialog open={!!fastBoundTarget} onOpenChange={(o) => { if (!o) { setFastBoundTarget(null); setSerialInput(""); setAvailableSerials([]); } }}>
         <DialogContent className="bg-card border-border max-w-md">
           <DialogHeader>
             <DialogTitle>FastBound: Assign Serials</DialogTitle>
             <DialogDescription className="text-sm text-muted-foreground">
-              Select serial numbers for {fbTarget?.contactName} (Qty: {fbTarget?.quantity || "1"}).
+              Select serial numbers for {fastBoundTarget?.contactName} (Qty: {fastBoundTarget?.quantity || "1"}).
               Only DubDub22 suppressors in FastBound inventory shown.
             </DialogDescription>
           </DialogHeader>
@@ -3738,7 +3723,7 @@ export default function AdminPage() {
                 size="sm"
                 onClick={async () => {
                   try {
-                    const res = await fetch(`/api/admin/fastbound/inventory?limit=${fbTarget?.quantity || 10}`);
+                    const res = await fetch(`/api/admin/fastbound/inventory?limit=${fastBoundTarget?.quantity || 10}`);
                     const data = await res.json();
                     setAvailableSerials(data.items || []);
                   } catch (e) { console.error("Failed to fetch inventory", e); }
@@ -3770,7 +3755,7 @@ export default function AdminPage() {
             </p>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => { setFB(null); setSerialInput(""); setAvailableSerials([]); }}>Cancel</Button>
+            <Button variant="outline" onClick={() => { setFastBoundTarget(null); setSerialInput(""); setAvailableSerials([]); }}>Cancel</Button>
             <Button
               onClick={handleFastBoundPending}
               disabled={fastBoundLoading || !serialInput.trim()}
