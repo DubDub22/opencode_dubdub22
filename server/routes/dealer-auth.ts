@@ -73,6 +73,11 @@ export function registerDealerAuthRoutes(app: Express) {
         tier: "Standard",
       }).returning({ id: dealers.id });
 
+      return res.json({ ok: true, dealerId: dealer.id });
+    } catch (err: any) {
+      console.error("dealer_register_error", err);
+      return res.status(500).json({ ok: false, error: "registration_failed", message: err.message });
+    }
   });
 
   // ── Login ────────────────────────────────────────────────────────────────
@@ -131,7 +136,7 @@ export function registerDealerAuthRoutes(app: Express) {
     try {
       const result = await db.select()
         .from(dealers)
-        .where(eq(dealers.id, req.session!.dealerId!))
+        .where(eq(dealers.id, (req as any).dealerId))
         .limit(1);
 
       if (result.length === 0) {
@@ -189,7 +194,7 @@ export function registerDealerAuthRoutes(app: Express) {
 
       await db.update(dealers)
         .set(updates)
-        .where(eq(dealers.id, req.session!.dealerId!));
+        .where(eq(dealers.id, (req as any).dealerId));
 
       return res.json({ ok: true });
     } catch (err: any) {
@@ -208,7 +213,7 @@ export function registerDealerAuthRoutes(app: Express) {
 
       const result = await db.select({ passwordHash: dealers.passwordHash })
         .from(dealers)
-        .where(eq(dealers.id, req.session!.dealerId!))
+        .where(eq(dealers.id, (req as any).dealerId))
         .limit(1);
 
       if (result.length === 0) {
@@ -223,7 +228,7 @@ export function registerDealerAuthRoutes(app: Express) {
       const newHash = await bcrypt.hash(newPassword, 12);
       await db.update(dealers)
         .set({ passwordHash: newHash })
-        .where(eq(dealers.id, req.session!.dealerId!));
+        .where(eq(dealers.id, (req as any).dealerId));
 
       return res.json({ ok: true });
     } catch (err: any) {
@@ -234,7 +239,8 @@ export function registerDealerAuthRoutes(app: Express) {
 
   // ── Logout ───────────────────────────────────────────────────────────────
   app.post("/api/dealer/auth/logout", (req, res) => {
-    req.session?.destroy(() => {});
+    const token = (req.headers["x-auth-token"] || req.query.token) as string;
+    if (token) tokens.delete(token);
     return res.json({ ok: true });
   });
 
@@ -250,7 +256,7 @@ export function registerDealerAuthRoutes(app: Express) {
          WHERE ds.dealer_id = $1
          ORDER BY s.created_at DESC
          LIMIT 50`,
-        [req.session!.dealerId!]
+        [(req as any).dealerId]
       );
 
       return res.json({ ok: true, orders: result.rows });
@@ -266,7 +272,7 @@ export function registerDealerAuthRoutes(app: Express) {
       const { orderType, quantity } = req.body || {};
       if (!orderType || !quantity) return res.status(400).json({ ok: false, error: "missing_fields" });
 
-      const dealerId = req.session!.dealerId!;
+      const dealerId = (req as any).dealerId;
       const dealerResult = await db.select().from(dealers).where(eq(dealers.id, dealerId)).limit(1);
       if (dealerResult.length === 0) return res.status(404).json({ ok: false, error: "dealer_not_found" });
 
@@ -371,7 +377,7 @@ Questions? Email orders@dubdub22.com
       if (!fileData || !fileName || !documentType || !newExpiry) {
         return res.status(400).json({ ok: false, error: "missing_fields" });
       }
-      const dealerId = req.session!.dealerId!;
+      const dealerId = (req as any).dealerId;
       const updates: Record<string, any> = { updatedAt: new Date().toISOString() };
       if (documentType === "ffl") {
         updates.fflFileName = fileName; updates.fflFileData = fileData;

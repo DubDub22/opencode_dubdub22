@@ -62,7 +62,8 @@ export default function TaxFormPage() {
 
   useEffect(() => {
     // Fetch dealer profile from session
-    fetch("/api/dealer/auth/me")
+    const token = localStorage.getItem("dubdub_token");
+    fetch("/api/dealer/auth/me", { headers: { "x-auth-token": token || "" } })
       .then(r => r.json())
       .then(data => {
         if (data.ok) {
@@ -159,9 +160,10 @@ export default function TaxFormPage() {
         });
       }
 
+      const token = localStorage.getItem("dubdub_token");
       const resp = await fetch("/api/dealer/tax-form/submit", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "x-auth-token": token || "" },
         body: JSON.stringify({
           dealerId,
           companyName,

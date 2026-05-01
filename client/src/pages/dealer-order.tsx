@@ -18,7 +18,8 @@ export default function DealerOrderPage() {
   const [showTerms, setShowTerms] = useState(false);
 
   useEffect(() => {
-    fetch("/api/dealer/auth/me")
+    const token = localStorage.getItem("dubdub_token");
+    fetch("/api/dealer/auth/me", { headers: { "x-auth-token": token || "" } })
       .then(r => r.json())
       .then(data => {
         if (data.ok) setProfile(data.dealer);

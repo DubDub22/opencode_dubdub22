@@ -78,7 +78,9 @@ export default function DealerDashboardPage() {
   }, []);
 
   async function handleLogout() {
-    await fetch("/api/dealer/auth/logout", { method: "POST" });
+    const token = localStorage.getItem("dubdub_token");
+    localStorage.removeItem("dubdub_token");
+    await fetch("/api/dealer/auth/logout", { method: "POST", headers: { "x-auth-token": token || "" } });
     window.location.href = "/dealer/login";
   }
 
@@ -263,8 +265,9 @@ function DocStatusCard({ label, onFile, expiry, type, detail }: {
     setUploading(true);
     try {
       const b64 = await new Promise(resolve => { const r = new FileReader(); r.onload = () => resolve(r.result.split(",")[1]); r.readAsDataURL(file); });
+      const token = localStorage.getItem("dubdub_token");
       const resp = await fetch("/api/dealer/upload-document-renewal", {
-        method: "POST", headers: { "Content-Type": "application/json" },
+        method: "POST", headers: { "Content-Type": "application/json", "x-auth-token": token || "" },
         body: JSON.stringify({ fileData: b64, fileName: file.name, documentType: type, newExpiry: exp }),
       });
       const d = await resp.json();
@@ -329,8 +332,9 @@ function AdditionalUpload({ dealerName }: { dealerName: string }) {
     setUploading(true);
     try {
       const b64 = await new Promise(resolve => { const r = new FileReader(); r.onload = () => resolve(r.result.split(",")[1]); r.readAsDataURL(file); });
+      const token = localStorage.getItem("dubdub_token");
       const resp = await fetch("/api/dealer/upload-misc", {
-        method: "POST", headers: { "Content-Type": "application/json" },
+        method: "POST", headers: { "Content-Type": "application/json", "x-auth-token": token || "" },
         body: JSON.stringify({ fileData: b64, fileName: file.name, dealerName }),
       });
       const d = await resp.json();
