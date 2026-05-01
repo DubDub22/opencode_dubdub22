@@ -441,7 +441,7 @@ function SubmissionsTab({
             onArchive={() => setArchiveTarget(sub)}
             onDelete={() => { console.log("delete card clicked", sub.id); setDeleteTarget(sub); }}
             onPaid={() => setPaidTarget(sub)}
-                onFastBoundPending={() => handleFB(sub)}
+            onFastBoundPending={() => setFB(sub)}
             onForm3Approved={() => setForm3Target(sub)} />)}
       </div>
 
@@ -468,7 +468,7 @@ function SubmissionsTab({
                 onRequestDocs={() => setRequestDocsTarget(sub)}
                 onForm3Submitted={() => setForm3SubmittedTarget(sub)}
                 onPaid={() => setPaidTarget(sub)}
-            onFastBoundPending={() => handleFB(sub)}
+                onFastBoundPending={() => setFB(sub)}
                 onForm3Approved={() => setForm3Target(sub)} />)}
           </tbody>
         </table>
@@ -3170,11 +3170,7 @@ export default function AdminPage() {
 
   // FastBound & Form 3 state
   const [fbTarget, setFB] = useState<Submission | null>(null);
-  const handleFB = useCallback((sub: Submission) => {
-    setFB(sub);
-    setSerialInput("");
-    setAvailableSerials([]);
-  }, []);
+  // using setForm3Target pattern — same structure that works for other buttons
   const [form3Target, setForm3Target] = useState<Submission | null>(null);
   const [serialInput, setSerialInput] = useState("");
   const [availableSerials, setAvailableSerials] = useState<any[]>([]);
