@@ -441,7 +441,7 @@ function SubmissionsTab({
             onArchive={() => setArchiveTarget(sub)}
             onDelete={() => { console.log("delete card clicked", sub.id); setDeleteTarget(sub); }}
             onPaid={() => setPaidTarget(sub)}
-            onFastBoundPending={() => setFB(sub)}
+            setFB={setFB}
             onForm3Approved={() => setForm3Target(sub)} />)}
       </div>
 
@@ -468,7 +468,7 @@ function SubmissionsTab({
                 onRequestDocs={() => setRequestDocsTarget(sub)}
                 onForm3Submitted={() => setForm3SubmittedTarget(sub)}
                 onPaid={() => setPaidTarget(sub)}
-                onFastBoundPending={() => setFB(sub)}
+                setFB={setFB}
                 onForm3Approved={() => setForm3Target(sub)} />)}
           </tbody>
         </table>
@@ -477,9 +477,10 @@ function SubmissionsTab({
   );
 }
 
-function SubmissionCard({ sub, onArchive, onDelete, onPaid, onFastBoundPending, onForm3Approved }: {
-  sub: Submission; onArchive: () => void; onDelete: () => void; onPaid: () => void;
-  onFastBoundPending?: () => void; onForm3Approved?: () => void;
+function SubmissionCard({ sub, onArchive, onDelete, onPaid, setFB, onForm3Approved }: {
+  sub: Submission;
+  onArchive: () => void; onDelete: () => void; onPaid: () => void;
+  setFB: (s: Submission) => void; onForm3Approved?: () => void;
 }) {
   return (
     <div className={`border border-border rounded-lg p-3 bg-card hover:bg-secondary/5 ${sub.archived ? "opacity-60 bg-secondary/5" : ""}`}>
@@ -564,12 +565,12 @@ function SubmissionCard({ sub, onArchive, onDelete, onPaid, onFastBoundPending, 
           </div>
           ) : (
             <div className="space-y-1">
-              {!sub.trackingNumber && onFastBoundPending && (
+              {!sub.trackingNumber && setFB && (
                 <Button
                   variant="outline"
                   size="sm"
                   className="w-full h-8 text-xs border-blue-600 text-blue-600 hover:bg-blue-50"
-                  onClick={onFastBoundPending}
+                  onClick={() => setFB(sub)}
                   title="Assign serials & create FastBound pending disposition"
                 >
                   FB Pending
@@ -596,10 +597,11 @@ function SubmissionCard({ sub, onArchive, onDelete, onPaid, onFastBoundPending, 
   );
 }
 
-function SubmissionRow({ sub, onArchive, onDelete, onRequestDocs, onForm3Submitted, onPaid, onFastBoundPending, onForm3Approved }: {
-  sub: Submission; onArchive: () => void; onDelete: () => void;
+function SubmissionRow({ sub, onArchive, onDelete, onRequestDocs, onForm3Submitted, onPaid, setFB, onForm3Approved }: {
+  sub: Submission;
+  onArchive: () => void; onDelete: () => void;
   onRequestDocs: () => void; onForm3Submitted?: () => void; onPaid: () => void;
-  onFastBoundPending?: () => void; onForm3Approved?: () => void;
+  setFB: (s: Submission) => void; onForm3Approved?: () => void;
 }) {
   return (
     <tr className={`border-b border-border hover:bg-secondary/10 ${sub.archived ? "opacity-50" : ""}`}>
@@ -701,12 +703,12 @@ function SubmissionRow({ sub, onArchive, onDelete, onRequestDocs, onForm3Submitt
               {sub.trackingNumber && (
                 <span className="text-xs text-green-600 font-medium">✓ Shipped + Invoiced</span>
               )}
-              {!sub.trackingNumber && onFastBoundPending && (
+              {!sub.trackingNumber && setFB && (
                 <Button
                   variant="outline"
                   size="sm"
                   className="h-7 text-xs whitespace-nowrap border-blue-600 text-blue-600 hover:bg-blue-50"
-                  onClick={onFastBoundPending}
+                  onClick={() => setFB(sub)}
                   title="Assign serials & create FastBound pending disposition"
                 >
                   FB Pending
