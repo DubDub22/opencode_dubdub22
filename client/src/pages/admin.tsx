@@ -3359,11 +3359,15 @@ export default function AdminPage() {
     if (!fastBoundTarget || !serialInput.trim()) return;
     setFastBoundLoading(true);
     try {
-      const serials = serialInput.split(",").map(s => s.trim()).filter(Boolean);
+      const selectedIds = serialInput.split(",").map(s => s.trim()).filter(Boolean);
+      // Also get serial numbers for the DB record
+      const selectedSerials = availableSerials
+        .filter((i: any) => selectedIds.includes(i.id))
+        .map((i: any) => i.serial || i.serialNumber);
       const res = await fetch(`/api/admin/submissions/${fastBoundTarget.id}/fastbound-pending`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ serialNumbers: serials }),
+        body: JSON.stringify({ itemIds: selectedIds, serialNumbers: selectedSerials }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "FastBound error");
@@ -3745,7 +3749,7 @@ export default function AdminPage() {
                 className="w-full h-32 bg-background border rounded p-2 text-sm"
               >
                 {availableSerials.map((item: any) => (
-                  <option key={item.serialNumber} value={item.serialNumber}>
+                  <option key={item.id} value={item.id}>
                     {item.serialNumber} {item.model ? `(${item.model})` : ""}
                   </option>
                 ))}

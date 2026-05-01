@@ -3960,9 +3960,10 @@ print(pdf_path)
   app.post("/api/admin/submissions/:id/fastbound-pending", requireAdmin, async (req, res) => {
     try {
       const { id } = req.params;
-      const { serialNumbers } = req.body || {};
-      if (!Array.isArray(serialNumbers) || serialNumbers.length === 0) {
-        return res.status(400).json({ ok: false, error: "serialNumbers array required" });
+      const { serialNumbers, itemIds } = req.body || {};
+      const ids = itemIds || serialNumbers || [];
+      if (!Array.isArray(ids) || ids.length === 0) {
+        return res.status(400).json({ ok: false, error: "itemIds array required" });
       }
 
       // Get submission + dealer info
@@ -3993,14 +3994,15 @@ print(pdf_path)
         phone: sub.phone || "",
       };
 
-      const items = serialNumbers.map((sn: string) => ({ serialNumber: String(sn) }));
+      const items = ids.map((fbId: string) => ({ id: fbId, price: 0 }));
+      const usedSerials = serialNumbers || [];
       const result = await createPendingDisposition(dealer, items);
       await saveDispositionId(id, result.id);
 
       // Update submission with serial numbers
       await pool.query(
         `UPDATE submissions SET serial_number = $1 WHERE id = $2`,
-        [serialNumbers.join(","), id]
+        [(serialNumbers || ids).join(","), id]
       );
 
       return res.json({ ok: true, dispositionId: result.id });

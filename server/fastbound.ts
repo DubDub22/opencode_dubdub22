@@ -61,12 +61,14 @@ async function fbFetch(path: string, init?: RequestInit) {
 // â”€â”€ Types â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export type FastBoundItem = {
-  serialNumber: string;
+  id?: string;               // FastBound item UUID (required for disposition items)
+  serialNumber?: string;     // for display/search only
   make?: string;
   model?: string;
   caliber?: string;
-  type?: string;           // "Suppressor"
-  acquisitionId?: string;   // links to item already in inventory
+  type?: string;
+  acquisitionId?: string;
+  price?: number;
 };
 
 export type FastBoundContact = {
@@ -197,27 +199,23 @@ export async function createPendingDisposition(
   existingContactId?: string,
   opts?: { quantity?: number; orderNumber?: string; invoiceNumber?: string },
 ): Promise<CreateDispositionResult> {
-  // 1. Map SOT license type to FastBound's EIN Type (1=Importer, 2=Manufacturer, 3=Dealer)
-  const einTypeMap: Record<string, string> = {
-    "1": "1 - Importer",
-    "2": "2 - Manufacturer",
-    "3": "3 - Dealer",
-  };
-  if (dealer.einType && !dealer.einType.includes("-")) {
-    dealer.einType = einTypeMap[dealer.einType] || dealer.einType;
-  }
-
-  // 2. Get FFL contact — use existing ID if available, otherwise find/create
+  // Get FFL contact — use existing ID if available, otherwise find/create
   const contactId = existingContactId || await createOrUpdateContact(dealer);
 
-  // 3. Create pending NFA disposition
+  // Create fully-formed pending NFA disposition in ONE call
   const today = new Date().toISOString().slice(0, 10);
-  const disp: any = await fbFetch("/Dispositions/NFA", {
+  const disp: any = await fbFetch("/Dispositions/CreateAsPending", {
     method: "POST",
     body: JSON.stringify({
+      requestType: "NFA",
       date: today,
       submissionDate: today,
       type: "NFA/Form 3",
+      contactId: contactId,
+      items: items.map((item, idx) => ({
+        id: item.id,
+        price: item.price ?? (idx === 0 ? 60 : 0),
+      })),
       externalId: opts?.orderNumber || undefined,
       purchaseOrderNumber: opts?.orderNumber || "",
       invoiceNumber: opts?.invoiceNumber || "",
@@ -225,33 +223,9 @@ export async function createPendingDisposition(
     }),
   });
 
-  const dispositionId = disp.id;
-  if (!dispositionId) throw new Error("No disposition ID returned from FastBound");
-
-  // Attach dealer contact via dedicated NFA endpoint
-  await fbFetch(`/Dispositions/${dispositionId}/AttachContact/${contactId}`, {
-    method: "PUT",
-  });
-  console.log("[fb] contact attached to NFA disposition", dispositionId);
-
-  // 4. Add items if serials provided
-  if (items.length > 0) {
-    await fbFetch(`/Dispositions/${dispositionId}/Items`, {
-      method: "POST",
-      body: JSON.stringify(
-        items.map(item => ({
-          serialNumber: item.serialNumber,
-          make: item.make ?? MANUFACTURER,
-          model: item.model ?? "DubDub22 Suppressor",
-          caliber: item.caliber ?? "Multi",
-          type: item.type ?? "Suppressor",
-          ...(item.acquisitionId ? { acquisitionId: item.acquisitionId } : {}),
-        }))
-      ),
-    });
-  }
-
-  return { id: dispositionId, status: "pending" };
+  if (!disp?.id) throw new Error("No disposition ID returned from FastBound");
+  console.log("[fb] CreateAsPending done:", disp.id, "items:", items.length);
+  return { id: disp.id, status: "pending" };
 }
 
 /**
@@ -479,7 +453,11 @@ export async function searchInventoryItems(params: {
 
   const res: any = await fbFetch(`/Items?${query.toString()}`);
   const result = res?.data || (Array.isArray(res) ? res : res?.items || []);
-  return Array.isArray(result) ? result : [];
+  // Map FastBound's "serial" field to legacy "serialNumber" for existing code
+  return (Array.isArray(result) ? result : []).map((i: any) => ({
+    ...i,
+    serialNumber: i.serialNumber || i.serial,
+  }));
 }
 
 /**
