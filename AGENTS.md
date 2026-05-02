@@ -161,6 +161,18 @@ DO NOT use `new Date().toISOString().slice(0, 10)` for dates sent to external AP
 - Warranty submissions
 - Retail orders (non-dealer)
 
+## TODO / Known Gaps
+
+### Serial Number Assignment — Prevent Duplicates
+**Problem**: The FB Pending inventory dialog pulls ALL open DubDub22 items from FastBound, including serials already assigned to other submissions. An admin could accidentally assign the same serial twice.
+
+**Fix needed**:
+1. After pulling inventory from FastBound (`GET /Items`), cross-reference with `submissions.serial_number` (comma-separated) to exclude already-assigned serials
+2. On the server endpoint `/api/admin/submissions/:id/fastbound-pending`, filter `availableSerials` to remove any serial that appears in any submission's `serial_number` column
+3. Alternatively: after assigning serials, immediately "consume" the item in FastBound so it no longer shows as open
+
+**Implementation approach**: Add a SQL query in the inventory endpoint or filter in the frontend that checks `SELECT serial_number FROM submissions WHERE serial_number IS NOT NULL` and excludes those serials from the dropdown. This way the UI only shows truly available DubDub22 serials.
+
 ## Key Files
 | File | Purpose |
 |------|---------|
