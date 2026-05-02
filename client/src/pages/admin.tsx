@@ -85,6 +85,8 @@ type Submission = {
   customerCity?: string;
   customerState?: string;
   customerZip?: string;
+  message?: string;
+  fflNumber?: string;
 };
 
 type Dealer = {
@@ -272,9 +274,9 @@ function DocBadge({ type, fileName, fileData, orDealerFileData, submissionId, ff
               try {
                 const res = await fetch(endpoint.replace(":id", submissionId), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
                 console.log(`Upload ${type} response:`, res.status, await res.text().catch(() => ""));
-                if (res.ok) { toast({ title: `${label} uploaded`, description: file.name }); window.location.href = window.location.href; }
-                else { const err = await res.json().catch(() => ({})); toast({ title: `Upload failed`, description: err.error || res.statusText, variant: "destructive" }); }
-              } catch (err) { console.error(`Upload ${type} error:`, err); toast({ title: `Upload failed`, variant: "destructive" }); }
+                if (res.ok) { toast(`${label} uploaded`); window.location.href = window.location.href; }
+                else { const err = await res.json().catch(() => ({})); toast(`Upload failed: ${err.error || res.statusText}`); }
+              } catch (err) { console.error(`Upload ${type} error:`, err); toast(`Upload failed`); }
             };
             reader.readAsDataURL(file);
           }}
@@ -338,6 +340,7 @@ function SubmissionsTab({
   sortDir, setSortDir, sortBy, setSortBy, showArchived, setShowArchived,
   setArchiveTarget, setShipTarget, setInvoiceTarget, setDeleteTarget, setPaidTarget,
   setRequestDocsTarget, setForm3SubmittedTarget,
+  setFastBoundTarget, setForm3Target, setSerialInput,
   onFetchSubmissions
 }: {
   submissions: Submission[]; isLoading: boolean;
@@ -352,11 +355,15 @@ function SubmissionsTab({
   setPaidTarget: (s: Submission | null) => void;
   setRequestDocsTarget: (s: Submission | null) => void;
   setForm3SubmittedTarget: (s: Submission | null) => void;
+  setFastBoundTarget: (s: Submission | null) => void;
+  setForm3Target: (s: Submission | null) => void;
+  setSerialInput: (s: string) => void;
   onFetchSubmissions: () => void;
 }) {
-  // Exclude warranty submissions, and dealer inquiries (type=dealer + order_type=inquiry) — they go to Dealer Inquiries tab
+  // Exclude warranty submissions, dealer inquiries, and tax_form_state
   const filtered = submissions.filter((sub) => {
     if (sub.type === "warranty") return false;
+    if (sub.type === "tax_form_state") return false;
     // Exclude dealer leads that haven't been converted to orders yet
     if (sub.type === "dealer" && sub.order_type === "inquiry") return false;
     if (search) {
@@ -412,11 +419,11 @@ function SubmissionsTab({
           onChange={(e) => setSearch(e.target.value)}
           className="sm:max-w-xs bg-background h-9"
         />
-        <Button variant="outline" size="sm" onClick={() => setSortBy(s => s === "date" ? "quantity" : "date")}
+        <Button variant="outline" size="sm" onClick={() => setSortBy(sortBy === "date" ? "quantity" : "date")}
           className="h-9 bg-background text-xs whitespace-nowrap">
           Sort: {sortBy === "date" ? "Date" : "Qty"}
         </Button>
-        <Button variant="outline" size="sm" onClick={() => setSortDir(d => d === "desc" ? "asc" : "desc")}
+        <Button variant="outline" size="sm" onClick={() => setSortDir(sortDir === "desc" ? "asc" : "desc")}
           className="h-9 bg-background text-xs whitespace-nowrap">
           {sortDir === "desc" ? "↓ Newest" : "↑ Oldest"}
         </Button>
@@ -426,7 +433,7 @@ function SubmissionsTab({
         <Button
           variant={showArchived ? "default" : "outline"}
           size="sm"
-          onClick={() => { setShowArchived(v => !v); onFetchSubmissions(); }}
+          onClick={() => { setShowArchived(!showArchived); onFetchSubmissions(); }}
           className={`h-9 text-xs whitespace-nowrap ${showArchived ? "bg-orange-500 hover:bg-orange-600 text-white border-orange-500" : "bg-background"}`}
         >
           {showArchived ? "✓ Archived" : "Archived"}
@@ -454,14 +461,13 @@ function SubmissionsTab({
               <th className="px-3 py-2">Type</th>
               <th className="px-3 py-2 min-w-[180px]">Business / Contact</th>
               <th className="px-3 py-2">Details</th>
-              <th className="px-3 py-2">Documents</th>
               <th className="px-3 py-2">Shipping</th>
               <th className="px-3 py-2 w-10"></th>
             </tr>
           </thead>
           <tbody>
-            {isLoading ? <tr><td colSpan={7} className="text-center py-8">Loading...</td></tr>
-              : filtered.length === 0 ? <tr><td colSpan={7} className="text-center py-8 text-muted-foreground">No submissions found.</td></tr>
+            {isLoading ? <tr><td colSpan={6} className="text-center py-8">Loading...</td></tr>
+              : filtered.length === 0 ? <tr><td colSpan={6} className="text-center py-8 text-muted-foreground">No submissions found.</td></tr>
               : filtered.map(sub => <SubmissionRow key={sub.id} sub={sub}
                 onArchive={() => setArchiveTarget(sub)}
                 onDelete={() => { console.log("delete row clicked", sub.id); setDeleteTarget(sub); }}
@@ -531,17 +537,6 @@ function SubmissionCard({ sub, onArchive, onDelete, onPaid, onFastBoundPending, 
             <p className="text-xs text-foreground">{sub.description}</p>
           </>
         )}
-      </div>
-      {/* Documents — mobile */}
-      <div className="border-t border-border pt-2 mt-2">
-        <div className="flex flex-wrap gap-1.5">
-          {/* Admin API returns camelCase (routes.ts maps DB columns to camelCase) */}
-          {/* Note: API returns dealerFflFileName (filename) not base64 — use filename as orDealerFileData since truthy string = green badge */}
-          <DocBadge type="ffl" fileName={sub.fflFileName} fileData={sub.fflFileData} orDealerFileData={sub.dealerFflFileName} submissionId={sub.id} fflLicenseNumber={sub.fflLicenseNumber} createdAt={sub.createdAt} />
-          <DocBadge type="sot" fileName={sub.sotFileName} fileData={sub.sotFileData} orDealerFileData={sub.dealerSotFileName} submissionId={sub.id} fflLicenseNumber={sub.fflLicenseNumber} createdAt={sub.createdAt} />
-          <DocBadge type="tax" fileName={sub.taxFormName} fileData={sub.taxFormData} orDealerFileData={sub.dealerTaxFormName} submissionId={sub.id} fflLicenseNumber={sub.fflLicenseNumber} createdAt={sub.createdAt} />
-          <DocBadge type="state_tax" fileName={sub.stateTaxFileName} fileData={sub.stateTaxFileData} orDealerFileData={sub.dealerStateTaxFileName} submissionId={sub.id} fflLicenseNumber={sub.fflLicenseNumber} createdAt={sub.createdAt} />
-        </div>
       </div>
       {/* Shipping / Paid */}
       <div className="border-t border-border pt-2 mt-2 space-y-1">
@@ -633,16 +628,6 @@ function SubmissionRow({ sub, onArchive, onDelete, onRequestDocs, onForm3Submitt
             <div className="text-xs text-foreground max-w-[250px]">{sub.description}</div>
           </div>
         )}
-      </td>
-      <td className="px-3 py-3">
-        <div className="flex flex-col gap-1">
-          {/* Admin API returns camelCase (routes.ts maps DB columns to camelCase) */}
-          {/* Note: API returns dealerFflFileName (filename) not base64 — use filename as orDealerFileData since truthy string = green badge */}
-          <DocBadge type="ffl" fileName={sub.fflFileName} fileData={sub.fflFileData} orDealerFileData={sub.dealerFflFileName} submissionId={sub.id} fflLicenseNumber={sub.fflLicenseNumber} createdAt={sub.createdAt} />
-          <DocBadge type="sot" fileName={sub.sotFileName} fileData={sub.sotFileData} orDealerFileData={sub.dealerSotFileName} submissionId={sub.id} fflLicenseNumber={sub.fflLicenseNumber} createdAt={sub.createdAt} />
-          <DocBadge type="tax" fileName={sub.taxFormName} fileData={sub.taxFormData} orDealerFileData={sub.dealerTaxFormName} submissionId={sub.id} fflLicenseNumber={sub.fflLicenseNumber} createdAt={sub.createdAt} />
-          <DocBadge type="state_tax" fileName={sub.stateTaxFileName} fileData={sub.stateTaxFileData} orDealerFileData={sub.dealerStateTaxFileName} submissionId={sub.id} fflLicenseNumber={sub.fflLicenseNumber} createdAt={sub.createdAt} />
-        </div>
       </td>
       <td className="px-3 py-3">
         {sub.trackingNumber ? (
@@ -812,9 +797,9 @@ function DealersTab({ dealers, isLoading, onSelect, onAddNew }: {
             const res = await fetch("/api/admin/dealers/link-submissions", { method: "POST" });
             const data = await res.json();
             if (!res.ok) throw new Error(data.error || "Link failed");
-            toast({ title: "Linked!", description: "Submissions linked to dealers." });
+            toast("Linked!");
           } catch (err: any) {
-            toast({ title: "Link Failed", description: err.message, variant: "destructive" });
+            toast("Link Failed: " + err.message);
           }
         }} className="h-9 text-sm">
           Link Submissions
@@ -1841,27 +1826,27 @@ function InvoiceDialog({ sub, open, onClose }: {
   // Pre-fill from submission when opened (refetch to get latest fields including customer address)
   useEffect(() => {
     if (!open || !sub) return;
-    setCustomerName(sub.contactName || sub.retailCustomerName || "");
-    setCustomerEmail(sub.email || sub.retailCustomerEmail || "");
-    setCustomerPhone(sub.phone || sub.retailCustomerPhone || "");
+    setCustomerName(sub.contactName || (sub as any).retailCustomerName || "");
+    setCustomerEmail(sub.email || (sub as any).retailCustomerEmail || "");
+    setCustomerPhone(sub.phone || (sub as any).retailCustomerPhone || "");
     setQuantity(sub.quantity ? parseInt(sub.quantity) || 1 : 1);
     // Refetch to get customer address fields
     fetch(`/api/admin/submissions/${sub.id}`)
       .then(r => r.json())
       .then(data => {
         if (data.ok && data.data) {
-          setCustomerAddress(data.data.customerAddress || data.data.retailCustomerAddress || "");
-          setCustomerCity(data.data.customerCity || data.data.retailCustomerCity || "");
-          setCustomerState(data.data.customerState || data.data.retailCustomerState || "");
-          setCustomerZip(data.data.customerZip || data.data.retailCustomerZip || "");
+          setCustomerAddress(data.data.customerAddress || (data.data as any).retailCustomerAddress || "");
+          setCustomerCity(data.data.customerCity || (data.data as any).retailCustomerCity || "");
+          setCustomerState(data.data.customerState || (data.data as any).retailCustomerState || "");
+          setCustomerZip(data.data.customerZip || (data.data as any).retailCustomerZip || "");
         }
       })
       .catch(() => {
         // Fallback to existing sub prop
-        setCustomerAddress((sub as any).customerAddress || sub.retailCustomerAddress || "");
-        setCustomerCity((sub as any).customerCity || sub.retailCustomerCity || "");
-        setCustomerState((sub as any).customerState || sub.retailCustomerState || "");
-        setCustomerZip((sub as any).customerZip || sub.retailCustomerZip || "");
+        setCustomerAddress((sub as any).customerAddress || (sub as any).retailCustomerAddress || "");
+        setCustomerCity((sub as any).customerCity || (sub as any).retailCustomerCity || "");
+        setCustomerState((sub as any).customerState || (sub as any).retailCustomerState || "");
+        setCustomerZip((sub as any).customerZip || (sub as any).retailCustomerZip || "");
       });
   }, [open, sub]);
 
@@ -3016,7 +3001,7 @@ function FilesTab() {
 // ═══ FFL Update Panel ══════════════════════════════════════════════
 
 function FFLUpdatePanel() {
-  const [file, setFile] = useState(null);
+  const [url, setUrl] = useState("");
   const [status, setStatus] = useState("idle");
   const [output, setOutput] = useState("");
   const [expanded, setExpanded] = useState(false);
@@ -3042,26 +3027,21 @@ function FFLUpdatePanel() {
   }, []);
 
   async function doUpdate() {
-    if (!file) return;
+    if (!url.trim()) return;
     setStatus("loading");
     setOutput("");
     try {
-      const base64 = await new Promise((resolve) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(reader.result.split(",")[1]);
-        reader.readAsDataURL(file);
-      });
       const resp = await fetch("/api/admin/update-ffl", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ fileData: base64, fileName: file.name }),
+        body: JSON.stringify({ url: url.trim() }),
       });
       const data = await resp.json();
       setOutput(data.output || data.error || "Done");
       setStatus("done");
       setOverdue(false);
-    } catch (e) {
-      setOutput(e.message);
+    } catch (e: any) {
+      setOutput(e.message || String(e));
       setStatus("idle");
     }
   }
@@ -3090,22 +3070,20 @@ function FFLUpdatePanel() {
               </p>
             )}
             <p className="text-xs text-muted-foreground">
-              Upload the ATF FFL CSV file for {prevLabel} ({mm}/{yy}).
+              Update the FFL database for {prevLabel} ({mm}/{yy}).
               <br />
               <a href="https://www.atf.gov/firearms/listing-federal-firearms-licensees" target="_blank" className="text-primary hover:underline">
                 Download from ATF →
-              </a>{" → Select {mm}/{yy} → Apply → Download CSV → Drop below"}
+              </a>{" → Select {mm}/{yy} → Apply → Right-click Download → Copy Link Address → Paste below"}
             </p>
             <div className="flex gap-2 items-center">
-              <label
-                className={`flex-1 flex items-center justify-center border-2 border-dashed rounded p-3 cursor-pointer text-sm transition-colors ${file ? "border-green-500/50 bg-green-500/5" : "border-border hover:border-primary/40 bg-card"}`}
-                onDragOver={e => { e.preventDefault(); e.stopPropagation(); }}
-                onDrop={e => { e.preventDefault(); e.stopPropagation(); const f = e.dataTransfer.files?.[0]; if (f?.name.endsWith(".csv")) setFile(f); }}
-              >
-                <input type="file" accept=".csv" className="sr-only" onChange={e => setFile(e.target.files?.[0] || null)} />
-                {file ? <span className="text-green-500">{file.name}</span> : <span className="text-muted-foreground">Drop CSV here or click to browse</span>}
-              </label>
-              <Button size="sm" onClick={doUpdate} disabled={status === "loading" || !file} className="shrink-0 h-8">
+              <Input
+                placeholder="Paste ATF CSV download URL..."
+                value={url}
+                onChange={e => setUrl(e.target.value)}
+                className="flex-1 bg-background h-8 text-xs"
+              />
+              <Button size="sm" onClick={doUpdate} disabled={status === "loading" || !url.trim()} className="shrink-0 h-8">
                 {status === "loading" ? <Loader2 className="w-4 h-4 animate-spin" /> : "Update"}
               </Button>
             </div>
@@ -3158,6 +3136,7 @@ export default function AdminPage() {
   const [retailInquiryStatus, setRetailInquiryStatus] = useState("all");
 
   // FastBound & Form 3 state
+  const [dealers, setDealers] = useState<Dealer[]>([]);
   const [fastBoundTarget, setFastBoundTarget] = useState<Submission | null>(null);
   const [form3Target, setForm3Target] = useState<Submission | null>(null);
   const [serialInput, setSerialInput] = useState("");
@@ -3362,7 +3341,7 @@ export default function AdminPage() {
     finally { setRetailInquiryDeleteTarget(null); }
   };
 
-  const openFastBoundDialog = (sub: Submission) => { setFastBoundTarget(sub); setSerialInput(""); setAvailableSerials([]); };
+  const openFastBoundDialog = (sub: Submission) => { setFastBoundTarget(sub); setSerialInput(""); };
 
   const handleFastBoundPending = async () => {
     if (!fastBoundTarget || !serialInput.trim()) return;
@@ -3501,6 +3480,9 @@ export default function AdminPage() {
                 setRequestDocsTarget={setRequestDocsTarget}
                 setForm3SubmittedTarget={setForm3SubmittedTarget}
                 setPaidTarget={setPaidTarget}
+                setFastBoundTarget={setFastBoundTarget}
+                setForm3Target={setForm3Target}
+                setSerialInput={setSerialInput}
                 onFetchSubmissions={fetchSubmissions}
               />
             </CardContent>
@@ -3587,13 +3569,14 @@ export default function AdminPage() {
                 ) : (
                   submissions
                     .filter(s => s.archived && (archivedFromFilter === "" || s.archived_from === archivedFromFilter))
-                    .sort((a, b) => (a.contactName || a.fflNumber || "").localeCompare(b.contactName || b.fflNumber || ""))
+                    .sort((a, b) => (a.contactName || a.fflLicenseNumber || "").localeCompare(b.contactName || b.fflLicenseNumber || ""))
                     .map(sub => (
                       <SubmissionCard
                         key={sub.id}
                         sub={sub}
                         onArchive={() => setArchiveTarget(sub)}
                         onDelete={() => { console.log("delete card clicked", sub.id); setDeleteTarget(sub); }}
+                        onPaid={() => setPaidTarget(sub)}
                       />
                     ))
                 )}
@@ -3705,7 +3688,7 @@ export default function AdminPage() {
                   if (!res.ok) throw new Error(data.error || "Failed");
                   toast({ title: "Email Sent!", description: "Form 3 submitted notification sent." });
                   setForm3SubmittedTarget(null);
-                  onFetchSubmissions();
+                  fetchSubmissions();
                 } catch {
                   toast({ title: "Error Sending Email", variant: "destructive" });
                 } finally {

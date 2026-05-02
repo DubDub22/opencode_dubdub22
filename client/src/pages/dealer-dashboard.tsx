@@ -6,6 +6,7 @@ import {
 } from "lucide-react";
 import SiteHeader from "@/components/SiteHeader";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 
@@ -249,7 +250,7 @@ function DocStatusCard({ label, onFile, expiry, type, detail }: {
   const labels = { green: "Current", amber: "Expires Soon", red: onFile ? "Expired" : "Not on File" };
   const Icon = icons[status];
   const [showUpload, setShowUpload] = useState(false);
-  const [file, setFile] = useState(null);
+  const [file, setFile] = useState<File | null>(null);
   const [newExpiry, setNewExpiry] = useState("");
   const [sotYear, setSotYear] = useState("");
   const [uploading, setUploading] = useState(false);
@@ -264,7 +265,7 @@ function DocStatusCard({ label, onFile, expiry, type, detail }: {
     if (type === "sot" && !sotYear) { toast({ title: "SOT year required", variant: "destructive" }); return; }
     setUploading(true);
     try {
-      const b64 = await new Promise(resolve => { const r = new FileReader(); r.onload = () => resolve(r.result.split(",")[1]); r.readAsDataURL(file); });
+      const b64 = await new Promise<string>(resolve => { const r = new FileReader(); r.onload = () => resolve((r.result as string).split(",")[1]); r.readAsDataURL(file!); });
       const token = localStorage.getItem("dubdub_token");
       const resp = await fetch("/api/dealer/upload-document-renewal", {
         method: "POST", headers: { "Content-Type": "application/json", "x-auth-token": token || "" },
@@ -323,7 +324,7 @@ function DocStatusCard({ label, onFile, expiry, type, detail }: {
 }
 
 function AdditionalUpload({ dealerName }: { dealerName: string }) {
-  const [file, setFile] = useState(null);
+  const [file, setFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
   const { toast } = useToast();
 
@@ -331,7 +332,7 @@ function AdditionalUpload({ dealerName }: { dealerName: string }) {
     if (!file) return;
     setUploading(true);
     try {
-      const b64 = await new Promise(resolve => { const r = new FileReader(); r.onload = () => resolve(r.result.split(",")[1]); r.readAsDataURL(file); });
+      const b64 = await new Promise<string>(resolve => { const r = new FileReader(); r.onload = () => resolve((r.result as string).split(",")[1]); r.readAsDataURL(file!); });
       const token = localStorage.getItem("dubdub_token");
       const resp = await fetch("/api/dealer/upload-misc", {
         method: "POST", headers: { "Content-Type": "application/json", "x-auth-token": token || "" },

@@ -26,7 +26,7 @@ const IMAGES = {
 
 const sectionVariants = {
   hidden: { opacity: 0, y: 30 },
-  visible: { opacity: 1, y: 0, transition: { duration: 0.5, ease: "easeOut" } }
+  visible: { opacity: 1, y: 0, transition: { duration: 0.5, ease: "easeOut" as const } }
 };
 
 const staggerContainer = {
@@ -51,17 +51,17 @@ const featureStagger = {
 
 const fadeUpItem = {
   hidden: { opacity: 0, y: 20 },
-  visible: { opacity: 1, y: 0, transition: { duration: 0.4, ease: "easeOut" } }
+  visible: { opacity: 1, y: 0, transition: { duration: 0.4, ease: "easeOut" as const } }
 };
 
 const fadeSlideLeftItem = {
   hidden: { opacity: 0, x: -20 },
-  visible: { opacity: 1, x: 0, transition: { duration: 0.4, ease: "easeOut" } }
+  visible: { opacity: 1, x: 0, transition: { duration: 0.4, ease: "easeOut" as const } }
 };
 
 const scaleFadeItem = {
   hidden: { opacity: 0, scale: 0.95 },
-  visible: { opacity: 1, scale: 1, transition: { duration: 0.4, ease: "easeOut" } }
+  visible: { opacity: 1, scale: 1, transition: { duration: 0.4, ease: "easeOut" as const } }
 };
 
 // Extracted UI Components for reuse / readability

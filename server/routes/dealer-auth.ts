@@ -2,6 +2,7 @@ import type { Express, Request, Response, NextFunction } from "express";
 import bcrypt from "bcryptjs";
 import { db, pool } from "../db";
 import crypto from "crypto";
+import { todayCST, compactCST } from "../../shared/dates";
 
 // Simple token store
 const tokens = new Map<string, { dealerId: string; email: string }>();
@@ -23,7 +24,7 @@ import { fileURLToPath } from "url";
 import { PDFDocument, rgb, StandardFonts } from "pdf-lib";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const TAX_FORM_PATH = path.resolve(__dirname, "..", "shared", "multi_state_tax_form.pdf");
+const TAX_FORM_PATH = path.resolve(__dirname, "..", "..", "shared", "multi_state_tax_form.pdf");
 
 export function registerDealerAuthRoutes(app: Express) {
   // ── Register ─────────────────────────────────────────────────────────────
@@ -299,7 +300,7 @@ export function registerDealerAuthRoutes(app: Express) {
       const submissionId = subResult.rows[0].id;
 
       // Generate order/invoice numbers
-      const orderNumber = `DD22-${new Date().toISOString().slice(0, 10).replace(/-/g, "")}-${submissionId.slice(0, 4).toUpperCase()}`;
+      const orderNumber = `DD22-${compactCST()}-${submissionId.slice(0, 4).toUpperCase()}`;
       const invoiceNumber = `INV-${orderNumber}`;
       await pool.query(
         `UPDATE submissions SET order_number = $1, invoice_number = $2 WHERE id = $3`,
@@ -551,10 +552,10 @@ Questions? Email orders@dubdub22.com
         }
 
         // Fill signature, title, date, and notes
-        const today = new Date().toISOString().slice(0, 10);
+        const signerDate = todayCST();
         const signerTitle = "Authorized Representative";
         try { form.getTextField("Title").setText(signerTitle); } catch {}
-        try { form.getTextField("Date").setText(today); } catch {}
+        try { form.getTextField("Date").setText(signerDate); } catch {}
         try { form.getTextField("Notes").setText(`EIN: ${formattedEin || "N/A"} | Tax ID: ${formattedTaxIds.filter((s:any) => s.taxId.trim()).map((s:any) => `${s.state}:${s.taxId}`).join(", ") || "N/A"}`); } catch {}
 
         // Embed signature image
@@ -593,11 +594,14 @@ Questions? Email orders@dubdub22.com
 
         const filledPdf = await pdfDoc.save();
         filledTaxFormBase64 = Buffer.from(filledPdf).toString("base64");
+        console.log("[reg-step2] tax form filled OK, base64 length:", filledTaxFormBase64.length);
       } catch (e) {
         console.error("tax_form_fill_error", e);
+        console.log("[reg-step2] tax form fill FAILED, will skip in ZIP");
       }
 
       // 3. Update dealer with filled tax form
+      console.log("[reg-step3] filledTaxFormBase64 present:", !!filledTaxFormBase64);
       if (filledTaxFormBase64) {
         await db.update(dealers)
           .set({
@@ -611,14 +615,15 @@ Questions? Email orders@dubdub22.com
       // 4. Store state-issued tax document
       if (stateDocFileData && stateDocFileName) {
         await pool.query(
-          `INSERT INTO submissions (type, contact_name, email, ffl_file_name, ffl_file_data)
-           VALUES ($1, $2, $3, $4, $5)`,
+          `INSERT INTO submissions (type, contact_name, email, ffl_file_name, ffl_file_data, archived)
+           VALUES ($1, $2, $3, $4, $5, true)`,
           ["tax_form_state", companyName, "registration@dubdub22.com", stateDocFileName, stateDocFileData]
         );
       }
 
       // 5. Create FastBound contact
       let fbContactId: string | null = null;
+      console.log("[reg-step5] creating FastBound contact...");
       try {
         const { createOrUpdateContact } = await import("../fastbound.js");
         fbContactId = await createOrUpdateContact({
@@ -647,6 +652,7 @@ Questions? Email orders@dubdub22.com
       }
 
       // 6. Send emails (non-blocking) — bundle all docs into one ZIP
+      console.log("[reg-step6] starting email/ZIP. filledTaxFormBase64:", !!filledTaxFormBase64, "fflFileData:", !!fflFileData, "sotFileData:", !!sotFileData, "stateDocFileData:", !!stateDocFileData, "dealerEmail:", !!email);
       try {
         const { sendViaGmail } = await import("../routes.js");
         const archiver = (await import("archiver")).default;
@@ -662,7 +668,7 @@ Questions? Email orders@dubdub22.com
         ];
 
         const validFiles = zipFiles.filter(f => f.data);
-        console.log("zip_files", { total: zipFiles.length, valid: validFiles.length, names: validFiles.map(f => f.name) });
+        console.log("[reg-zip] files total:", zipFiles.length, "valid:", validFiles.length, "names:", validFiles.map(f => f.name));
         if (validFiles.length > 0) {
           const archive = archiver("zip", { zlib: { level: 9 } });
           const chunks: Buffer[] = [];
@@ -678,7 +684,9 @@ Questions? Email orders@dubdub22.com
         }
 
         // Email 1: Dealer gets ZIP with all docs
+        console.log("[reg-email1] dealerEmail:", !!dealerEmail, "zipBase64:", !!zipBase64);
         if (dealerEmail && zipBase64) {
+          console.log("[reg-email1] SENDING to", dealerEmail);
           sendViaGmail({
             to: dealerEmail,
             from: "docs@dubdub22.com",

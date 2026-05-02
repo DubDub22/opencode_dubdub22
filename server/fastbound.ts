@@ -14,6 +14,7 @@
 
 import { pool } from "./db";
 import { createHash } from "crypto";
+import { todayCST, compactCST } from "../shared/dates";
 
 const ACCOUNT = process.env.FASTBOUND_ACCOUNT;
 const API_KEY = process.env.FASTBOUND_API_KEY;
@@ -202,9 +203,12 @@ export async function createPendingDisposition(
   // Get FFL contact — use existing ID if available, otherwise find/create
   const contactId = existingContactId || await createOrUpdateContact(dealer);
 
-  // If no items, use 2-step flow (CreateAsPending requires at least 1 item)
-  const today = new Date().toISOString().slice(0, 10);
+  // FastBound validates dates must not be in the future. Server is UTC, so use CST.
+  const today = todayCST();
   if (items.length === 0) {
+    const note = opts?.orderNumber
+      ? `DubDub22 — Order ${opts.orderNumber} — ${opts?.quantity || 0} suppressor(s) — FFL: ${dealer.fflNumber}`
+      : `DubDub22 — FFL: ${dealer.fflNumber}`;
     const disp: any = await fbFetch("/Dispositions/NFA", {
       method: "POST",
       body: JSON.stringify({
@@ -212,9 +216,9 @@ export async function createPendingDisposition(
         submissionDate: today,
         type: "NFA/Form 3",
         externalId: opts?.orderNumber || undefined,
-        purchaseOrderNumber: opts?.orderNumber || "",
-        invoiceNumber: opts?.invoiceNumber || "",
-        note: `DubDub22 — Order ${opts?.orderNumber || "N/A"} — ${opts?.quantity || items.length} suppressor(s) — FFL: ${dealer.fflNumber}`,
+        purchaseOrderNumber: opts?.orderNumber || undefined,
+        invoiceNumber: opts?.invoiceNumber || undefined,
+        note,
       }),
     });
     if (!disp?.id) throw new Error("No disposition ID returned from FastBound");
@@ -223,6 +227,9 @@ export async function createPendingDisposition(
   }
 
   // Create fully-formed pending NFA disposition in ONE call (items provided)
+  const note = opts?.orderNumber
+    ? `DubDub22 — Order ${opts.orderNumber} — ${opts?.quantity || items.length} suppressor(s) — FFL: ${dealer.fflNumber}`
+    : `DubDub22 — FFL: ${dealer.fflNumber}`;
   const disp: any = await fbFetch("/Dispositions/CreateAsPending", {
     method: "POST",
     body: JSON.stringify({
@@ -236,9 +243,9 @@ export async function createPendingDisposition(
         price: item.price ?? (idx === 0 ? 60 : 0),
       })),
       externalId: opts?.orderNumber || undefined,
-      purchaseOrderNumber: opts?.orderNumber || "",
-      invoiceNumber: opts?.invoiceNumber || "",
-      note: `DubDub22 — Order ${opts?.orderNumber || "N/A"} — ${opts?.quantity || items.length} suppressor(s) — FFL: ${dealer.fflNumber}`,
+      purchaseOrderNumber: opts?.orderNumber || undefined,
+      invoiceNumber: opts?.invoiceNumber || undefined,
+      note,
     }),
   });
 
@@ -345,7 +352,7 @@ export async function uploadDealerDocumentsToFastBound(
 ): Promise<void> {
   try {
     // Create or get FFL contact in FastBound
-    const contactId = await createOrUpdateContact({ fflNumber });
+    const contactId = await createOrUpdateContact({ fflNumber, premiseAddress1: "", premiseCity: "", premiseState: "", premiseZipCode: "" });
 
     // Upload each document
     const uploads: Promise<any>[] = [];
@@ -398,7 +405,7 @@ export async function commitDisposition(
     method: "PUT",
     body: JSON.stringify({
       shipmentTrackingNumber: trackingNumber,
-      shippedDate: new Date().toISOString().slice(0, 10),
+      shippedDate: todayCST(),
     }),
   });
 
@@ -513,11 +520,11 @@ export async function listContactAttachments(contactId: string): Promise<any[]> 
 export async function downloadContactAttachment(contactId: string, attachmentId: string): Promise<Buffer> {
   const url = `${BASE}/contacts/${contactId}/attachments/${attachmentId}`;
   const headers = authHeaders();
-  delete headers["Content-Type"];
+  const { "Content-Type": _ct, ...head } = headers as Record<string, string>;
 
   const res = await fetch(url, {
     method: 'GET',
-    headers,
+    headers: head,
   });
   if (!res.ok) {
     const body = await res.text().catch(() => "");
@@ -550,7 +557,7 @@ export async function createTransfer(options: {
   transfereeEmails?: string[];
 }): Promise<{ idempotencyKey: string; statusCode: number }> {
   const { transferorFFL, transfereeFFL, items, trackingNumber, note, transfereeEmails = [] } = options;
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayCST();
 
   const idempotencyKey = createHash("sha256")
     .update([today, transferorFFL, transfereeFFL, trackingNumber || "", ...items.map(i => i.serial)].join("\n"))

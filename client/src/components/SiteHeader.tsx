@@ -13,7 +13,7 @@ interface SiteHeaderProps {
   variant?: "home" | "standard";
 }
 
-const navLinks = [
+const navLinks: { label: string; href: string; primary?: boolean }[] = [
   { label: "Find a Dealer", href: "/find" },
   { label: "Dealers", href: "/dealers" },
   { label: "Warranty Service", href: "/warranty" },

@@ -34,6 +34,7 @@ import {
   searchInventoryItems,
 } from "./fastbound";
 import { createLabel, saveLabelInfo } from "./shipstation";
+import { todayCST, compactCST } from "../shared/dates";
 
 const SALES_EMAIL = "info@dubdub22.com";
 const ORDER_EMAIL = "orders@dubdub22.com";
@@ -41,8 +42,8 @@ const WARRANTY_EMAIL = "warranty@dubdub22.com";
 const CONTACT_EMAIL = "contact@dubdub22.com";
 const INVOICE_EMAIL = "invoice@dubdub22.com";
 const BCC_EMAIL = "info@dubdub22.com";
-const GMAIL_TOKEN_PATH = "/home/dubdub/DubDub-Hub/gmail_token.json";
-const ENV_PATH = "/home/dubdub/DubDub-Hub/.env";
+const GMAIL_TOKEN_PATH = process.env.GMAIL_TOKEN_PATH || path.resolve(__dirname, "..", "gmail_token.json");
+const ENV_PATH = process.env.DOTENV_PATH || path.resolve(__dirname, "..", ".env");
 
 // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // File upload validation helper
@@ -557,8 +558,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Download the attachment from FastBound
       const blob = await downloadContactAttachment(contactId, attachment.id);
-      const arrayBuffer = await blob.arrayBuffer();
-      const buf = Buffer.from(arrayBuffer);
+      const buf = blob; // Already a Buffer from FastBound
 
       // Determine content type
       const fileName = attachment.fileName || `${type}_${id}`;
@@ -641,7 +641,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Update shipped status + store Form 3 PDF data
       await pool.query(
         `UPDATE submissions SET tracking_number = $1, atf_form_name = $2, atf_form_data = $3, form3_pdf_name = $4, form3_pdf_data = $5, shipped_at = NOW()::text WHERE id = $6`,
-        [trackingNumber.trim(), atfFormName || null, atfFormData || null, form3Data ? `Form3_${new Date().toISOString().split('T')[0].replace(/-/g,'')}.pdf` : null, form3Data || null, id]
+        [trackingNumber.trim(), atfFormName || null, atfFormData || null, form3Data ? `Form3_${compactCST()}.pdf` : null, form3Data || null, id]
       );
       if (dealerId) {
         await pool.query(`UPDATE dealers SET has_demo_unit_shipped = true WHERE id = $1`, [dealerId]);
@@ -650,7 +650,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // â”€â”€ Upload Form 3 PDF to FastBound contact â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
       if (s.ffl_license_number && req.body?.form3Data) {
         try {
-          const dateTag = new Date().toISOString().split("T")[0].replace(/-/g, "");
+          const dateTag = compactCST();
           await uploadDealerDocumentsToFastBound(s.ffl_license_number, {
             taxFormFileData: req.body.form3Data,
             taxFormFileName: `Form3_${dateTag}.pdf`,
@@ -814,7 +814,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           CASE WHEN tier = 'Preferred' THEN 0 ELSE 1 END,
           state, city
       `);
-      const data = result.rows.map(row => {
+      const data = result.rows.map((row: any) => {
         const ffl = row.ffl_license_number ? validateFFL(row.ffl_license_number) : null;
         const voicePhone = ffl?.voicePhone || null;
         // Preferred dealers: curated phone takes priority; fall back to FFL voicePhone
@@ -845,8 +845,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
            d.sot_expiry_date, d.ffl_expiry_date,
            d.tax_exempt, d.notes,
            d.has_demo_unit_shipped,
-           d.source,\r\n           d.source,
-           d.created_at,
+            d.source,
+            d.created_at,
            (d.ffl_file_name IS NOT NULL AND d.ffl_file_name != '') AS has_ffl_on_file,
            (d.sot_file_name IS NOT NULL AND d.sot_file_name != '') AS has_sot_on_file,
            (d.sales_tax_form_name IS NOT NULL AND d.sales_tax_form_name != '') AS has_tax_form_on_file
@@ -926,8 +926,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const DEG = Math.PI / 180;
 
       // Compute haversine distance for all dealers, enrich with phone
-      const withDist = result.rows
-        .map(row => {
+      const withDist = (result.rows as any[]) 
+        .map((row: any) => {
           const dLat = ((row.lat as number) - lat1) * DEG;
           const dLng = ((row.lng as number) - lng1) * DEG;
           const a =
@@ -939,13 +939,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const displayPhone = row.tier === "Preferred" && row.phone ? row.phone : (row.phone || voicePhone);
           return { ...row, voicePhone, displayPhone, _dist: Math.round(dist * 10) / 10 };
         })
-        .sort((a, b) => a._dist - b._dist);
+        .sort((a: any, b: any) => a._dist - b._dist);
 
       // Nearest 20 FFLs (all tiers)
       const nearest20 = withDist.slice(0, 20);
 
       // Nearest Preferred dealer - same state (all results already in-state from query)
-      const nearestPreferred = withDist.find(d => d.tier === "Preferred") || null;
+      const nearestPreferred = withDist.find((d: any) => d.tier === "Preferred") || null;
 
       return res.json({
         ok: true,
@@ -1432,7 +1432,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           city: "city", state: "state", zip: "zip",
         };
         for (const [key, col] of Object.entries(fieldMap)) {
-          if (parsed[key]) { sets.push(`${col} = $${idx++}`); vals.push(parsed[key]); }
+          if ((parsed as Record<string, string>)[key]) { sets.push(`${col} = $${idx++}`); vals.push((parsed as Record<string, string>)[key]); }
         }
         // Mark verified=true when both FFL and SOT are on file
         const hasFfl = await pool.query(`SELECT ffl_file_name FROM dealers WHERE id = $1 AND ffl_file_name IS NOT NULL`, [id]);
@@ -1476,7 +1476,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           city: "city", state: "state", zip: "zip",
         };
         for (const [key, col] of Object.entries(fieldMap)) {
-          if (parsed[key]) { sets.push(`${col} = $${idx++}`); vals.push(parsed[key]); }
+          if ((parsed as Record<string, string>)[key]) { sets.push(`${col} = $${idx++}`); vals.push((parsed as Record<string, string>)[key]); }
         }
         // Mark verified=true when both FFL and SOT are on file
         const hasSot = await pool.query(`SELECT sot_file_name FROM dealers WHERE id = $1 AND sot_file_name IS NOT NULL`, [id]);
@@ -1709,237 +1709,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const hasSot = !!(sotFileData && sotFileName);
       const hasTax = !!(taxFormData && taxFormName);
 
-      if (normalized) {
-        await pool.query(
-          `UPDATE dealers SET email = $1, tier = 'Preferred', updated_at = CURRENT_TIMESTAMP WHERE id = $2 AND tier = 'Standard'`,
-          [email.toLowerCase(), dealerId]
-        );
-        if (einType) {
-          await pool.query(
-            `UPDATE dealers SET ein_type = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2`,
-            [einType, dealerId]
-          );
-        }
-      } else {
-        const newDealer = await pool.query(
-          `INSERT INTO dealers (business_name, contact_name, email, phone, ein, ein_type, source, tier)
-           VALUES ($1, $2, $3, $4, $5, $6, 'web_form', 'Preferred')
-           RETURNING id`,
-          [resolvedDealerName, contactName, email.toLowerCase(), phone || null, ein || null, einType || null]
-        );
-        dealerId = newDealer.rows[0].id;
-      }
-
-      // DEBUG: disabled demo_ordered flag write - remove after debugging
-      // if (isDemoOrder) {
-      //   await pool.query(
-      //     `UPDATE dealers SET demo_ordered = true WHERE id = $1`,
-      //     [dealerId]
-      //   );
-      // }
-
-      // â”€â”€ For inquiries: send dealer a confirmation email mirroring Path 1 format, BCC Tom â”€â”€
-      if (isInquiry && email) {
-        const taxFormPath = path.join(__dirname, "../shared/multi_state_tax_form.pdf");
-        const taxFormBase64 = fs.existsSync(taxFormPath)
-          ? fs.readFileSync(taxFormPath).toString("base64")
-          : null;
-
-        const inquiryEmailText = `Thanks for submitting your dealer application to DubDub22. Here is what we received:
-
-=== YOUR SUBMISSION ===
-${fflNumber ? `FFL Number: ${fflNumber}` : 'FFL: Not provided'}
-Business Name: ${resolvedDealerName || "N/A"}
-Contact Name: ${contactName || "N/A"}
-Email: ${email}
-Phone: ${phone || "N/A"}
-${ein ? `EIN: ${ein}` : ''}
-${message ? `Notes: ${message}` : ''}
-
-=== TAX FORM INSTRUCTIONS ===
-The multi-state tax form is attached to this email. Please follow these steps carefully:
-
-1. DOWNLOAD the attached PDF before filling it out â€” do NOT fill it out in your browser or email viewer
-2. OPEN the downloaded PDF in Adobe Acrobat Reader (free) or similar PDF editor
-3. FILL IN all fields: your dealer/business name, address, and EIN
-4. SIGN the form â€” use the signature tool in your PDF editor, or print, sign by hand, and scan
-5. SAVE the completed PDF â€” confirm the information and signature are visible and saved properly before attaching it to your reply
-
-NOTE: This process can vary by platform and PDF reader. Some browser-based PDF viewers do NOT save filled-in fields or signatures. If you email the form back blank or unsigned, it means the viewer didn't save your changes. Please use a desktop PDF editor like Adobe Acrobat Reader for best results.
-
-=== TO COMPLETE YOUR DEALER PROFILE ===
-Please email us the following:
-- A copy of your FFL
-- A copy of your SOT
-- The completed multi-state tax form (filled out per the instructions above)
-
-We'll review your application and be in touch shortly.
-
-DubDub22 Minions`;
-
-        const emailOpts: {
-          to: string;
-          bcc: string;
-          subject: string;
-          text: string;
-          attachment?: { filename: string; base64Data: string; contentType: string };
-        } = {
-          to: email,
-          bcc: BCC_EMAIL,
-          subject: "Your DubDub22 Dealer Application",
-          text: inquiryEmailText,
-        };
-        if (taxFormBase64) {
-          emailOpts.attachment = { filename: "multi_state_tax_form.pdf", base64Data: taxFormBase64, contentType: "application/pdf" };
-        }
-        try { await sendViaGmail(emailOpts); } catch (e) { console.error("dealer_inquiry_email_error", e); }
-      }
-
-      // â”€â”€ For orders: send Tom the order details â”€â”€
-      const ext = (fflFileName || "").split(".").pop()?.toLowerCase() || "";
-      const contentTypeMap: Record<string, string> = {
-        pdf: "application/pdf",
-        png: "image/png",
-        jpg: "image/jpeg",
-        jpeg: "image/jpeg",
-      };
-
-      const orderBody = [
-        `DubDub22 ${isDemoOrder ? 'Dealer Order (DEMO CAN)' : 'Dealer Order'}`,
-        "",
-        `Contact: ${contactName}`,
-        `Business: ${resolvedDealerName}`,
-        `Email: ${email}`,
-        `Phone: ${phone || "N/A"}`,
-        fflNumber ? `FFL: ${fflNumber}` : null,
-        ein ? `EIN: ${ein}` : null,
-        `Quantity: ${quantityCans}${isDemoOrder ? ' (DEMO CAN)' : ' (STOCKING ORDER)'}`,
-        `FFL on File: ${fflFileName || "Not provided"}`,
-        `SOT: ${sotFileName || "Not provided"}`,
-        `Resale Certificate: ${resaleFileName || "Not provided"}`,
-        `Multi-State Tax Form: ${taxFormFileName || "Not provided"}`,
-        message ? `\nMessage:\n${message}` : "",
-      ].filter(Boolean).join("\n");
-
-      // Only create a submission for inquiries - demo/stocking orders get their submission
-      // created after T&C acceptance via /api/retail-order (prevents duplicate entries)
-      let submissionId: string | null = null;
-      if (isInquiry) {
-        const dbResult = await storage.createSubmission({
-          type: "dealer",
-          contactName,
-          businessName: resolvedDealerName,
-          email,
-          phone,
-          fflType: (req.body as any).fflType || null,
-          quantity: quantityCans ? String(quantityCans) : null,
-          description: message || null,
-          fflFileName: null,
-          fflFileData: null,
-        }).catch(err => {
-          console.error("db_save_failed", err);
-          return null;
-        });
-        submissionId = dbResult?.id || null;
-      }
-      if (submissionId && submissionId !== "unknown") {
-        const orderType = isInquiry ? "inquiry" : "dealer_order";
-        await pool.query(
-          `INSERT INTO dealer_submissions (dealer_id, submission_id, order_type, quantity)
-           VALUES ($1, $2, $3, $4)
-           ON CONFLICT DO NOTHING`,
-          [dealerId, submissionId, orderType, quantityCans ? String(quantityCans) : null]
-        ).catch(err => console.error("dealer_submission_link_failed", err));
-      }
-
-      // Upload documents to FastBound contact (non-blocking)
-      const hasFflFile = !!(fflFileData && fflFileName);
-      const hasSotFile = !!(sotFileData && sotFileName);
-      const hasTaxFile = !!(taxFormFileData && taxFormFileName);
-      const hasAnyFile = hasFflFile || hasSotFile || hasTaxFile;
-
-      if (fflNumber && hasAnyFile) {
-        // Upload to FastBound contact
-        uploadDealerDocumentsToFastBound(fflNumber, {
-          fflFileData: fflFileData || undefined,
-          fflFileName: fflFileName || undefined,
-          sotFileData: sotFileData || undefined,
-          sotFileName: sotFileName || undefined,
-          resaleFileData: resaleFileData || undefined,
-          resaleFileName: resaleFileName || undefined,
-          taxFormFileData: taxFormFileData || undefined,
-          taxFormFileName: taxFormFileName || undefined,
-        }).catch(err => console.error("fastbound_upload_dealer_docs_error", err));
-        if (existingDealer?.id) {
-          await pool.query(
-            `UPDATE dealers SET ffl_on_file = COALESCE($1, ffl_on_file), sot_on_file = COALESCE($2, sot_on_file), tax_form_on_file = COALESCE($3, tax_form_on_file), updated_at = CURRENT_TIMESTAMP WHERE id = $4`,
-            [hasFflFile, hasSotFile, hasTaxFile, existingDealer.id]
-          );
-        }
-      }
-
-      // Build forms status paragraph for auto-reply
-      const formsStatus: string[] = [];
-      if (dealerFormStatus.fflOnFile) formsStatus.push("FFL on file âœ“");
-      if (dealerFormStatus.sotOnFile) formsStatus.push("SOT on file âœ“");
-      if (dealerFormStatus.taxFormOnFile) formsStatus.push("Tax form on file âœ“");
-      const missingForms: string[] = [];
-      if (!dealerFormStatus.fflOnFile) missingForms.push("a current FFL");
-      if (!dealerFormStatus.sotOnFile) missingForms.push("a current SOT");
-      const taxFormInstruction = !dealerFormStatus.taxFormOnFile
-        ? (_getTaxFormBase64()
-            ? `Please use the attached tax form for your resale tax exemption. If available, please also attach a copy of your state-issued sales and use tax permit.
-
-IMPORTANT â€” Tax Form Note: Download the PDF before filling it out. Do NOT fill it out in your browser or email viewer â€” many browsers do not save filled fields or signatures. Open the file in Adobe Acrobat Reader (or similar desktop PDF editor), fill in all fields, sign it, save it, and then attach the completed file to your reply.`
-            : `a completed multi-state tax form.
-
-IMPORTANT â€” Tax Form Note: Download the PDF before filling it out. Do NOT fill it out in your browser or email viewer â€” many browsers do not save filled fields or signatures. Open the file in Adobe Acrobat Reader (or similar desktop PDF editor), fill in all fields, sign it, save it, and then attach the completed file to your reply.`)
-        : "";
-      const formsParagraph = formsStatus.length > 0
-        ? (missingForms.length > 0 || taxFormInstruction
-            ? `We have your current ${formsStatus.join(", ")} on file.${missingForms.length > 0 ? ` Please send us ${missingForms.join(" and ")}.` : ""}${taxFormInstruction ? ` ${taxFormInstruction}` : ""}`
-            : `We have all your current forms on file. Thank you!`)
-        : (missingForms.length > 0 || taxFormInstruction
-            ? `To complete your dealer profile, please send us ${missingForms.join(" and ")}.${taxFormInstruction ? ` ${taxFormInstruction}` : ""}`
-            : "");
-
-      // Send auto-reply to the dealer (orders only - inquiries get the Path 1-style email above)
-      // For demo orders, suppress all emails until terms acceptance on order-confirmation page
-      if (email && !isInquiry && !isDemoOrder && termsAccepted) {
-        try {
-          const autoReplyLines = [
-            `Thank you for ${isInquiry ? 'submitting a dealer inquiry' : 'placing a dealer order'} with DubDub22.`,
-            ``,
-            `We've received your ${isInquiry ? 'inquiry' : 'order'} and will be in touch soon.`,
-            ``,
-          ];
-          if (formsParagraph) {
-            autoReplyLines.push(formsParagraph, ``);
-          }
-          autoReplyLines.push(
-            `If you have any questions, reach out to us at sales@dubdub22.com.`,
-            ``,
-            `Best regards,`,
-            `DubDub22 Team`,
-          );
-          // Attach multi-state tax form if not on file
-          const attachment = (!dealerFormStatus.taxFormOnFile && _getTaxFormBase64())
-            ? { filename: "multi_state_tax_form.pdf", base64Data: _getTaxFormBase64(), contentType: "application/pdf" }
-            : undefined;
-          await sendViaGmail({
-            to: email,
-            bcc: BCC_EMAIL,
-            from: isInquiry ? `DubDub22 Inquiries <inquiry@dubdub22.com>` : `DubDub22 Orders <orders@dubdub22.com>`,
-            subject: `We Received Your DubDub22 ${isInquiry ? 'Inquiry' : 'Order'}`,
-            text: autoReplyLines.join("\n"),
-            attachment,
-          });
-        } catch (gmailErr) {
-          console.error("dealer_request_auto_reply_error", gmailErr);
-        }
-      }
-
-      return res.json({ ok: true, id: submissionId || "unknown" });
+      return res.json({ ok: true, id: subIns.rows[0].id });
     } catch (err: any) {
       console.error("dealer_request_error", err?.message || err);
       return res.status(500).json({ ok: false, error: err?.message || "dealer_save_failed" });
@@ -2160,7 +1930,7 @@ DubDub22 Minions`;
            VALUES ($1, $2, $3, $4)
            ON CONFLICT DO NOTHING`,
           [dealerId, submissionId, orderType, quantityCans ? String(quantityCans) : null]
-        ).catch(err => console.error("dealer_submission_link_failed", err));
+        ).catch((err: any) => console.error("dealer_submission_link_failed", err));
       }
 
       // Upload documents to FastBound contact (non-blocking)
@@ -2232,7 +2002,7 @@ IMPORTANT â€” Tax Form Note: Download the PDF before filling it out. Do NOT
             `DubDub22 Team`,
           );
           const attachment = (!dealerFormStatus.taxFormOnFile && _getTaxFormBase64())
-            ? { filename: "multi_state_tax_form.pdf", base64Data: _getTaxFormBase64(), contentType: "application/pdf" }
+            ? { filename: "multi_state_tax_form.pdf", base64Data: _getTaxFormBase64() || "", contentType: "application/pdf" }
             : undefined;
           await sendViaGmail({
             to: email,
@@ -2310,16 +2080,16 @@ IMPORTANT â€” Tax Form Note: Download the PDF before filling it out. Do NOT
       // Upload both to FastBound contact
       try {
         const contact = await findContactByFFL(ffl);
-        if (contact?.id) {
+        if (contact) {
           // Upload tax form (generated PDF with signature)
-          await uploadDealerDocumentsToFastBound(contact.id, {
-            taxFormData,
+          await uploadDealerDocumentsToFastBound(ffl, {
+            taxFormFileData: taxFormData,
             taxFormFileName: taxFormName || "tax-form.pdf",
           });
           // Upload state resale certificate if provided
           if (resaleCertData && resaleCertName) {
-            await uploadDealerDocumentsToFastBound(contact.id, {
-              taxFormData: resaleCertData,
+            await uploadDealerDocumentsToFastBound(ffl, {
+              taxFormFileData: resaleCertData,
               taxFormFileName: resaleCertName,
             });
           }
@@ -3240,7 +3010,7 @@ IMPORTANT â€” Tax Form Note: Download the PDF before filling it out. Do NOT
               fields: [
                 { name: "Dealer", value: record.dealer_name, inline: true },
                 { name: "FFL", value: record.ffl_license_number || record.ffl_number || "-", inline: true },
-                { name: "File", value: remoteName },
+                { name: "File", value: record.file_name || "tax-form.pdf" },
               ]
             }]
           }),
@@ -3426,7 +3196,7 @@ print(pdf_path)
           pdfPath = pdfOut.trim();
         }
       } catch (e) {
-        console.warn("PDF generation failed, continuing without PDF:", e.message);
+        console.warn("PDF generation failed, continuing without PDF:", (e as Error).message);
       }
 
       // â”€â”€ Also upload invoice PDF to FastBound contact â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -3438,7 +3208,7 @@ print(pdf_path)
           );
           const ffl = subRows.rows[0]?.ffl_license_number;
           if (ffl) {
-            const dateTag = new Date().toISOString().split("T")[0].replace(/-/g, "");
+            const dateTag = compactCST();
             const pdfBuffer = fs.readFileSync(pdfPath);
             const pdfBase64 = pdfBuffer.toString("base64");
             await uploadDealerDocumentsToFastBound(ffl, {
@@ -3577,7 +3347,7 @@ print(pdf_path)
 
       // Attach Multi-State Tax Affidavit if state tax is missing
       const attachment = (!hasStateTax && _getTaxFormBase64())
-        ? { filename: "Multi-State_Tax_Affidavit.pdf", base64Data: _getTaxFormBase64(), contentType: "application/pdf" }
+        ? { filename: "Multi-State_Tax_Affidavit.pdf", base64Data: _getTaxFormBase64() || "", contentType: "application/pdf" }
         : undefined;
 
       await sendViaGmail({
@@ -3841,7 +3611,7 @@ print(pdf_path)
 " '${args}'`, { encoding: "utf8" }).trim();
         if (pdfOut && fs.existsSync(pdfOut.trim())) pdfPath = pdfOut.trim();
       } catch (e) {
-        console.warn("PDF generation failed:", e.message);
+        console.warn("PDF generation failed:", (e as Error).message);
       }
 
       // Save invoice record
@@ -3892,35 +3662,7 @@ print(pdf_path)
     }
   });
 
-  // ── FFL Database Update (admin upload ATF CSV) ──────────────────
-  app.post("/api/admin/update-ffl", requireAdmin, async (req, res) => {
-    try {
-      const { fileData, fileName } = req.body || {};
-      if (!fileData || !fileName) return res.status(400).json({ ok: false, error: "file_required" });
-
-      // Save uploaded CSV to temp file
-      const tmpPath = path.resolve(__dirname, "..", "_ffl_upload.csv");
-      const csvPath = path.resolve(__dirname, "..", "ffl_master.csv");
-      const buf = Buffer.from(fileData, "base64");
-      fs.writeFileSync(tmpPath, buf);
-
-      // Run the filter script
-      const scriptPath = path.resolve(__dirname, "..", "scripts", "update-ffl.mjs");
-      const result = execFileSync("node", [scriptPath, tmpPath], {
-        encoding: "utf8",
-        timeout: 60000,
-      });
-
-      // Clean up temp
-      try { fs.unlinkSync(tmpPath); } catch {}
-
-      return res.json({ ok: true, output: result, note: "CSV saved. Restart server to load new data." });
-    } catch (err: any) {
-      console.error("update_ffl_error", err);
-      return res.status(500).json({ ok: false, error: err.stderr || err.stdout || err.message });
-    }
-  });
-
+  // ── FFL Database Update (admin downloads ATF CSV from URL) ──────────────────
   app.post("/api/admin/update-ffl", requireAdmin, async (req, res) => {
     try {
       const { url } = req.body || {};
@@ -3971,7 +3713,8 @@ print(pdf_path)
       // Get submission + dealer info
       const subResult = await pool.query(
         `SELECT s.*, d.business_name, d.contact_name, d.email, d.phone,
-                d.business_address, d.city, d.state, d.zip, d.ffl_license_number, d.ffl_expiry_date
+                d.business_address, d.city, d.state, d.zip, d.ffl_license_number, d.ffl_expiry_date,
+                d.fastbound_contact_id, d.ein, d.ein_type
            FROM submissions s
            LEFT JOIN dealer_submissions ds ON ds.submission_id = s.id
            LEFT JOIN dealers d ON d.id = ds.dealer_id
@@ -4009,7 +3752,10 @@ print(pdf_path)
         console.log("[fb] added", items.length, "items to existing disposition", existingDispId);
       } else {
         // No existing disposition — create new one
-        const result = await createPendingDisposition(dealer, items);
+        const result = await createPendingDisposition(dealer, items, sub.fastbound_contact_id || undefined, {
+          orderNumber: sub.order_number || undefined,
+          invoiceNumber: sub.invoice_number || undefined,
+        });
         dispositionId = result.id;
         await saveDispositionId(id, result.id);
       }
@@ -4020,7 +3766,7 @@ print(pdf_path)
         [(serialNumbers || ids).join(","), id]
       );
 
-      return res.json({ ok: true, dispositionId: result.id });
+      return res.json({ ok: true, dispositionId });
     } catch (err: any) {
       console.error("fastbound_pending_error", err);
       return res.status(500).json({ ok: false, error: err.message });

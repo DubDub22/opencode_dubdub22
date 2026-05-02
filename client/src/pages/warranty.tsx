@@ -24,7 +24,7 @@ const warrantyFormSchema = z.object({
 
 async function processImage(selectedFile: File | null): Promise<string | undefined> {
   if (!selectedFile) return undefined;
-  return new Promise<string>((resolve, reject) => {
+  return new Promise<string | undefined>((resolve, reject) => {
     if (selectedFile.type.startsWith("image/")) {
       const reader = new FileReader();
       reader.onload = (e) => resolve(e.target?.result as string);

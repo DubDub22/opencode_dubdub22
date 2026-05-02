@@ -123,10 +123,10 @@ export class DatabaseStorage implements IStorage {
     return created;
   }
 
-  async getDealers(): Promise<(Dealer & { orderCount: number; demoCount: number; retailCount: number })[]> {
+  async getDealers(): Promise<(Dealer & { orderCount: number; demoCount: number; dealerOrderCount: number })[]> {
     const allDealers = await db.select().from(dealers).orderBy(desc(dealers.createdAt));
 
-    const enriched = await Promise.all(allDealers.map(async (dealer) => {
+    const enriched = await Promise.all(allDealers.map(async (dealer: any) => {
       const rows = await db.execute(sql`
         SELECT
           COUNT(*) AS total,
@@ -138,6 +138,7 @@ export class DatabaseStorage implements IStorage {
       return {
         ...dealer,
         orderCount: parseInt(counts.total || "0"),
+        demoCount: 0,
         dealerOrderCount: parseInt(counts.dealer_orders || "0"),
       };
     }));
@@ -182,7 +183,7 @@ export class DatabaseStorage implements IStorage {
       .where(eq(dealerSubmissions.dealerId, dealerId));
     if (links.length === 0) return [];
 
-    const subIds = links.map(l => l.submissionId);
+    const subIds = links.map((l: any) => l.submissionId);
     const subs = await db.select().from(submissions)
       .where(sql`${submissions.id} = ANY(${subIds})`)
       .orderBy(desc(submissions.createdAt));

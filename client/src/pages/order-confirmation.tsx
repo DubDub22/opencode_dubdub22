@@ -25,9 +25,9 @@ export default function OrderConfirmationPage() {
   const orderType = searchParams.get("type") || "demo";
   const quantity = parseInt(searchParams.get("qty") || "1", 10);
   const ffl = searchParams.get("ffl") || "";
-  const [dealerData, setDealerData] = useState(null);
+  const [dealerData, setDealerData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!ffl) {
@@ -579,7 +579,6 @@ export default function OrderConfirmationPage() {
           <Button
             onClick={handleAccept}
             disabled={!accepted || !signatureName.trim() || accepting}
-            loading={accepting}
             className="flex-1 h-12 text-base bg-primary text-primary-foreground hover:bg-primary/90 cursor-pointer shadow-lg"
           >
             {isStocking ? "Accept & Proceed to Payment" : "Accept & Submit Demo Request"}

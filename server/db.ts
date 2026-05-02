@@ -7,12 +7,14 @@ let pool: any;
 let db: any;
 
 if (useLocalDb) {
+  // @ts-ignore: top-level await for module initialization
   const { newDb } = await import("pg-mem");
   const mem = newDb();
   const pg = mem.adapters.createPg();
   pool = new pg.Pool();
   db = drizzle(pool as any, { schema });
 } else {
+  // @ts-ignore: top-level await for module initialization
   const pkg = await import("pg");
   const { Pool } = pkg;
   const connectionString = process.env.DATABASE_URL;

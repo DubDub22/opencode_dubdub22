@@ -696,7 +696,7 @@ function DealerForm(props: { fflNumber: string; tradeName?: string; email?: stri
       const fflBase64 = await toBase64(fflFile);
       const sotBase64 = sotFile ? await toBase64(sotFile) : null;
 
-      const { confirmEmail, fflNumber: _fflNumber, ...rest } = values;
+      const { confirmEmail, ...rest } = values;
       const body: Record<string, unknown> = {
         ...rest,
         fflNumber: fullFfl,

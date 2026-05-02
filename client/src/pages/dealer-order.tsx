@@ -8,7 +8,7 @@ import { Loader2, ShoppingCart, Package, ShieldCheck, Building2, Mail, Phone, Ma
 
 export default function DealerOrderPage() {
   const { toast } = useToast();
-  const [profile, setProfile] = useState(null);
+  const [profile, setProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [orderType, setOrderType] = useState("stocking");
   const [quantity, setQuantity] = useState(5);

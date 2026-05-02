@@ -83,6 +83,7 @@ interface Dealer {
   verified: boolean;
   email?: string;
   phone?: string;
+  displayPhone?: string;
   lat?: number;
   lng?: number;
   _dist?: number;

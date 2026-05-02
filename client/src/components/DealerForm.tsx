@@ -247,31 +247,7 @@ export default function DealerForm() {
                 </FormItem>
               )} />
 
-              <div className="grid grid-cols-2 gap-4 mt-4">
-                <FormField control={form.control} name="city" render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>City</FormLabel>
-                    <FormControl><Input placeholder="Houston" {...field} className="bg-card border-border focus:border-primary" /></FormControl>
-                    <FormMessage className="mt-2 inline-block bg-black/80 text-red-300 px-2 py-1 rounded-md font-semibold border border-red-500/40" />
-                  </FormItem>
-                )} />
 
-                <FormField control={form.control} name="state" render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>State</FormLabel>
-                    <FormControl><Input placeholder="TX" {...field} className="bg-card border-border focus:border-primary" /></FormControl>
-                    <FormMessage className="mt-2 inline-block bg-black/80 text-red-300 px-2 py-1 rounded-md font-semibold border border-red-500/40" />
-                  </FormItem>
-                )} />
-              </div>
-
-              <FormField control={form.control} name="zipCode" render={({ field }) => (
-                <FormItem className="mt-4">
-                  <FormLabel>ZIP Code</FormLabel>
-                  <FormControl><Input placeholder="77541" {...field} className="bg-card border-border focus:border-primary" /></FormControl>
-                  <FormMessage className="mt-2 inline-block bg-black/80 text-red-300 px-2 py-1 rounded-md font-semibold border border-red-500/40" />
-                </FormItem>
-              )} />
             </div>
 
             {requestType === 'inquiry' && (

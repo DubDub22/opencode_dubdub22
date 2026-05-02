@@ -19,18 +19,18 @@ export default function DealerRegister() {
   const [looking, setLooking] = useState(false);
   const [found, setFound] = useState(false);
   const [form, setForm] = useState({ fflNumber:"", companyName:"", licenseName:"", phone:"", address:"", city:"", state:"", zip:"", fflExpiry:"", ein:"", einType:"3", email:"", password:"" });
-  const [fflFile, setFflFile] = useState(null);
-  const [sotFile, setSotFile] = useState(null);
+  const [fflFile, setFflFile] = useState<File | null>(null);
+  const [sotFile, setSotFile] = useState<File | null>(null);
   const [fflHasSot, setFflHasSot] = useState(false);
-  const [edits, setEdits] = useState(new Set());
+  const [edits, setEdits] = useState<Set<string>>(new Set());
 
   // Step 2
   const [regType, setRegType] = useState("");
   const [otherRegType, setOtherRegType] = useState("");
   const [businessDesc, setBusinessDesc] = useState("");
   const [taxIds, setTaxIds] = useState([{ state: "", taxId: "" }]);
-  const [stateDocFile, setStateDocFile] = useState(null);
-  const canvasRef = useRef(null);
+  const [stateDocFile, setStateDocFile] = useState<File | null>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
   const drawingRef = useRef(false);
   const [hasSig, setHasSig] = useState(false);
   const [sigData, setSigData] = useState("");
@@ -38,8 +38,8 @@ export default function DealerRegister() {
   const ic = "bg-background border-border";
   const lc = "text-sm font-medium mb-1 block";
 
-  function upd(f, v) { setForm(p => ({ ...p, [f]: v })); }
-  function mark(f) { if (found) setEdits(new Set([...edits, f])); }
+  function upd(f: string, v: string) { setForm(p => ({ ...p, [f]: v })); }
+  function mark(f: string) { if (found) setEdits(new Set([...Array.from(edits), f])); }
 
   async function lookup() {
     if (!fflInput.trim()) return;
@@ -65,7 +65,7 @@ export default function DealerRegister() {
     setStep(2);
   }
 
-  function toB64(file) { return new Promise(resolve => { const r = new FileReader(); r.onload = () => resolve(r.result.split(",")[1]); r.readAsDataURL(file); }); }
+  function toB64(file: File) { return new Promise<string>(resolve => { const r = new FileReader(); r.onload = () => resolve((r.result as string).split(",")[1]); r.readAsDataURL(file); }); }
 
   async function submit() {
     if (!hasSig||!regType) { toast({title:"Missing",description:"Signature and registration type required",variant:"destructive"}); return; }
@@ -73,7 +73,7 @@ export default function DealerRegister() {
     try {
       const fb64 = fflFile?await toB64(fflFile):"", sb64 = sotFile?await toB64(sotFile):"", db64 = stateDocFile?await toB64(stateDocFile):"";
       const r = await fetch("/api/dealer/register-full", { method:"POST", headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({ fflNumber:form.fflNumber,companyName:form.companyName,licenseName:form.licenseName,phone:form.phone,address:form.address,city:form.city,state:form.state,zip:form.zip,fflExpiry:form.fflExpiry,ein:form.ein,einType:form.einType,email:form.email,password:form.password,fflFileName:fflFile?.name||null,fflFileData:fb64||null,sotFileName:sotFile?.name||null,sotFileData:sb64||null,fflHasSot,fieldsEdited:[...edits],regType:regType==="Other"?otherRegType:regType,businessDescription:businessDesc,stateTaxIds:taxIds.filter(s=>s.taxId.trim()),signatureDataUrl:sigData,stateDocFileName:stateDocFile?.name||null,stateDocFileData:db64||null }) });
+        body:JSON.stringify({ fflNumber:form.fflNumber,companyName:form.companyName,licenseName:form.licenseName,phone:form.phone,address:form.address,city:form.city,state:form.state,zip:form.zip,fflExpiry:form.fflExpiry,ein:form.ein,einType:form.einType,email:form.email,password:form.password,fflFileName:fflFile?.name||null,fflFileData:fb64||null,sotFileName:sotFile?.name||null,sotFileData:sb64||null,fflHasSot,fieldsEdited:Array.from(edits),regType:regType==="Other"?otherRegType:regType,businessDescription:businessDesc,stateTaxIds:taxIds.filter(s=>s.taxId.trim()),signatureDataUrl:sigData,stateDocFileName:stateDocFile?.name||null,stateDocFileData:db64||null }) });
       const d = await r.json();
       if (d.ok) { toast({title:"Registration Complete!"}); setTimeout(()=>window.location.href="/dealer/dashboard",1500); }
       else toast({title:"Error",description:d.error||"Failed",variant:"destructive"});
@@ -81,10 +81,10 @@ export default function DealerRegister() {
     finally { setSubmitting(false); }
   }
 
-  function startDraw(e) { drawingRef.current=true; const c=canvasRef.current; const r=c.getBoundingClientRect(); const x=(e.touches?e.touches[0].clientX:e.clientX)-r.left; const y=(e.touches?e.touches[0].clientY:e.clientY)-r.top; const ctx=c.getContext("2d"); ctx.beginPath();ctx.moveTo(x,y);ctx.strokeStyle="#000";ctx.lineWidth=2;ctx.lineCap="round"; }
-  function draw(e) { if(!drawingRef.current)return;e.preventDefault();const c=canvasRef.current;const r=c.getBoundingClientRect();const x=(e.touches?e.touches[0].clientX:e.clientX)-r.left;const y=(e.touches?e.touches[0].clientY:e.clientY)-r.top;c.getContext("2d").lineTo(x,y);c.getContext("2d").stroke();setHasSig(true); }
-  function stopDraw() { drawingRef.current=false; if(canvasRef.current)setSigData(canvasRef.current.toDataURL()); }
-  function clearSig() { const c=canvasRef.current;c.getContext("2d").clearRect(0,0,c.width,c.height);setHasSig(false);setSigData(""); }
+  function startDraw(e: React.MouseEvent | React.TouchEvent) { drawingRef.current=true; const c=canvasRef.current!; const r=c.getBoundingClientRect(); const x=((e as React.TouchEvent).touches? (e as React.TouchEvent).touches[0].clientX : (e as React.MouseEvent).clientX)-r.left; const y=((e as React.TouchEvent).touches? (e as React.TouchEvent).touches[0].clientY : (e as React.MouseEvent).clientY)-r.top; const ctx=c.getContext("2d")!; ctx.beginPath();ctx.moveTo(x,y);ctx.strokeStyle="#000";ctx.lineWidth=2;ctx.lineCap="round"; }
+  function draw(e: React.MouseEvent | React.TouchEvent) { if(!drawingRef.current)return;e.preventDefault();const c=canvasRef.current!;const r=c.getBoundingClientRect();const x=((e as React.TouchEvent).touches? (e as React.TouchEvent).touches[0].clientX : (e as React.MouseEvent).clientX)-r.left;const y=((e as React.TouchEvent).touches? (e as React.TouchEvent).touches[0].clientY : (e as React.MouseEvent).clientY)-r.top;c.getContext("2d")!.lineTo(x,y);c.getContext("2d")!.stroke();setHasSig(true); }
+  function stopDraw() { drawingRef.current=false; if(canvasRef.current)setSigData((canvasRef.current as HTMLCanvasElement).toDataURL()); }
+  function clearSig() { const c=canvasRef.current!;c.getContext("2d")!.clearRect(0,0,c.width,c.height);setHasSig(false);setSigData(""); }
 
   // Step 1 UI
   if (step === 1) return (
@@ -201,7 +201,7 @@ export default function DealerRegister() {
   );
 }
 
-function FileDrop({file,setFile}) {
+function FileDrop({ file, setFile }: { file: File | null; setFile: (f: File | null) => void }) {
   return (
     <label className={`flex items-center justify-center border-2 border-dashed rounded-lg p-3 cursor-pointer transition-colors ${file?"border-green-500/50 bg-green-500/5":"border-border hover:border-primary/40 bg-card"}`}
       onDragOver={e=>{e.preventDefault()}} onDrop={e=>{e.preventDefault();const f=e.dataTransfer.files?.[0];if(f)setFile(f)}}>
