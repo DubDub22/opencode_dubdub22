@@ -161,6 +161,31 @@ DO NOT use `new Date().toISOString().slice(0, 10)` for dates sent to external AP
 - Warranty submissions
 - Retail orders (non-dealer)
 
+### Serial Number Dedup (TODO)
+- FB Pending inventory needs to filter out serials already assigned to other submissions
+- Cross-reference with `submissions.serial_number` to prevent double-assignment
+
+## Authorize.Net Payment Integration (planned — FFL pending)
+
+Strategy: 50% deposit at order + 50% final at shipment using auth-then-capture.
+
+| Step | Trigger | API call | Amount |
+|------|---------|----------|--------|
+| 1. Place order | Dealer submits | `AUTH_CAPTURE` | 50% |
+| 2. Ship | Admin "Form 3 ✓" | `PRIOR_AUTH_CAPTURE` | Remaining 50% |
+
+Files to create/modify:
+- **NEW**: `server/authorizenet.ts` — API client (auth, capture, void)
+- **NEW**: DB migration for payment columns (transaction ID, deposit/final amounts, status)
+- **MODIFY**: `server/routes/dealer-auth.ts` — add deposit charge on order placement
+- **MODIFY**: `server/routes.ts` — Form 3 workflow adds final capture before shipping
+- **MODIFY**: `client/src/pages/dealer-order.tsx` — add card form (Accept.js hosted fields)
+- **DOCS**: `shared/schema.ts` — payment schema
+
+Card data: Use Authorize.Net **Accept.js** — card numbers never touch our server. Store only last4/exp/card type/profile ID.
+
+Sandbox endpoint: `https://apitest.authorize.net/xml/v1/request.api`
+
 ## 3dprintmanager — Ubuntu Server
 
 - **Host**: `100.99.180.68` (tailnet), `3dprintmanager.tail666c40.ts.net` (Tailscale DNS)
