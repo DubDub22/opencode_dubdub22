@@ -161,7 +161,38 @@ DO NOT use `new Date().toISOString().slice(0, 10)` for dates sent to external AP
 - Warranty submissions
 - Retail orders (non-dealer)
 
-## OpenClaw / @DubDub Discord Bot
+## 3dprintmanager — Ubuntu Server
+
+- **Host**: `100.99.180.68` (tailnet), `3dprintmanager.tail666c40.ts.net` (Tailscale DNS)
+- **User**: `txmedictom`
+- **Password**: `katmartom2`
+- **SSH**: key `opencode-dubdub22` already authorized
+- **Docker**: installed, `docker compose` plugin installed
+- **Sudo**: passwordless for docker only (`/etc/sudoers.d/docker`)
+
+### SSH Access (from Linode)
+```bash
+ssh txmedictom@100.99.180.68
+```
+Note: your local machine is NOT on the tailnet. Always SSH via the Linode or use the tunnel.
+
+### SearXNG
+Running at `http://100.99.180.68:8088` (Docker compose, project at `~/searxng`).
+
+```bash
+# From Linode
+ssh txmedictom@100.99.180.68
+cd ~/searxng
+sudo docker compose ps
+sudo docker compose restart
+```
+
+### SSH Tunnel (for local opencode to reach SearXNG)
+```bash
+ssh -f -N searxng-tunnel
+# Forwards localhost:8088 -> Linode -> 3dprintmanager:8088
+# After tunnel is up: curl http://localhost:8088/search?q=test
+```
 
 ### Restore if it goes down
 ```bash
