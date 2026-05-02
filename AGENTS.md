@@ -161,7 +161,46 @@ DO NOT use `new Date().toISOString().slice(0, 10)` for dates sent to external AP
 - Warranty submissions
 - Retail orders (non-dealer)
 
-## TODO / Known Gaps
+## OpenClaw / @DubDub Discord Bot
+
+### Restore if it goes down
+```bash
+ssh linode-dubdub22
+
+# Check status
+openclaw status
+
+# If not installed:
+npm install -g openclaw
+
+# Install & start gateway service
+openclaw gateway install
+systemctl --user start openclaw-gateway.service
+
+# Verify
+openclaw status
+ss -tlnp | grep 18789
+journalctl --user -u openclaw-gateway.service -n 20
+
+# Old systemd service (clawdbot-dubdub) is deprecated — it pointed to deleted /root/clawdbot-dubdub/
+systemctl disable clawdbot-dubdub.service  # clean up if still there
+```
+
+### Key paths
+| Path | Purpose |
+|------|---------|
+| `/root/.openclaw/` | Config, identity, credentials, cron |
+| `/root/.clawdbot/clawdbot.json` | Legacy config (may still be referenced) |
+| `/usr/bin/openclaw` | CLI binary (npm global) |
+| `~/.config/systemd/user/openclaw-gateway.service` | Service file |
+| `/tmp/openclaw/` | Runtime logs |
+
+### Config details
+- **AI model**: MiniMax-M2.7-highspeed
+- **Discord**: `@DubDub` bot, channels resolved
+- **Gateway**: http://127.0.0.1:18789 (local only)
+- **Auto-restart**: via cron at 3 AM (`/root/update_and_restart.sh`)
+- **DO NOT DELETE**: `/root/.openclaw/` or `/root/.clawdbot/`
 
 ### Serial Number Assignment — Prevent Duplicates
 **Problem**: The FB Pending inventory dialog pulls ALL open DubDub22 items from FastBound, including serials already assigned to other submissions. An admin could accidentally assign the same serial twice.
