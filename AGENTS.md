@@ -194,7 +194,20 @@ ssh -f -N searxng-tunnel
 # After tunnel is up: curl http://localhost:8088/search?q=test
 ```
 
-### Restore if it goes down
+### AFTER EVERY LINODE REBOOT — Check these first
+```bash
+# 1. Is openclaw up?
+ssh linode-dubdub22 'openclaw status 2>&1 | grep -E "Gateway|Discord"'
+# If not: ssh linode-dubdub22 'systemctl --user restart openclaw-gateway.service'
+
+# 2. Is dev server up? (5002)
+ssh linode-dubdub22 'ss -tlnp | grep 5002 || (cd /home/dubdub/opencode_dubdub22 && (nohup npx tsx -r dotenv/config server/index-dev.ts > /root/dev-server.log 2>&1 &) && echo "dev started")'
+
+# 3. Re-establish SearXNG tunnel
+ssh -f -N searxng-tunnel
+```
+
+### Restore if openclaw goes down completely
 ```bash
 ssh linode-dubdub22
 
