@@ -3693,7 +3693,22 @@ print(pdf_path)
         model: "DubDub22",
         limit,
       });
-      return res.json({ ok: true, items });
+
+      // Exclude serials already assigned to other submissions (prevent double-assignment)
+      const assigned = await pool.query(
+        `SELECT serial_number FROM submissions WHERE serial_number IS NOT NULL AND serial_number != ''`
+      );
+      const assignedSerials = new Set<string>();
+      for (const row of assigned.rows) {
+        (row.serial_number as string).split(",").forEach((s: string) => assignedSerials.add(s.trim()));
+      }
+
+      const available = items.filter((item: any) => {
+        const serial = item.serial || item.serialNumber || "";
+        return !assignedSerials.has(serial);
+      });
+
+      return res.json({ ok: true, items: available, total: items.length, filtered: items.length - available.length });
     } catch (err: any) {
       console.error("fastbound_inventory_error", err);
       return res.status(500).json({ ok: false, error: err.message });
