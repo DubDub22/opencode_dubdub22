@@ -1,20 +1,28 @@
 /**
- * ShipStation API client for DubDub22 label generation.
+ * ShipStation V1 API client for DubDub22 label generation.
  *
- * Docs: https://docs.shipstation.com/apis/openapi/labels/create_label
+ * Endpoint: POST /shipments/createlabel
+ * Docs: https://www.shipstation.com/docs/api/shipments/create-label/
  * Auth: HTTP Basic — API Key + API Secret
- * Carrier: USPS (stamps_com)
+ * Carrier: stamps_com (USPS)
  *
  * Env vars:
  *   SHIPSTATION_API_KEY
  *   SHIPSTATION_API_SECRET
- *   SHIPSTATION_BASE_URL – defaults to https://ssapi.shipstation.com
  */
 
 import { pool } from "./db";
+import { todayCST } from "../shared/dates";
 
-const BASE =
-  process.env.SHIPSTATION_BASE_URL ?? "https://ssapi.shipstation.com";
+// ShipStation V1 requires shipDate in the future (PDT timezone).
+// Add 1 day to CST date to avoid "date in past" errors near midnight.
+function shipDate(): string {
+  const d = new Date();
+  d.setDate(d.getDate() + 1);
+  return d.toLocaleDateString("en-CA", { timeZone: "America/Chicago" });
+}
+
+const BASE = "https://ssapi.shipstation.com";
 
 const API_KEY = process.env.SHIPSTATION_API_KEY;
 const API_SECRET = process.env.SHIPSTATION_API_SECRET;
@@ -47,100 +55,82 @@ async function ssFetch(path: string, init?: RequestInit) {
 
 // ── Types ─────────────────────────────────────────────────────────────────
 
-export type ShipTo = {
-  name: string;
-  companyName?: string;
-  phone: string;
-  addressLine1: string;
-  city: string;
-  state: string;
-  postalCode: string;
-  countryCode?: string; // default "US"
-};
-
-export type PackageDetails = {
-  weightOz: number; // suppressor ~9.6 oz
-  length?: number; // inches
-  width?: number;
-  height?: number;
-  packageCode?: string; // e.g. "medium_flat_rate_box" or "package"
-};
-
 export type CreateLabelResult = {
-  labelId: string;
+  shipmentId: number;
   trackingNumber: string;
-  labelPdfUrl: string;
-  shipmentId: string;
+  labelData: string;    // base64 PDF
   cost: number;
 };
 
-// ── API Methods ───────────────────────────────────────────────────────────
+// ── Ship From (always Double T Tactical) ──────────────────────────────────
 
 const SHIP_FROM = {
-  companyName: "Double T Tactical",
   name: "Thomas Trevino",
-  phone: "469-307-8001",
-  addressLine1: "105 Bear Trce",
+  company: "Double T Tactical",
+  street1: "105 Bear Trce",
   city: "Floresville",
   state: "TX",
   postalCode: "78114",
-  countryCode: "US",
+  country: "US",
+  phone: "469-307-8001",
+  residential: false,
 };
 
 /**
- * Create a USPS shipping label and return tracking + PDF.
- * Uses v2/labels endpoint (recommended).
+ * Create a USPS shipping label.
+ * For sandbox/testing, pass testLabel=true.
  */
 export async function createLabel(
-  shipTo: ShipTo,
-  pkg: PackageDetails,
-  serviceCode = "usps_priority_mail",
+  shipTo: {
+    name: string;
+    company?: string;
+    street1: string;
+    city: string;
+    state: string;
+    postalCode: string;
+    phone?: string;
+  },
+  weightOz: number = 10,
+  opts?: { serviceCode?: string; packageCode?: string; testLabel?: boolean },
 ): Promise<CreateLabelResult> {
-  const payload = {
-    shipment: {
-      carrierCode: "stamps_com",
-      serviceCode,
-      shipFrom: SHIP_FROM,
-      shipTo: {
-        ...shipTo,
-        countryCode: shipTo.countryCode ?? "US",
-        addressResidentialIndicator: "yes",
-      },
-      packages: [
-        {
-          weight: { value: pkg.weightOz, unit: "ounce" },
-          ...(pkg.packageCode
-            ? { packageCode: pkg.packageCode }
-            : pkg.length
-              ? {
-                  dimensions: {
-                    length: pkg.length,
-                    width: pkg.width ?? 6,
-                    height: pkg.height ?? 4,
-                    unit: "inch",
-                  },
-                }
-              : {}),
-        },
-      ],
-      confirmation: "none",
-      insuranceProvider: "none",
+  const payload: Record<string, any> = {
+    carrierCode: "stamps_com",
+    serviceCode: opts?.serviceCode ?? "usps_priority_mail",
+    packageCode: opts?.packageCode ?? "package",
+    confirmation: "none",
+    shipDate: shipDate(),
+    weight: { value: weightOz, units: "ounces" },
+    shipFrom: SHIP_FROM,
+    shipTo: {
+      name: shipTo.name,
+      company: shipTo.company ?? shipTo.name,
+      street1: shipTo.street1,
+      city: shipTo.city,
+      state: shipTo.state,
+      postalCode: shipTo.postalCode,
+      country: "US",
+      phone: shipTo.phone ?? "",
+      residential: true,
     },
-    labelFormat: "pdf",
-    labelLayout: "4x6",
+    insuranceOptions: null,
+    internationalOptions: null,
+    advancedOptions: null,
   };
 
-  const res: any = await ssFetch("/v2/labels", {
+  if (opts?.testLabel) {
+    payload.testLabel = true;
+  }
+
+  const res: any = await ssFetch("/shipments/createlabel", {
     method: "POST",
     body: JSON.stringify(payload),
   });
 
   return {
-    labelId: res.labelId,
-    trackingNumber: res.trackingNumber,
-    labelPdfUrl: res.labelDownload?.pdf ?? res.label_url ?? "",
     shipmentId: res.shipmentId,
-    cost: res.shipmentCost?.amount ?? 0,
+    trackingNumber: res.trackingNumber,
+    labelData: res.labelData,
+    cost: res.shipmentCost ?? 0,
   };
 }
 
@@ -154,16 +144,12 @@ export async function saveLabelInfo(
   await pool.query(
     `UPDATE submissions
         SET tracking_number = $1,
-            shipstation_label_id = $2,
-            shipstation_shipment_id = $3,
-            label_pdf_url = $4,
+            shipstation_shipment_id = $2,
             shipped_at = NOW()::text
-      WHERE id = $5`,
+      WHERE id = $3`,
     [
       label.trackingNumber,
-      label.labelId,
-      label.shipmentId,
-      label.labelPdfUrl,
+      String(label.shipmentId),
       submissionId,
     ],
   );
@@ -173,5 +159,5 @@ export async function saveLabelInfo(
  * Void a label (within 28 days, unused).
  */
 export async function voidLabel(labelId: string): Promise<void> {
-  await ssFetch(`/v2/labels/${labelId}/void`, { method: "POST" });
+  await ssFetch(`/shipments/${labelId}/void`, { method: "POST" });
 }
