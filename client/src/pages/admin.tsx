@@ -560,6 +560,11 @@ function SubmissionCard({ sub, onArchive, onDelete, onPaid, onFastBoundPending, 
           ) : (
             <div className="space-y-1">
               {!sub.trackingNumber && onFastBoundPending && (
+                sub.serialNumber ? (
+                  <span className="inline-flex items-center gap-1 w-full px-2 py-1 text-xs font-medium text-green-600 bg-green-50 border border-green-300 rounded">
+                    <CheckCircle className="w-3 h-3" /> Serials Assigned
+                  </span>
+                ) : (
                 <Button
                   variant="outline"
                   size="sm"
@@ -569,6 +574,7 @@ function SubmissionCard({ sub, onArchive, onDelete, onPaid, onFastBoundPending, 
                 >
                   FB Pending
                 </Button>
+                )
               )}
               {!sub.trackingNumber && onForm3Approved && (
                 <Button
@@ -676,6 +682,11 @@ function SubmissionRow({ sub, onArchive, onDelete, onRequestDocs, onForm3Submitt
                 <span className="text-xs text-green-600 font-medium">✓ Shipped + Invoiced</span>
               )}
               {!sub.trackingNumber && onFastBoundPending && (
+                sub.serialNumber ? (
+                  <span className="inline-flex items-center gap-1 whitespace-nowrap px-2 py-1 text-xs font-medium text-green-600 bg-green-50 border border-green-300 rounded">
+                    <CheckCircle className="w-3 h-3" /> Serials Assigned
+                  </span>
+                ) : (
                 <Button
                   variant="outline"
                   size="sm"
@@ -685,6 +696,7 @@ function SubmissionRow({ sub, onArchive, onDelete, onRequestDocs, onForm3Submitt
                 >
                   FB Pending
                 </Button>
+                )
               )}
               {!sub.trackingNumber && onForm3Approved && (
                 <Button
