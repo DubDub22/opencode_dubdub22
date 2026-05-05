@@ -149,21 +149,30 @@ DO NOT use `new Date().toISOString().slice(0, 10)` for dates sent to external AP
 
 ## Needs Testing
 
-### Form 3 Workflow (NOT YET TESTED)
+### Form 3 Full Workflow (NEXT PRIORITY)
 - "Form 3 ✓" button → creates ShipStation label + commits FastBound disposition + generates invoice PDF + emails dealer
-- ShipStation label creation → sandbox keys configured, need to verify end-to-end
+- ShipStation label creation **verified** ($5.70 First Class, $8.26 Priority, void works)
+- FastBound disposition commit with tracking number
 - Invoice PDF generation with serial numbers + tracking
+- Single email with invoice + Form 3 PDF attached
 
 ### Edge Cases
-- Dealer with no FFL/SOT uploads (inquiry-only flow)
-- Multiple orders from same dealer
-- Demo unit ordering
+- Demo unit ordering flow
 - Warranty submissions
-- Retail orders (non-dealer)
+- Retail/non-dealer orders
 
-### Serial Number Dedup (TODO)
-- FB Pending inventory needs to filter out serials already assigned to other submissions
-- Cross-reference with `submissions.serial_number` to prevent double-assignment
+## Completed
+
+| Item | Status |
+|------|--------|
+| Registration + tax form fill + FastBound contact | ✅ |
+| Gmail ZIP email with docs | ✅ |
+| Serial number dedup in FB Pending inventory | ✅ |
+| ShipStation V1 API (live keys, label create/void) | ✅ |
+| SearXNG + OpenCode search tool | ✅ |
+| CST dates for FastBound/ShipStation | ✅ |
+| Admin dashboard Documents column removed | ✅ |
+| TypeScript 0 errors | ✅ |
 
 ## Authorize.Net Payment Integration (planned — FFL pending)
 
@@ -287,7 +296,7 @@ systemctl disable clawdbot-dubdub.service  # clean up if still there
 | `server/routes.ts` | Main routes — VERY LARGE, be careful |
 | `server/routes/dealer-auth.ts` | Registration, login, order placement, tax form fill |
 | `server/fastbound.ts` | FastBound API client — dispositions, contacts, inventory |
-| `server/shipstation.ts` | ShipStation API — label creation |
+| `server/shipstation.ts` | ShipStation V1 API — label creation (+void) |
 | `client/src/pages/admin.tsx` | Admin dashboard — submissions, FB Pending, Form 3 |
 | `client/src/pages/apply.tsx` | Dealer application / registration |
 | `client/src/pages/dealer-register.tsx` | New dealer registration with digital signature |
