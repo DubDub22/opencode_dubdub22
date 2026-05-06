@@ -88,7 +88,7 @@ export async function generateInvoicePDF(data: InvoiceData): Promise<Buffer> {
   // Tracking
   drawText(`Tracking: ${data.trackingNumber}`, 50, totalsY - 65, 10, true);
   drawText("USPS Priority Mail", 50, totalsY - 80, 10);
-  drawText("Net 30 - Payment due within 30 days", 50, totalsY - 100, 10);
+  drawText("Net 30 Days - Payment due upon receipt", 50, totalsY - 100, 10);
 
   // Footer
   drawText("Thank you for your order!", 50, 100, 10, true);
