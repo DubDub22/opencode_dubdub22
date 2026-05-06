@@ -35,6 +35,7 @@ import {
 } from "./fastbound";
 import { createLabel, saveLabelInfo } from "./shipstation";
 import { todayCST, compactCST } from "../shared/dates";
+import { generateInvoicePDF } from "./invoice";
 
 const SALES_EMAIL = "info@dubdub22.com";
 const ORDER_EMAIL = "orders@dubdub22.com";
@@ -3371,55 +3372,27 @@ print(pdf_path)
     try {
       const { id } = req.params;
 
-      const rows = await pool.query(`
-        SELECT s.id, s.contact_name, s.email, s.business_name,
-          s.ffl_license_number,
-          s.ffl_file_name, s.ffl_file_data,
-          s.sot_file_name, s.sot_file_data,
-          s.tax_form_name, s.tax_form_data,
-          s.state_tax_file_name, s.state_tax_file_data,
-          d.ffl_file_name AS dealer_ffl_file_name,
-          d.sot_file_name AS dealer_sot_file_name,
-          d.sales_tax_form_name AS dealer_tax_form_name,
-          d.state_tax_file_name AS dealer_state_tax_file_name
-        FROM submissions s
-        LEFT JOIN dealers d ON d.ffl_license_number = s.ffl_license_number AND s.ffl_license_number IS NOT NULL AND s.ffl_license_number != ''
-        WHERE s.id = $1
-      `, [id]);
+      const row = await pool.query(`SELECT s.contact_name, s.email, s.business_name FROM submissions s WHERE s.id = $1`, [id]);
 
-      if (!rows.rows.length) return res.status(404).json({ ok: false, error: "submission_not_found" });
+      if (!row.rows.length) return res.status(404).json({ ok: false, error: "submission_not_found" });
 
-      const s = rows.rows[0];
+      const s = row.rows[0];
       const contactName = s.contact_name || "there";
       const email = s.email;
-      const businessName = s.business_name || "";
 
-      const hasFfl = !!(s.ffl_file_name && s.ffl_file_data) || !!(s.dealer_ffl_file_name);
-      const hasSot = !!(s.sot_file_name && s.sot_file_data) || !!(s.dealer_sot_file_name);
-      const hasStateTax = !!(s.state_tax_file_name && s.state_tax_file_data) || !!(s.dealer_state_tax_file_name);
-
-      // FFL and SOT must already be on file before Form 3 can be submitted â€” only check for missing tax docs
-      const missing: string[] = [];
-      if (!hasStateTax) missing.push("a completed Multi-State Tax Affidavit");
-
-      const subject = `Form 3 Submitted - DubDub22 Order`;
       const text = [
-        `Hi ${contactName}${businessName ? ` (${businessName})` : ""},`,
+        `Hi ${contactName},`,
         "",
         `Your Form 3 has been submitted to prepare for shipment.`,
         "",
         `Upon Form 3 Approval, you will be invoiced Net 30 and receive a tracking number for your shipment.`,
         "",
-        "Thank you for choosing Double T Tactical / DubDub22.",
-        "",
-        `- Double T Tactical`,
-        `DubDub22 / Double T Tactical`,
-        `docs@dubdub22.com`,
+        `- Double T Tactical / DubDub22`,
       ].join("\n");
 
       await sendViaGmail({
         to: email,
-        subject,
+        subject: "Form 3 Submitted - DubDub22",
         text,
         from: `DubDub22 Documents <docs@dubdub22.com>`,
         replyTo: "docs@dubdub22.com",
@@ -3428,7 +3401,7 @@ print(pdf_path)
       // Record that Form 3 was submitted
       await pool.query(`UPDATE submissions SET form3_submitted_at = $1 WHERE id = $2`, [new Date().toISOString(), id]);
 
-      return res.json({ ok: true, missing: missing.length });
+      return res.json({ ok: true });
     } catch (err: any) {
       console.error("form3_submitted_error", err);
       return res.status(500).json({ ok: false, error: err?.message || "server_error" });
@@ -3694,21 +3667,7 @@ print(pdf_path)
         limit,
       });
 
-      // Exclude serials already assigned to other submissions (prevent double-assignment)
-      const assigned = await pool.query(
-        `SELECT serial_number FROM submissions WHERE serial_number IS NOT NULL AND serial_number != ''`
-      );
-      const assignedSerials = new Set<string>();
-      for (const row of assigned.rows) {
-        (row.serial_number as string).split(",").forEach((s: string) => assignedSerials.add(s.trim()));
-      }
-
-      const available = items.filter((item: any) => {
-        const serial = item.serial || item.serialNumber || "";
-        return !assignedSerials.has(serial);
-      });
-
-      return res.json({ ok: true, items: available, total: items.length, filtered: items.length - available.length });
+      return res.json({ ok: true, items });
     } catch (err: any) {
       console.error("fastbound_inventory_error", err);
       return res.status(500).json({ ok: false, error: err.message });
@@ -3875,16 +3834,16 @@ print(pdf_path)
         return res.status(400).json({ ok: false, error: "Order already shipped" });
       }
 
-      // 2. Create ShipStation label
+      // 2. Create ShipStation label (USPS First Class — cheapest)
       const label = await createLabel({
-        name: sub.contact_name || "",
-        companyName: sub.business_name || undefined,
+        name: sub.contact_name || sub.business_name || "",
+        company: sub.business_name || undefined,
         phone: sub.phone || "",
-        addressLine1: sub.business_address || sub.customer_address || "",
+        street1: sub.business_address || sub.customer_address || "",
         city: sub.city || sub.customer_city || "",
         state: sub.state || sub.customer_state || "",
         postalCode: sub.zip || sub.customer_zip || "",
-      }, { weightOz: 10, packageCode: "medium_flat_rate_box" });
+      }, 10, { serviceCode: "usps_first_class_mail", packageCode: "package" });
 
       await saveLabelInfo(id, label);
 
@@ -3894,16 +3853,37 @@ print(pdf_path)
         await commitDisposition(dispositionId, label.trackingNumber);
       }
 
-      // 4. Email dealer with tracking + order info
+      // 4. Email dealer with tracking + invoice PDF
       if (sub.email) {
         const orderNum = sub.order_number || id.slice(0, 8);
         const invNum = sub.invoice_number || `INV-${orderNum}`;
         try {
+          // Generate invoice PDF
+          const qty = parseInt(sub.quantity || "1") || 1;
+          const subtotal = qty * 60;
+          const shippingCost = 10;
+          const total = subtotal + shippingCost;
+          const invoicePdf = await generateInvoicePDF({
+            invoiceNumber: invNum,
+            orderNumber: orderNum,
+            dealerName: sub.contact_name || sub.business_name || "Dealer",
+            dealerEmail: sub.email,
+            dealerAddress: [sub.business_address, sub.city, sub.state, sub.zip].filter(Boolean).join(", ") || "",
+            serialNumbers: sub.serial_number || "",
+            quantity: qty,
+            unitPrice: 60,
+            subtotal,
+            shippingCost,
+            total,
+            trackingNumber: label.trackingNumber,
+            shipDate: todayCST(),
+          });
+
           await sendViaGmail({
             to: sub.email,
             bcc: BCC_EMAIL,
             from: `DubDub22 Orders <orders@dubdub22.com>`,
-            subject: `Your DubDub22 Order Has Shipped — ${orderNum}`,
+            subject: `Your DubDub22 Order Has Shipped - ${orderNum}`,
             text: [
               `Dear ${sub.contact_name || "Dealer"},`,
               ``,
@@ -3914,10 +3894,16 @@ print(pdf_path)
               `Tracking: ${label.trackingNumber}`,
               `Carrier: USPS Priority Mail`,
               ``,
-              `Invoice is Net 30. Please remit payment upon receipt of invoice.`,
+              `Please find the invoice PDF attached.`,
+              `Invoice is Net 30 - payment due within 30 days.`,
               ``,
               `- Double T Tactical / DubDub22`,
             ].join("\n"),
+            attachment: {
+              filename: `${invNum}.pdf`,
+              base64Data: invoicePdf.toString("base64"),
+              contentType: "application/pdf",
+            },
           });
         } catch (e) { console.error("form3_dealer_email_error", e); }
       }

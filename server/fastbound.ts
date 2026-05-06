@@ -400,18 +400,25 @@ export async function commitDisposition(
   dispositionId: string,
   trackingNumber: string,
 ): Promise<void> {
-  // Update disposition with tracking via PUT
+  // FastBound: tracking must be set BEFORE committing.
+  // GET current disposition first
+  const current: any = await fbFetch(`/Dispositions/${dispositionId}`);
+
+  // PUT with tracking added to existing fields
   await fbFetch(`/Dispositions/${dispositionId}`, {
     method: "PUT",
     body: JSON.stringify({
+      ...current,
+      type: current.type || "NFA/Form 3",
       shipmentTrackingNumber: trackingNumber,
       shippedDate: todayCST(),
     }),
   });
 
-  // Commit the disposition
+  // Then commit
   await fbFetch(`/Dispositions/${dispositionId}/Commit`, {
     method: "POST",
+    body: JSON.stringify({ type: "NFA/Form 3" }),
   });
 }
 
@@ -484,21 +491,33 @@ export async function getDispositionId(
  * Returns array of items with id, serialNumber, etc.
  */
 export async function searchInventoryItems(params: {
-  manufacturer?: string; // default "DOUBLE TACTICAL"
-  model?: string;         // e.g. "DubDub22 Suppressor"
-  limit?: number;        // max items to return (match order qty)
+  manufacturer?: string;
+  model?: string;
+  limit?: number;
 }): Promise<any[]> {
-  const query = new URLSearchParams();
-  // Always filter by your manufacturer to only show DubDub22 suppressors
-  query.set("manufacturer", params.manufacturer || "DOUBLE TACTICAL");
-  if (params.model) query.set("model", params.model);
-  if (params.limit) query.set("limit", String(params.limit));
-  query.set("openOnly", "true"); // Only open (not deleted) items
+  const allItems: any[] = [];
+  const maxItems = Math.min(params.limit || 25, 100);
+  let skip = 0;
 
-  const res: any = await fbFetch(`/Items?${query.toString()}`);
-  const result = res?.data || (Array.isArray(res) ? res : res?.items || []);
-  // Map FastBound's "serial" field to legacy "serialNumber" for existing code
-  return (Array.isArray(result) ? result : []).map((i: any) => ({
+  while (allItems.length < maxItems) {
+    const query = new URLSearchParams();
+    if (params.manufacturer) query.set("manufacturer", params.manufacturer);
+    if (params.model) query.set("model", params.model);
+    query.set("status", "1"); // 1 = Available (not disposed, not deleted)
+    query.set("take", "10");
+    query.set("skip", String(skip));
+
+    const res: any = await fbFetch(`/Items?${query.toString()}`);
+    const items = res?.items || (Array.isArray(res) ? res : []);
+
+    if (!Array.isArray(items) || items.length === 0) break;
+
+    allItems.push(...items);
+    skip += items.length;
+    if (items.length < 10) break; // Last page
+  }
+
+  return allItems.slice(0, maxItems).map((i: any) => ({
     ...i,
     serialNumber: i.serialNumber || i.serial,
   }));

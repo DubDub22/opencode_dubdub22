@@ -698,17 +698,6 @@ function SubmissionRow({ sub, onArchive, onDelete, onRequestDocs, onForm3Submitt
                 </Button>
                 )
               )}
-              {!sub.trackingNumber && onForm3Approved && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-7 text-xs whitespace-nowrap border-green-600 text-green-600 hover:bg-green-50"
-                  onClick={onForm3Approved}
-                  title="Form 3 Approved: create label, commit FastBound, email dealer"
-                >
-                  Form 3 ✓
-                </Button>
-              )}
             </div>
           )}
       </td>
@@ -3156,9 +3145,10 @@ export default function AdminPage() {
   const [fastBoundLoading, setFastBoundLoading] = useState(false);
   const [form3Loading, setForm3Loading] = useState(false);
 
-  const fetchFBInventory = useCallback(async () => {
+  const fetchFBInventory = useCallback(async (qty?: number) => {
     try {
-      const res = await fetch("/api/admin/fastbound/inventory?limit=200");
+      const limit = Math.min((qty || 20) + 10, 100);
+      const res = await fetch(`/api/admin/fastbound/inventory?limit=${limit}`);
       const data = await res.json();
       if (data.ok) setAvailableSerials(data.items || []);
     } catch { /* non-critical */ }
@@ -3353,7 +3343,7 @@ export default function AdminPage() {
     finally { setRetailInquiryDeleteTarget(null); }
   };
 
-  const openFastBoundDialog = (sub: Submission) => { setFastBoundTarget(sub); setSerialInput(""); };
+  const openFastBoundDialog = (sub: Submission) => { setFastBoundTarget(sub); setSerialInput(""); fetchFBInventory(sub.quantity ? parseInt(sub.quantity) : 20); };
 
   const handleFastBoundPending = async () => {
     if (!fastBoundTarget || !serialInput.trim()) return;
@@ -3678,15 +3668,7 @@ export default function AdminPage() {
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3 py-2">
-            <p className="text-sm font-medium">The email will include:</p>
-            <ul className="text-sm space-y-1 list-disc pl-5">
-              <li>Form 3 submitted — preparing for shipment</li>
-              {form3SubmittedTarget && !form3SubmittedTarget.dealerFflFileData && !form3SubmittedTarget.fflFileData && <li>FFL (still missing)</li>}
-              {form3SubmittedTarget && !form3SubmittedTarget.dealerSotFileData && !form3SubmittedTarget.sotFileData && <li>SOT (still missing)</li>}
-              {form3SubmittedTarget && !form3SubmittedTarget.dealerStateTaxFileData && !form3SubmittedTarget.stateTaxFileData && <li>Multi-State Tax Affidavit <span className="text-blue-600 font-medium">(will be attached)</span></li>}
-              {(!form3SubmittedTarget?.dealerFflFileData && !form3SubmittedTarget?.fflFileData && !form3SubmittedTarget?.dealerSotFileData && !form3SubmittedTarget?.sotFileData && !form3SubmittedTarget?.dealerStateTaxFileData && !form3SubmittedTarget?.stateTaxFileData) && <li className="text-green-600 font-medium">All docs on file ✓</li>}
-            </ul>
-            <p className="text-xs text-muted-foreground">Invoice will be sent after Form 3 approval.</p>
+            <p className="text-sm">Send a simple notification to <strong>{form3SubmittedTarget?.email}</strong> that the Form 3 has been submitted.</p>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setForm3SubmittedTarget(null)}>Cancel</Button>
@@ -3717,7 +3699,7 @@ export default function AdminPage() {
 
       {/* FastBound: Assign Serials & Create Pending Disposition */}
       <Dialog open={!!fastBoundTarget} onOpenChange={(o) => { if (!o) { setFastBoundTarget(null); setSerialInput(""); } }}>
-        <DialogContent className="bg-card border-border max-w-md">
+        <DialogContent className="bg-card border-border max-w-lg">
           <DialogHeader>
             <DialogTitle>FastBound: Assign Serials</DialogTitle>
             <DialogDescription className="text-sm text-muted-foreground">
@@ -3730,11 +3712,11 @@ export default function AdminPage() {
               <>
                 <div className="flex gap-2 flex-wrap">
                   <Button variant="outline" size="sm" onClick={() => {
-                    const qty = fastBoundTarget?.quantity ? parseInt(fastBoundTarget.quantity) : availableSerials.length;
-                    const firstN = availableSerials.slice(0, qty).map((i: any) => i.id);
+                    const qty = fastBoundTarget?.quantity ? parseInt(fastBoundTarget.quantity) || 1 : 1;
+                    const firstN = availableSerials.slice(0, Math.min(qty, availableSerials.length)).map((i: any) => i.id);
                     setSerialInput(firstN.join(","));
                   }}>
-                    First {fastBoundTarget?.quantity || availableSerials.length}
+                    First {fastBoundTarget?.quantity || "?"}
                   </Button>
                   <Button variant="outline" size="sm" onClick={() => {
                     setSerialInput(availableSerials.map((i: any) => i.id).join(","));
@@ -3748,7 +3730,7 @@ export default function AdminPage() {
                     {serialInput ? `${serialInput.split(",").filter(Boolean).length} selected` : ""}
                   </span>
                 </div>
-                <div className="max-h-48 overflow-y-auto border rounded">
+                <div className="max-h-[500px] overflow-y-auto border rounded">
                   {availableSerials.map((item: any) => {
                     const checked = serialInput.includes(item.id);
                     return (

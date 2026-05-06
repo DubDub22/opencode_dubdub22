@@ -144,12 +144,10 @@ export async function saveLabelInfo(
   await pool.query(
     `UPDATE submissions
         SET tracking_number = $1,
-            shipstation_shipment_id = $2,
             shipped_at = NOW()::text
-      WHERE id = $3`,
+      WHERE id = $2`,
     [
       label.trackingNumber,
-      String(label.shipmentId),
       submissionId,
     ],
   );
