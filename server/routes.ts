@@ -900,7 +900,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Public: Dealers near a zip code (lazy-load - only fetched on zip search)
   // GET /api/dealers/nearby?zip=XXXXX
-  // Returns nearest 20 FFLs total, plus the nearest Preferred dealer separately
+  // Returns dealers within 50 miles, Preferred first
   app.get("/api/dealers/nearby", async (req, res) => {
     try {
       const zip = (req.query.zip as string || "").replace(/\D/g, "");
@@ -915,7 +915,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       const { lat: lat1, lng: lng1 } = searchCoords;
 
-      // Fetch all dealers that have coordinates in the same state as the search zip
+      // Fetch dealers in same state with coordinates
       const searchState = searchCoords.state;
       const result = await pool.query(`
         SELECT id, business_name, city, state, zip, tier, verified, phone, email, lat, lng, ffl_license_number
@@ -925,8 +925,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const R = 3958.8; // Earth radius in miles
       const DEG = Math.PI / 180;
+      const MAX_MILES = 50;
 
-      // Compute haversine distance for all dealers, enrich with phone
+      // Compute haversine distance, filter by 50 miles, enrich with phone
       const withDist = (result.rows as any[]) 
         .map((row: any) => {
           const dLat = ((row.lat as number) - lat1) * DEG;
@@ -940,19 +941,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const displayPhone = row.tier === "Preferred" && row.phone ? row.phone : (row.phone || voicePhone);
           return { ...row, voicePhone, displayPhone, _dist: Math.round(dist * 10) / 10 };
         })
-        .sort((a: any, b: any) => a._dist - b._dist);
+        .filter((d: any) => d._dist <= MAX_MILES)
+        .sort((a: any, b: any) => {
+          // Preferred first, then by distance
+          if (a.tier === "Preferred" && b.tier !== "Preferred") return -1;
+          if (a.tier !== "Preferred" && b.tier === "Preferred") return 1;
+          return a._dist - b._dist;
+        });
 
-      // Nearest 20 FFLs (all tiers)
-      const nearest20 = withDist.slice(0, 20);
+      // All dealers within 50 miles, Preferred first
+      const allWithin = withDist.slice(0, 20);
 
-      // Nearest Preferred dealer - same state (all results already in-state from query)
+      // Nearest Preferred dealer
       const nearestPreferred = withDist.find((d: any) => d.tier === "Preferred") || null;
 
       return res.json({
         ok: true,
         searchZip: zip,
         searchCoords,
-        dealers: nearest20,
+        dealers: allWithin,
         nearestPreferred,
       });
     } catch (err: any) {
@@ -3554,68 +3561,41 @@ print(pdf_path)
       );
       const invoiceNumber = `INV-${String(counterResult.rows[0].last_number).padStart(4, "0")}`;
 
-      // Generate PDF
-      let pdfPath = null;
+      // Generate PDF using our invoice generator
+      let pdfBase64: string | null = null;
       try {
-        const args = JSON.stringify({
-          invoice_number: invoiceNumber,
-          customer_name: order.retail_customer_name || "",
-          customer_email: order.retail_customer_email || "",
-          customer_phone: order.retail_customer_phone || "",
-          customer_address: "",
-          customer_city: "",
-          customer_state: "",
-          customer_zip: "",
+        const invPdf = await generateInvoicePDF({
+          invoiceNumber,
+          orderNumber: `RET-${id.slice(0, 4)}`,
+          dealerName: order.retail_customer_name || "",
+          dealerEmail: order.retail_customer_email || "",
+          dealerAddress: "",
+          serialNumbers: "",
           quantity: order.quantity,
-          unit_price: order.unit_price,
+          unitPrice: order.unit_price,
           subtotal: order.subtotal,
-          tax_amount: order.tax_amount,
-          shipping_cost: 0,
-          total_amount: order.total_amount,
-          is_retail: true,
+          shippingCost: 0,
+          total: order.total_amount,
+          trackingNumber: "",
+          shipDate: todayCST(),
         });
-        const pdfOut = execSync(`/home/dubdub/DubDub-Hub/venv/bin/python -c "
-import sys, json, os
-sys.path.insert(0, '/home/dubdub/DubDub-Hub')
-from bot.services.invoice_generator import generate_pdf
-params = json.loads(sys.argv[1])
-pdf_path = generate_pdf(**params)
-print(pdf_path)
-" '${args}'`, { encoding: "utf8" }).trim();
-        if (pdfOut && fs.existsSync(pdfOut.trim())) pdfPath = pdfOut.trim();
+        pdfBase64 = invPdf.toString("base64");
       } catch (e) {
         console.warn("PDF generation failed:", (e as Error).message);
       }
 
       // Save invoice record
       await pool.query(
-        `INSERT INTO invoices (invoice_number, dealer_id, subtotal, total_amount, status, sent_at, pdf_path, is_retail, retail_customer_name, retail_customer_email, retail_customer_phone, quantity, unit_price, tax_rate, tax_amount)
-         VALUES ($1, 0, $2, $3, 'sent', NOW(), $4, true, $5, $6, $7, $8, $9, $10, $11)`,
-        [invoiceNumber, order.subtotal, order.total_amount, pdfPath,
+        `INSERT INTO invoices (invoice_number, dealer_id, subtotal, total_amount, status, sent_at, is_retail, retail_customer_name, retail_customer_email, retail_customer_phone, quantity, unit_price, tax_rate, tax_amount)
+         VALUES ($1, 0, $2, $3, 'sent', NOW(), true, $4, $5, $6, $7, $8, $9, $10)`,
+        [invoiceNumber, order.subtotal, order.total_amount,
          order.retail_customer_name, order.retail_customer_email || null, order.retail_customer_phone || null,
          order.quantity, order.unit_price, order.tax_rate, order.tax_amount]
       );
 
       // Email customer
-      const emailBody = [
-        `INVOICE: ${invoiceNumber}`,
-        ``,
-        `Customer: ${order.retail_customer_name}`,
-        order.retail_customer_email ? `Email: ${order.retail_customer_email}` : null,
-        order.retail_customer_phone ? `Phone: ${order.retail_customer_phone}` : null,
-        ``,
-        `${order.quantity} Ã— DUBDUB22 SUPPRESSOR @ $${order.unit_price.toFixed(2)} = $${order.subtotal.toFixed(2)}`,
-        `Sales Tax (${(order.tax_rate * 100).toFixed(2)}%): $${order.tax_amount.toFixed(2)}`,
-        ``,
-        `TOTAL: $${order.total_amount.toFixed(2)}`,
-        ``,
-        `Payment: Cash, Check made out to "Thomas Trevino", or reach out to work something out. I cannot accept credit cards at this time.`,
-        ``,
-        `- Thomas Trevino | Double T Tactical | 469-307-8001`,
-      ].filter(Boolean).join("\n");
-
-      const attachment = pdfPath
-        ? { filename: `${invoiceNumber}.pdf`, base64Data: fs.readFileSync(pdfPath).toString("base64"), contentType: "application/pdf" }
+      const attachment = pdfBase64
+        ? { filename: `${invoiceNumber}.pdf`, base64Data: pdfBase64, contentType: "application/pdf" }
         : undefined;
 
       const toEmail = order.retail_customer_email || "tomtrevino@doublettactical.com";
