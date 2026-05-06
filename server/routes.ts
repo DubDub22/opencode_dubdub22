@@ -939,9 +939,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const ffl = row.ffl_license_number ? validateFFL(row.ffl_license_number) : null;
           const voicePhone = ffl?.voicePhone || null;
           const displayPhone = row.tier === "Preferred" && row.phone ? row.phone : (row.phone || voicePhone);
-          return { ...row, voicePhone, displayPhone, _dist: Math.round(dist * 10) / 10 };
+          // Check if FFL is expired
+          const fflExpired = ffl?.fflExpiryDate ? new Date(ffl.fflExpiryDate) < new Date() : false;
+          return { ...row, voicePhone, displayPhone, fflExpired, _dist: Math.round(dist * 10) / 10 };
         })
-        .filter((d: any) => d._dist <= MAX_MILES)
+        .filter((d: any) => d._dist <= MAX_MILES && !d.fflExpired)
         .sort((a: any, b: any) => {
           // Preferred first, then by distance
           if (a.tier === "Preferred" && b.tier !== "Preferred") return -1;
