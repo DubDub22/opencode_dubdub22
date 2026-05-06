@@ -53,9 +53,10 @@ export async function generateInvoicePDF(data: InvoiceData): Promise<Buffer> {
   drawText(data.dealerName, 50, 565, 11);
   drawText(data.dealerEmail, 50, 552, 10);
   if (data.dealerAddress) {
-    for (const line of data.dealerAddress.split(", ").slice(0, 3)) {
-      drawText(line, 50, 539, 10);
-    }
+    const lines = data.dealerAddress.split(", ").slice(0, 3);
+    lines.forEach((line, i) => {
+      drawText(line, 50, 539 - (i * 12), 10);
+    });
   }
 
   // Items table header
