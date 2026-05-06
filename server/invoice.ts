@@ -88,7 +88,11 @@ export async function generateInvoicePDF(data: InvoiceData): Promise<Buffer> {
   // Tracking
   drawText(`Tracking: ${data.trackingNumber}`, 50, totalsY - 65, 10, true);
   drawText("USPS Priority Mail", 50, totalsY - 80, 10);
-  drawText("Net 30 Days - Payment due upon receipt", 50, totalsY - 100, 10);
+  drawText("Thank you for the opportunity to earn your business.", 50, totalsY - 105, 10);
+  drawText("Payment terms: Cash, Check made out to Thomas Trevino,", 50, totalsY - 120, 10);
+  drawText("or contact us to work something out.", 50, totalsY - 135, 10);
+  drawText("PayPal or Venmo available upon request.", 50, totalsY - 150, 10);
+  drawText("Credit card processing is not yet available - our apologies.", 50, totalsY - 165, 10);
 
   // Footer
   drawText("Thank you for your order!", 50, 100, 10, true);
