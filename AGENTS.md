@@ -149,17 +149,21 @@ DO NOT use `new Date().toISOString().slice(0, 10)` for dates sent to external AP
 
 ## Needs Testing
 
-### Form 3 Full Workflow (NEXT PRIORITY)
-- "Form 3 ✓" button → creates ShipStation label + commits FastBound disposition + generates invoice PDF + emails dealer
-- ShipStation label creation **verified** ($5.70 First Class, $8.26 Priority, void works)
-- FastBound disposition commit with tracking number
-- Invoice PDF generation with serial numbers + tracking
-- Single email with invoice + Form 3 PDF attached
-
 ### Edge Cases
 - Demo unit ordering flow
 - Warranty submissions
 - Retail/non-dealer orders
+
+### Dealer Locator Enhancements (TODO)
+- Filter out retired/closed FFLs (expiry date check) ✅
+- 50-mile radius filter (was visual-only, now applies to data) ✅
+- Preferred dealers sorted first ✅
+- Filter multiple FFLs at same address (same-address detection)
+- ZIP code normalization (already done in FFL master — pads to 5, strips +4)
+
+### Invoice Template (TODO)
+- Match ODS/PDF template layout (two-column, logo, tax table)
+- Template files: `dubdub22 invoice current.ods`, `dubdub22 invoice updated.pdf`
 
 ## Completed
 
@@ -167,12 +171,18 @@ DO NOT use `new Date().toISOString().slice(0, 10)` for dates sent to external AP
 |------|--------|
 | Registration + tax form fill + FastBound contact | ✅ |
 | Gmail ZIP email with docs | ✅ |
-| Serial number dedup in FB Pending inventory | ✅ |
+| FB inventory: status=1 filter, skip/take pagination | ✅ |
+| "First N" button, "Serials Assigned" checkmark | ✅ |
 | ShipStation V1 API (live keys, label create/void) | ✅ |
+| Form 3 Full Workflow: label + commit + invoice + email | ✅ |
 | SearXNG + OpenCode search tool | ✅ |
 | CST dates for FastBound/ShipStation | ✅ |
 | Admin dashboard Documents column removed | ✅ |
 | TypeScript 0 errors | ✅ |
+| Dealer Locator: 50-mile radius + Preferred sort + expired filter | ✅ |
+| Retail Orders: invoice swapped from Python to server/invoice.ts | ✅ |
+| Retail Orders tab functional ($129/unit, 8.25% tax, no shipping) | ✅ |
+| BigCapital running on port 8000, API key ready | ✅ |
 
 ## Authorize.Net Payment Integration (planned — FFL pending)
 

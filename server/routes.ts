@@ -954,6 +954,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // All dealers within 50 miles, Preferred first
       const allWithin = withDist.slice(0, 20);
 
+      // Flag duplicate addresses (multiple FFLs at same location)
+      const addrCount = new Map<string, number>();
+      for (const d of allWithin) {
+        const addr = `${d.business_address || ""}|${d.city || ""}|${d.state || ""}|${d.zip || ""}`;
+        addrCount.set(addr, (addrCount.get(addr) || 0) + 1);
+      }
+      for (const d of allWithin) {
+        const addr = `${d.business_address || ""}|${d.city || ""}|${d.state || ""}|${d.zip || ""}`;
+        (d as any)._sameAddress = (addrCount.get(addr) || 0) > 1;
+      }
+
       // Nearest Preferred dealer
       const nearestPreferred = withDist.find((d: any) => d.tier === "Preferred") || null;
 
